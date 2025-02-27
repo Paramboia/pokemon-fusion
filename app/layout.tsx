@@ -1,41 +1,43 @@
 import type { Metadata } from "next";
-import { GeistSans } from 'geist/font'
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from '@clerk/nextjs'
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "sonner";
+import { ClerkProvider } from "@clerk/nextjs";
 import ClientLayout from "@/components/client-layout";
 
-const geistSans = GeistSans;
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PokéFusion",
-  description: "Create and share Pokemon fusions",
+  title: "PokéFusion - Create Unique Pokémon Combinations",
+  description: "Combine your favorite Pokémon to create unique fusions with our AI-powered tool.",
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      {
+        url: "/favicon.ico",
+        sizes: "any",
+      },
+    ],
+    apple: [
+      {
+        url: "/apple-touch-icon.png",
+        sizes: "180x180",
+      },
+    ],
+    shortcut: ["/favicon-16x16.png", "/favicon-32x32.png"],
   },
 };
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} min-h-screen flex flex-col bg-gray-950 text-white`}>
-        <ClerkProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ClientLayout>{children}</ClientLayout>
-            <Toaster richColors position="top-center" />
-          </ThemeProvider>
-        </ClerkProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body className={`${inter.className} bg-gradient-to-b from-indigo-950 to-black min-h-screen text-white`} suppressHydrationWarning>
+          <ClientLayout>{children}</ClientLayout>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

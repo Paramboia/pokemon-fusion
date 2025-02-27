@@ -1,13 +1,12 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from "react";
 import { usePokemon } from '@/hooks/use-pokemon'
 import { Button } from '@/components/ui/button'
-import { Loader2, Shuffle } from 'lucide-react'
-import Image from 'next/image'
+import { Loader2, Search, ArrowLeftRight } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Pokemon } from '@/types/pokemon'
+import { Input } from '@/components/ui/input'
 
 interface PokemonSelectorProps {
   pokemonList: Pokemon[]
@@ -19,9 +18,35 @@ interface PokemonSelectorProps {
 }
 
 export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: PokemonSelectorProps) {
-  const { allPokemon, loading, getRandomPokemon } = usePokemon()
-  const [selected1, setSelected1] = useState<any>(null)
-  const [selected2, setSelected2] = useState<any>(null)
+  const { isLoading } = usePokemon()
+  const [searchTerm1, setSearchTerm1] = useState('')
+  const [searchTerm2, setSearchTerm2] = useState('')
+  const [filteredList1, setFilteredList1] = useState<Pokemon[]>([])
+  const [filteredList2, setFilteredList2] = useState<Pokemon[]>([])
+  const [showDropdown1, setShowDropdown1] = useState(false)
+  const [showDropdown2, setShowDropdown2] = useState(false)
+
+  useEffect(() => {
+    if (searchTerm1) {
+      const filtered = pokemonList.filter((pokemon) =>
+        pokemon.name.toLowerCase().includes(searchTerm1.toLowerCase())
+      );
+      setFilteredList1(filtered.slice(0, 5));
+    } else {
+      setFilteredList1([]);
+    }
+  }, [searchTerm1, pokemonList]);
+
+  useEffect(() => {
+    if (searchTerm2) {
+      const filtered = pokemonList.filter((pokemon) =>
+        pokemon.name.toLowerCase().includes(searchTerm2.toLowerCase())
+      );
+      setFilteredList2(filtered.slice(0, 5));
+    } else {
+      setFilteredList2([]);
+    }
+  }, [searchTerm2, pokemonList]);
 
   const handleRandomSelect = () => {
     if (pokemonList.length < 2) return;
@@ -33,92 +58,210 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
     } while (randomIndex2 === randomIndex1);
     
     onSelect(pokemonList[randomIndex1], pokemonList[randomIndex2]);
+    setSearchTerm1("");
+    setSearchTerm2("");
   }
 
-  const handlePokemon1Change = (value: string) => {
-    const pokemon1 = pokemonList.find(p => p.name === value)
-    if (pokemon1 && selectedPokemon.pokemon2) {
-      onSelect(pokemon1, selectedPokemon.pokemon2)
+  const handlePokemon1Change = (pokemon: Pokemon) => {
+    if (selectedPokemon.pokemon2) {
+      onSelect(pokemon, selectedPokemon.pokemon2);
+    } else if (pokemonList.length > 0) {
+      const defaultPokemon2 = pokemonList.find(p => p.id !== pokemon.id) || pokemonList[0];
+      onSelect(pokemon, defaultPokemon2);
     }
+    setSearchTerm1("");
+    setShowDropdown1(false);
   }
 
-  const handlePokemon2Change = (value: string) => {
-    const pokemon2 = pokemonList.find(p => p.name === value)
-    if (pokemon2 && selectedPokemon.pokemon1) {
-      onSelect(selectedPokemon.pokemon1, pokemon2)
+  const handlePokemon2Change = (pokemon: Pokemon) => {
+    if (selectedPokemon.pokemon1) {
+      onSelect(selectedPokemon.pokemon1, pokemon);
+    } else if (pokemonList.length > 0) {
+      const defaultPokemon1 = pokemonList.find(p => p.id !== pokemon.id) || pokemonList[0];
+      onSelect(defaultPokemon1, pokemon);
     }
+    setSearchTerm2("");
+    setShowDropdown2(false);
   }
 
-  if (loading) {
-    return <Loader2 className="h-8 w-8 animate-spin" />
+  const handleSwapPokemon = () => {
+    if (selectedPokemon.pokemon1 && selectedPokemon.pokemon2) {
+      onSelect(selectedPokemon.pokemon2, selectedPokemon.pokemon1);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRandomSelect}
-          className="flex items-center gap-2"
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 items-center">
+      <div className="flex flex-col items-center">
+        <Card className="w-full max-w-sm p-4 card-retro rounded-lg">
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-semibold">First Pokémon</h3>
+          </div>
+          
+          <div className="relative mb-4">
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search Pokémon..."
+                value={searchTerm1}
+                onChange={(e) => {
+                  setSearchTerm1(e.target.value);
+                  setShowDropdown1(true);
+                }}
+                onFocus={() => setShowDropdown1(true)}
+                className="pl-10 bg-gray-800 border-gray-700"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
+            
+            {showDropdown1 && filteredList1.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto">
+                {filteredList1.map((pokemon) => (
+                  <div
+                    key={pokemon.id}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+                    onClick={() => handlePokemon1Change(pokemon)}
+                  >
+                    <img
+                      src={pokemon.sprites.front_default}
+                      alt={pokemon.name}
+                      className="w-8 h-8 mr-2"
+                    />
+                    <span className="capitalize">{pokemon.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {selectedPokemon.pokemon1 ? (
+            <div className="flex flex-col items-center">
+              <div className="w-32 h-32 flex items-center justify-center">
+                <img
+                  src={selectedPokemon.pokemon1.sprites.other['official-artwork'].front_default}
+                  alt={selectedPokemon.pokemon1.name}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+              <h3 className="mt-2 text-lg font-medium capitalize">
+                {selectedPokemon.pokemon1.name}
+              </h3>
+            </div>
+          ) : (
+            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+              <p className="text-gray-500 dark:text-gray-400 text-sm text-center">
+                Select a Pokémon
+              </p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="hidden md:flex justify-center items-center">
+        <Button
+          variant="outline"
+          size="icon"
+          className="rounded-full p-2"
+          onClick={handleSwapPokemon}
+          disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
         >
-          <Shuffle className="h-4 w-4" />
-          Random
+          <ArrowLeftRight className="h-5 w-5" />
         </Button>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="flex flex-col items-center space-y-4">
-          <Select value={selectedPokemon.pokemon1?.name} onValueChange={handlePokemon1Change}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select Pokémon 1" />
-            </SelectTrigger>
-            <SelectContent>
-              {pokemonList.map((pokemon) => (
-                <SelectItem key={pokemon.id} value={pokemon.name}>
-                  {pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedPokemon.pokemon1 && (
-            <Card className="p-4 w-[200px] h-[200px] flex items-center justify-center">
-              <Image
-                src={selectedPokemon.pokemon1.sprites.other['official-artwork'].front_default}
-                alt={selectedPokemon.pokemon1.name}
-                width={150}
-                height={150}
-                className="object-contain"
-              />
-            </Card>
-          )}
-        </div>
 
-        <div className="flex flex-col items-center space-y-4">
-          <Select value={selectedPokemon.pokemon2?.name} onValueChange={handlePokemon2Change}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select Pokémon 2" />
-            </SelectTrigger>
-            <SelectContent>
-              {pokemonList.map((pokemon) => (
-                <SelectItem key={pokemon.id} value={pokemon.name}>
-                  {pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedPokemon.pokemon2 && (
-            <Card className="p-4 w-[200px] h-[200px] flex items-center justify-center">
-              <Image
-                src={selectedPokemon.pokemon2.sprites.other['official-artwork'].front_default}
-                alt={selectedPokemon.pokemon2.name}
-                width={150}
-                height={150}
-                className="object-contain"
+      <div className="flex md:hidden justify-center items-center my-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="rounded-full p-2"
+          onClick={handleSwapPokemon}
+          disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
+        >
+          <ArrowLeftRight className="h-5 w-5" />
+        </Button>
+      </div>
+
+      <div className="flex flex-col items-center">
+        <Card className="w-full max-w-sm p-4 card-retro rounded-lg">
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-semibold">Second Pokémon</h3>
+          </div>
+          
+          <div className="relative mb-4">
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search Pokémon..."
+                value={searchTerm2}
+                onChange={(e) => {
+                  setSearchTerm2(e.target.value);
+                  setShowDropdown2(true);
+                }}
+                onFocus={() => setShowDropdown2(true)}
+                className="pl-10 bg-gray-800 border-gray-700"
               />
-            </Card>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
+            
+            {showDropdown2 && filteredList2.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto">
+                {filteredList2.map((pokemon) => (
+                  <div
+                    key={pokemon.id}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+                    onClick={() => handlePokemon2Change(pokemon)}
+                  >
+                    <img
+                      src={pokemon.sprites.front_default}
+                      alt={pokemon.name}
+                      className="w-8 h-8 mr-2"
+                    />
+                    <span className="capitalize">{pokemon.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {selectedPokemon.pokemon2 ? (
+            <div className="flex flex-col items-center">
+              <div className="w-32 h-32 flex items-center justify-center">
+                <img
+                  src={selectedPokemon.pokemon2.sprites.other['official-artwork'].front_default}
+                  alt={selectedPokemon.pokemon2.name}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+              <h3 className="mt-2 text-lg font-medium capitalize">
+                {selectedPokemon.pokemon2.name}
+              </h3>
+            </div>
+          ) : (
+            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+              <p className="text-gray-500 dark:text-gray-400 text-sm text-center">
+                Select a Pokémon
+              </p>
+            </div>
           )}
-        </div>
+        </Card>
+      </div>
+
+      <div className="col-span-1 md:col-span-2 flex justify-center mt-2">
+        <Button
+          variant="outline"
+          onClick={handleRandomSelect}
+          className="px-6 py-2 border-indigo-500 hover:bg-indigo-600 hover:text-white"
+        >
+          Random Selection
+        </Button>
       </div>
     </div>
   )

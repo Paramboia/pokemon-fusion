@@ -3,22 +3,7 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
-  // Add async rewrites function to handle www subdomain
-  async redirects() {
-    return [
-      {
-        source: '/:path*',
-        has: [
-          {
-            type: 'host',
-            value: 'www.pokemon-fusion.com',
-          },
-        ],
-        destination: 'https://pokemon-fusion.com/:path*',
-        permanent: true,
-      },
-    ];
-  },
+  // Remove redirects to prevent redirect loops
   images: {
     remotePatterns: [
       {

@@ -10,8 +10,8 @@ export default clerkMiddleware(async (auth, request) => {
   
   // If the hostname is www.pokemon-fusion.com, redirect to pokemon-fusion.com
   if (hostname === 'www.pokemon-fusion.com') {
-    url.hostname = 'pokemon-fusion.com';
-    return NextResponse.redirect(url);
+    const newUrl = new URL(url.pathname + url.search, `https://pokemon-fusion.com`);
+    return NextResponse.redirect(newUrl);
   }
   
   // Define public routes that don't require authentication

@@ -25,15 +25,17 @@ export default function Home() {
   const [fusionName, setFusionName] = useState<string>("");
   const [isLiked, setIsLiked] = useState(false);
 
-  const handlePokemonSelect = (pokemon1: Pokemon, pokemon2: Pokemon) => {
+  const handlePokemonSelect = (pokemon1: Pokemon | null, pokemon2: Pokemon | null) => {
     setSelectedPokemon({ pokemon1, pokemon2 });
     
-    // Generate fusion name
-    const name1 = pokemon1.name;
-    const name2 = pokemon2.name;
-    const fusionName = name1.substring(0, Math.ceil(name1.length / 2)) + 
-                       name2.substring(Math.floor(name2.length / 2));
-    setFusionName(fusionName);
+    // Generate fusion name only if both Pokémon are selected
+    if (pokemon1 && pokemon2) {
+      const name1 = pokemon1.name;
+      const name2 = pokemon2.name;
+      const fusionName = name1.substring(0, Math.ceil(name1.length / 2)) + 
+                         name2.substring(Math.floor(name2.length / 2));
+      setFusionName(fusionName);
+    }
   };
 
   const handleGenerateFusion = async () => {

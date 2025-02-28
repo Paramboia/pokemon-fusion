@@ -46,11 +46,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // Only during development
   },
-  serverExternalPackages: ['@prisma/client', 'bcrypt'],
+  // Add svix and onesignal to the list of external packages
+  serverExternalPackages: ['@prisma/client', 'bcrypt', 'svix', '@onesignal/node-onesignal'],
   experimental: {
     serverActions: {
       allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002', 'localhost:3003'],
     },
+    // Ensure SWC is used for compilation
+    swcMinify: true,
   },
   // Ensure environment variables are available to the server
   env: {

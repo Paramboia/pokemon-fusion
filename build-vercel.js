@@ -7,6 +7,13 @@ process.env.SKIP_TYPE_CHECK = 'true';
 
 console.log('Starting custom build process...');
 
+// Check for .babelrc and remove it if it exists
+const babelrcPath = path.join(__dirname, '.babelrc');
+if (fs.existsSync(babelrcPath)) {
+  console.log('.babelrc file found, removing it to prevent SWC conflicts...');
+  fs.unlinkSync(babelrcPath);
+}
+
 // Create a temporary tsconfig.json that disables type checking
 const tempTsConfigPath = path.join(__dirname, 'tsconfig.temp.json');
 const originalTsConfigPath = path.join(__dirname, 'tsconfig.json');

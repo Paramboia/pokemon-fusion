@@ -52,18 +52,11 @@ const nextConfig = {
     serverActions: {
       allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002', 'localhost:3003'],
     },
-    // Ensure SWC is used for compilation
-    swcMinify: true,
   },
   // Ensure environment variables are available to the server
   env: {
     NEXT_PUBLIC_REPLICATE_API_TOKEN: process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN,
     REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
-  },
-  // Configure Babel
-  compiler: {
-    // Disable SWC to use Babel instead
-    styledComponents: true,
   },
 };
 

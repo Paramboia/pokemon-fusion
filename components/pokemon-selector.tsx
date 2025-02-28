@@ -127,7 +127,7 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
   return (
     <div className="flex flex-col gap-6 w-full max-w-3xl">
       {/* Pokemon cards with swap button in the middle */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="h-full w-full">
           <Card className="relative group overflow-hidden h-full flex flex-col">
             {/* Search bar inside first card */}
@@ -219,7 +219,7 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
         <Button
           variant="outline"
           size="icon"
-          className="rounded-full p-2 flex-shrink-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="my-2 md:my-0 rounded-full p-2 flex-shrink-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
           onClick={handleSwapPokemon}
           disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
           title="Swap Pokémon"

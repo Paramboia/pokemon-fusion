@@ -136,9 +136,6 @@ export function Header() {
               <Heart className="h-5 w-5 mr-2" />
               <span>Favorites</span>
             </Link>
-            <div className="px-3 py-2">
-              <UserButton />
-            </div>
           </div>
         )}
       </div>

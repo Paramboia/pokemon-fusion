@@ -12,4 +12,8 @@ tsconfig.build.json
 next-env.d.ts
 babel.config.js
 typescript
-@types 
+@types
+*.ts
+*.tsx
+**/*.ts
+**/*.tsx 

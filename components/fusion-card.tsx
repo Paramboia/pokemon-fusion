@@ -2,17 +2,40 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
 import { Heart, Download, Share2, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { downloadImage } from '@/lib/utils'
-import type { FusionDB } from '@/hooks/use-favorites'
-import {
-  TwitterShareButton,
-  FacebookShareButton,
-  RedditShareButton,
-} from 'react-share'
+
+// Define the FusionDB interface here
+interface FusionDB {
+  id: string;
+  user_id: string;
+  pokemon_1_id: number;
+  pokemon_2_id: number;
+  fusion_name: string;
+  fusion_image: string;
+  likes: number;
+  created_at: string;
+}
+
+// Simple share button component
+const ShareButton = ({ 
+  children, 
+  onClick 
+}: { 
+  children: React.ReactNode; 
+  onClick?: () => void 
+}) => (
+  <Button 
+    variant="ghost" 
+    size="sm" 
+    className="text-white hover:bg-white/20"
+    onClick={onClick}
+  >
+    {children}
+  </Button>
+);
 
 interface FusionCardProps {
   fusion: FusionDB
@@ -25,20 +48,41 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
   const [showShare, setShowShare] = useState(false)
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
 
+  const handleShare = (platform: string) => {
+    // Simple share implementation
+    const text = `Check out this Pokemon fusion: ${fusion.fusion_name}`;
+    let url = '';
+    
+    switch (platform) {
+      case 'twitter':
+        url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+        break;
+      case 'facebook':
+        url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(text)}`;
+        break;
+      case 'reddit':
+        url = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(text)}`;
+        break;
+    }
+    
+    if (url) {
+      window.open(url, '_blank');
+    }
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-    >
-      <Card className="relative group overflow-hidden">
-        <Image
-          src={fusion.fusion_image}
-          alt={fusion.fusion_name}
-          width={400}
-          height={400}
-          className="rounded-lg"
-        />
+    <div className="h-full">
+      <Card className="relative group overflow-hidden h-full flex flex-col">
+        <div className="flex-grow flex items-center justify-center p-4">
+          <div className="w-full h-64 relative">
+            <Image
+              src={fusion.fusion_image}
+              alt={fusion.fusion_name}
+              fill
+              className="object-contain"
+            />
+          </div>
+        </div>
         
         {showActions && (
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -47,6 +91,7 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
                 variant="ghost"
                 size="icon"
                 onClick={() => onLike?.(fusion.id)}
+                className="text-white hover:bg-white/20"
               >
                 <Heart className="h-5 w-5" />
               </Button>
@@ -55,6 +100,7 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
                 variant="ghost"
                 size="icon"
                 onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
+                className="text-white hover:bg-white/20"
               >
                 <Download className="h-5 w-5" />
               </Button>
@@ -63,6 +109,7 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowShare(!showShare)}
+                className="text-white hover:bg-white/20"
               >
                 <Share2 className="h-5 w-5" />
               </Button>
@@ -72,6 +119,7 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
                   variant="ghost"
                   size="icon"
                   onClick={() => onDelete(fusion.id)}
+                  className="text-white hover:bg-white/20"
                 >
                   <Trash2 className="h-5 w-5" />
                 </Button>
@@ -80,33 +128,35 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
 
             {showShare && (
               <div className="absolute top-4 left-4 right-4 flex justify-center gap-2 bg-black/80 p-2 rounded-lg">
-                <TwitterShareButton url={shareUrl} title={`Check out this Pokemon fusion: ${fusion.fusion_name}`}>
-                  <Button variant="ghost" size="sm">Twitter</Button>
-                </TwitterShareButton>
+                <ShareButton onClick={() => handleShare('twitter')}>
+                  Twitter
+                </ShareButton>
                 
-                <FacebookShareButton url={shareUrl} quote={`Check out this Pokemon fusion: ${fusion.fusion_name}`}>
-                  <Button variant="ghost" size="sm">Facebook</Button>
-                </FacebookShareButton>
+                <ShareButton onClick={() => handleShare('facebook')}>
+                  Facebook
+                </ShareButton>
                 
-                <RedditShareButton url={shareUrl} title={`Check out this Pokemon fusion: ${fusion.fusion_name}`}>
-                  <Button variant="ghost" size="sm">Reddit</Button>
-                </RedditShareButton>
+                <ShareButton onClick={() => handleShare('reddit')}>
+                  Reddit
+                </ShareButton>
               </div>
             )}
           </div>
         )}
         
-        <div className="p-4">
-          <h3 className="text-lg font-semibold">{fusion.fusion_name}</h3>
-          <p className="text-sm text-muted-foreground">
-            {new Date(fusion.created_at).toLocaleDateString()}
-          </p>
-          <div className="flex items-center gap-2 mt-2">
-            <Heart className="h-4 w-4" />
-            <span className="text-sm">{fusion.likes}</span>
+        <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-gray-200">{fusion.fusion_name}</h3>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {new Date(fusion.created_at).toLocaleDateString()}
+            </p>
+            <div className="flex items-center gap-1">
+              <Heart className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <span className="text-sm text-gray-500 dark:text-gray-400">{fusion.likes}</span>
+            </div>
           </div>
         </div>
       </Card>
-    </motion.div>
+    </div>
   )
 } 

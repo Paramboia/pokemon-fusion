@@ -118,11 +118,16 @@
 
 /* Enhanced card styling */
 .enhanced-card {
-  background-color: rgba(17, 24, 39, 0.7);
+  background-color: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(75, 85, 99, 0.3);
+  border: 1px solid rgba(209, 213, 219, 0.3);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
+}
+
+.dark .enhanced-card {
+  background-color: rgba(17, 24, 39, 0.7);
+  border: 1px solid rgba(75, 85, 99, 0.3);
 }
 
 .enhanced-card:hover {
@@ -163,16 +168,27 @@
 
 /* Card styling for RetroGrid theme */
 .card-retro {
-  background-color: rgba(17, 24, 39, 0.8);
+  background-color: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(99, 102, 241, 0.3);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+}
+
+.dark .card-retro {
+  background-color: rgba(17, 24, 39, 0.8);
 }
 
 /* Add any additional global styles here */
 
 /* Add a static grid pattern background */
 .bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+.dark .bg-grid-pattern {
   background-image: 
     linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);

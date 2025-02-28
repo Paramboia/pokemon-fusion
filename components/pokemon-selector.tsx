@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePokemon } from '@/hooks/use-pokemon'
 import { Button } from '@/components/ui/button'
-import { Loader2, Search, ArrowLeftRight } from 'lucide-react'
+import { Loader2, Search, ArrowLeftRight, X, Shuffle } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import type { Pokemon } from '@/types/pokemon'
 import { Input } from '@/components/ui/input'
@@ -48,19 +48,43 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
     }
   }, [searchTerm2, pokemonList]);
 
-  const handleRandomSelect = () => {
-    if (pokemonList.length < 2) return;
+  const handleRandomPokemon1 = () => {
+    if (pokemonList.length === 0) return;
     
-    const randomIndex1 = Math.floor(Math.random() * pokemonList.length);
-    let randomIndex2;
-    do {
-      randomIndex2 = Math.floor(Math.random() * pokemonList.length);
-    } while (randomIndex2 === randomIndex1);
+    const randomIndex = Math.floor(Math.random() * pokemonList.length);
+    const randomPokemon = pokemonList[randomIndex];
     
-    onSelect(pokemonList[randomIndex1], pokemonList[randomIndex2]);
-    setSearchTerm1("");
-    setSearchTerm2("");
-  }
+    if (selectedPokemon.pokemon2) {
+      onSelect(randomPokemon, selectedPokemon.pokemon2);
+    } else {
+      // If no second Pokemon is selected, also select a random one
+      let randomIndex2;
+      do {
+        randomIndex2 = Math.floor(Math.random() * pokemonList.length);
+      } while (randomIndex2 === randomIndex);
+      
+      onSelect(randomPokemon, pokemonList[randomIndex2]);
+    }
+  };
+
+  const handleRandomPokemon2 = () => {
+    if (pokemonList.length === 0) return;
+    
+    const randomIndex = Math.floor(Math.random() * pokemonList.length);
+    const randomPokemon = pokemonList[randomIndex];
+    
+    if (selectedPokemon.pokemon1) {
+      onSelect(selectedPokemon.pokemon1, randomPokemon);
+    } else {
+      // If no first Pokemon is selected, also select a random one
+      let randomIndex2;
+      do {
+        randomIndex2 = Math.floor(Math.random() * pokemonList.length);
+      } while (randomIndex2 === randomIndex);
+      
+      onSelect(pokemonList[randomIndex2], randomPokemon);
+    }
+  };
 
   const handlePokemon1Change = (pokemon: Pokemon) => {
     if (selectedPokemon.pokemon2) {
@@ -90,6 +114,18 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
     }
   };
 
+  const clearSearch1 = () => {
+    setSearchTerm1('');
+    setFilteredList1([]);
+    setShowDropdown1(false);
+  };
+
+  const clearSearch2 = () => {
+    setSearchTerm2('');
+    setFilteredList2([]);
+    setShowDropdown2(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -99,35 +135,51 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:gap-10 items-center">
-      <div className="flex flex-col items-center">
-        <Card className="w-full p-4 rounded-lg shadow-md bg-white">
-          <div className="text-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">First Pokémon</h3>
-          </div>
-          
-          <div className="relative mb-4">
-            <div className="relative">
+    <div className="flex flex-col gap-6 w-full max-w-3xl">
+      {/* Pokemon cards with swap button in the middle */}
+      <div className="flex items-center justify-between gap-4">
+        <Card className="w-full p-4 rounded-lg shadow-md bg-white dark:bg-gray-800 relative group">
+          {/* Search bar inside first card */}
+          <div className="relative mb-4 flex items-center">
+            <div className="relative flex-grow">
               <Input
                 type="text"
-                placeholder="Search Pokémon..."
+                placeholder="Search first Pokémon..."
                 value={searchTerm1}
                 onChange={(e) => {
                   setSearchTerm1(e.target.value);
                   setShowDropdown1(true);
                 }}
                 onFocus={() => setShowDropdown1(true)}
-                className="pl-10 bg-white border-gray-300"
+                className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700"
               />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400" />
+              {searchTerm1 && (
+                <button 
+                  onClick={clearSearch1}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
             
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRandomPokemon1}
+              className="ml-2 flex-shrink-0 opacity-70 hover:opacity-100"
+              title="Random Pokémon"
+            >
+              <Shuffle className="h-4 w-4" />
+            </Button>
+            
             {showDropdown1 && filteredList1.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-10 w-full left-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto">
                 {filteredList1.map((pokemon) => (
                   <div
                     key={pokemon.id}
-                    className="p-2 hover:bg-gray-100 cursor-pointer flex items-center"
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
                     onClick={() => handlePokemon1Change(pokemon)}
                   >
                     <img
@@ -135,7 +187,7 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
                       alt={pokemon.name}
                       className="w-8 h-8 mr-2"
                     />
-                    <span className="capitalize">{pokemon.name}</span>
+                    <span className="capitalize dark:text-gray-200">{pokemon.name}</span>
                   </div>
                 ))}
               </div>
@@ -151,48 +203,73 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
                   className="max-w-full max-h-full object-contain"
                 />
               </div>
-              <h3 className="mt-2 text-lg font-medium capitalize text-gray-800">
+              <h3 className="mt-2 text-lg font-medium capitalize text-gray-800 dark:text-gray-200">
                 {selectedPokemon.pokemon1.name}
               </h3>
             </div>
           ) : (
-            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 rounded-lg">
-              <p className="text-gray-500 text-sm text-center">
-                Select a Pokémon
-              </p>
+            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+              <div className="text-6xl font-bold text-gray-300 dark:text-gray-600 flex items-center justify-center w-full h-full">
+                ?
+              </div>
             </div>
           )}
         </Card>
-      </div>
 
-      <div className="flex flex-col items-center">
-        <Card className="w-full p-4 rounded-lg shadow-md bg-white">
-          <div className="text-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Second Pokémon</h3>
-          </div>
-          
-          <div className="relative mb-4">
-            <div className="relative">
+        {/* Swap button in the middle */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="rounded-full p-2 flex-shrink-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={handleSwapPokemon}
+          disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
+          title="Swap Pokémon"
+        >
+          <ArrowLeftRight className="h-5 w-5" />
+        </Button>
+
+        <Card className="w-full p-4 rounded-lg shadow-md bg-white dark:bg-gray-800 relative group">
+          {/* Search bar inside second card */}
+          <div className="relative mb-4 flex items-center">
+            <div className="relative flex-grow">
               <Input
                 type="text"
-                placeholder="Search Pokémon..."
+                placeholder="Search second Pokémon..."
                 value={searchTerm2}
                 onChange={(e) => {
                   setSearchTerm2(e.target.value);
                   setShowDropdown2(true);
                 }}
                 onFocus={() => setShowDropdown2(true)}
-                className="pl-10 bg-white border-gray-300"
+                className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700"
               />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400" />
+              {searchTerm2 && (
+                <button 
+                  onClick={clearSearch2}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
             
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRandomPokemon2}
+              className="ml-2 flex-shrink-0 opacity-70 hover:opacity-100"
+              title="Random Pokémon"
+            >
+              <Shuffle className="h-4 w-4" />
+            </Button>
+            
             {showDropdown2 && filteredList2.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-10 w-full left-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto">
                 {filteredList2.map((pokemon) => (
                   <div
                     key={pokemon.id}
-                    className="p-2 hover:bg-gray-100 cursor-pointer flex items-center"
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
                     onClick={() => handlePokemon2Change(pokemon)}
                   >
                     <img
@@ -200,7 +277,7 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
                       alt={pokemon.name}
                       className="w-8 h-8 mr-2"
                     />
-                    <span className="capitalize">{pokemon.name}</span>
+                    <span className="capitalize dark:text-gray-200">{pokemon.name}</span>
                   </div>
                 ))}
               </div>
@@ -216,39 +293,18 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
                   className="max-w-full max-h-full object-contain"
                 />
               </div>
-              <h3 className="mt-2 text-lg font-medium capitalize text-gray-800">
+              <h3 className="mt-2 text-lg font-medium capitalize text-gray-800 dark:text-gray-200">
                 {selectedPokemon.pokemon2.name}
               </h3>
             </div>
           ) : (
-            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 rounded-lg">
-              <p className="text-gray-500 text-sm text-center">
-                Select a Pokémon
-              </p>
+            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+              <div className="text-6xl font-bold text-gray-300 dark:text-gray-600 flex items-center justify-center w-full h-full">
+                ?
+              </div>
             </div>
           )}
         </Card>
-      </div>
-
-      <div className="col-span-2 flex justify-center mt-4 space-x-4">
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-full p-2"
-          onClick={handleSwapPokemon}
-          disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
-        >
-          <ArrowLeftRight className="h-5 w-5" />
-          <span className="ml-2">Swap</span>
-        </Button>
-        
-        <Button
-          variant="outline"
-          onClick={handleRandomSelect}
-          className="px-6 py-2 border-indigo-500 hover:bg-indigo-600 hover:text-white"
-        >
-          Random Selection
-        </Button>
       </div>
     </div>
   )

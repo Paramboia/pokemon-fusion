@@ -5,11 +5,12 @@ import { usePokemon } from "@/hooks/use-pokemon";
 import { useFusion } from "@/hooks/use-fusion";
 import { PokemonSelector } from "@/components/pokemon-selector";
 import { Button } from "@/components/ui/button";
-import { Loader2, Download, Share } from "lucide-react";
+import { Loader2, Download, Heart, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SparklesText } from "@/components/ui/sparkles-text";
 import type { Pokemon } from "@/types/pokemon";
 import { toast } from "sonner";
+import Image from "next/image";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
@@ -22,6 +23,7 @@ export default function Home() {
     pokemon2: null,
   });
   const [fusionName, setFusionName] = useState<string>("");
+  const [isLiked, setIsLiked] = useState(false);
 
   const handlePokemonSelect = (pokemon1: Pokemon, pokemon2: Pokemon) => {
     setSelectedPokemon({ pokemon1, pokemon2 });
@@ -87,6 +89,11 @@ export default function Home() {
     }
   };
 
+  const handleLike = () => {
+    setIsLiked(!isLiked);
+    toast.success(isLiked ? "Removed from favorites" : "Added to favorites");
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -100,9 +107,9 @@ export default function Home() {
       <div className="text-center mb-10">
         <SparklesText 
           text="Pokémon Fusion"
-          className="text-4xl md:text-5xl font-bold mb-4 text-gray-800"
+          className="text-4xl md:text-5xl font-bold mb-4 text-gray-800 dark:text-gray-100"
         />
-        <p className="text-xl text-gray-600">
+        <p className="text-xl text-gray-600 dark:text-gray-300">
           Create unique Pokémon combinations with our fusion generator
         </p>
       </div>
@@ -131,36 +138,61 @@ export default function Home() {
       </div>
 
       {fusionImage && (
-        <Card className="mt-10 p-6 rounded-lg shadow-md bg-white max-w-md mx-auto">
-          <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold capitalize text-gray-800">{fusionName}</h2>
-          </div>
-          <div className="flex justify-center mb-6">
-            <div className="relative w-64 h-64">
-              <img
-                src={fusionImage}
-                alt={fusionName}
-                className="object-contain w-full h-full"
-              />
+        <Card className="mt-10 relative group overflow-hidden h-full flex flex-col max-w-md mx-auto">
+          <div className="flex-grow flex items-center justify-center p-4">
+            <div className="w-full h-64 relative">
+              {fusionImage && (
+                <div className="relative w-full h-full">
+                  <img
+                    src={fusionImage}
+                    alt={fusionName}
+                    className="object-contain w-full h-full"
+                  />
+                </div>
+              )}
             </div>
           </div>
-          <div className="flex justify-center space-x-4">
-            <Button 
-              variant="outline" 
-              onClick={handleDownload}
-              className="border-indigo-500 hover:bg-indigo-600 hover:text-white"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleShare}
-              className="border-indigo-500 hover:bg-indigo-600 hover:text-white"
-            >
-              <Share className="mr-2 h-4 w-4" />
-              Share
-            </Button>
+          
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-4 left-4 right-4 flex justify-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={handleLike}
+                className="text-white hover:bg-white/20"
+              >
+                <Heart className={`h-5 w-5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={handleDownload}
+                className="text-white hover:bg-white/20"
+              >
+                <Download className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={handleShare}
+                className="text-white hover:bg-white/20"
+              >
+                <Send className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-gray-200">{fusionName}</h3>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {new Date().toLocaleDateString()}
+              </p>
+              <div className="flex items-center gap-1">
+                <Heart className={`h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-500 dark:text-gray-400'}`} />
+                <span className="text-sm text-gray-500 dark:text-gray-400">{isLiked ? 1 : 0}</span>
+              </div>
+            </div>
           </div>
         </Card>
       )}

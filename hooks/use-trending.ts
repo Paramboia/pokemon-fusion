@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { FusionDB } from './use-favorites'
+import { supabase } from '@/lib/supabase-client'
+import { FusionDB } from '@/lib/supabase-client'
 
 export function useTrending() {
   const [trendingFusions, setTrendingFusions] = useState<FusionDB[]>([])

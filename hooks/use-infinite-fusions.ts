@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useInView } from 'react-intersection-observer';
-import { supabase } from '@/lib/supabase';
-import type { FusionDB } from './use-favorites';
+import { supabase } from '@/lib/supabase-client';
+import { FusionDB } from '@/lib/supabase-client';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -11,9 +11,9 @@ export function useInfiniteFusions(userId?: string | null) {
   const [fusions, setFusions] = useState<FusionDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(0);
-  const { ref: loadMoreRef, inView } = useInView();
+  const { ref, inView } = useInView();
 
   const fetchFusions = async () => {
     try {
@@ -54,6 +54,6 @@ export function useInfiniteFusions(userId?: string | null) {
     isLoading,
     error,
     hasMore,
-    loadMoreRef,
+    ref,
   };
 } 

@@ -31,7 +31,7 @@ export interface FavoriteDB {
   created_at: string;
 }
 
-// Database service functions
+// Client-safe database service functions
 export const dbService = {
   // Pokemon functions
   async getPokemon(id: number): Promise<PokemonDB | null> {
@@ -49,33 +49,6 @@ export const dbService = {
     return data;
   },
   
-  async savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promise<PokemonDB | null> {
-    // Check if pokemon already exists
-    const { data: existingPokemon } = await supabase
-      .from('pokemon')
-      .select('*')
-      .eq('id', pokemon.id)
-      .single();
-    
-    if (existingPokemon) {
-      return existingPokemon;
-    }
-    
-    // Insert new pokemon
-    const { data, error } = await supabase
-      .from('pokemon')
-      .insert(pokemon)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Error saving pokemon:', error);
-      return null;
-    }
-    
-    return data;
-  },
-  
   // Fusion functions
   async getFusion(id: string): Promise<FusionDB | null> {
     const { data, error } = await supabase
@@ -86,21 +59,6 @@ export const dbService = {
     
     if (error) {
       console.error('Error fetching fusion:', error);
-      return null;
-    }
-    
-    return data;
-  },
-  
-  async saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<FusionDB | null> {
-    const { data, error } = await supabase
-      .from('fusions')
-      .insert(fusion)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Error saving fusion:', error);
       return null;
     }
     
@@ -135,51 +93,6 @@ export const dbService = {
     }
     
     return data || [];
-  },
-  
-  async likeFusion(fusionId: string): Promise<boolean> {
-    const { error } = await supabase.rpc('increment_fusion_likes', {
-      fusion_id: fusionId
-    });
-    
-    if (error) {
-      console.error('Error liking fusion:', error);
-      return false;
-    }
-    
-    return true;
-  },
-  
-  // Favorites functions
-  async addFavorite(userId: string, fusionId: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('favorites')
-      .insert({
-        user_id: userId,
-        fusion_id: fusionId
-      });
-    
-    if (error) {
-      console.error('Error adding favorite:', error);
-      return false;
-    }
-    
-    return true;
-  },
-  
-  async removeFavorite(userId: string, fusionId: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('favorites')
-      .delete()
-      .eq('user_id', userId)
-      .eq('fusion_id', fusionId);
-    
-    if (error) {
-      console.error('Error removing favorite:', error);
-      return false;
-    }
-    
-    return true;
   },
   
   async getUserFavorites(userId: string): Promise<FusionDB[]> {

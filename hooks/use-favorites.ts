@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase-client'
 
-interface FusionDB {
+export interface FusionDB {
   id: string
   image_url: string
   pokemon1_name: string

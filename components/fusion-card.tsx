@@ -6,7 +6,8 @@ import { Heart, Download, Share2, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { downloadImage } from '@/lib/utils'
-import { dbService, FusionDB, getCurrentUserId } from '@/lib/supabase'
+import { dbService, FusionDB } from '@/lib/supabase-client'
+import { useUser } from "@clerk/nextjs";
 import { toast } from 'sonner'
 
 // Simple share button component
@@ -39,11 +40,13 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const { user } = useUser();
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
 
   useEffect(() => {
     const checkFavoriteStatus = async () => {
-      const userId = getCurrentUserId();
+      const userId = user?.id;
       if (userId) {
         const favoriteStatus = await dbService.isFavorite(userId, fusion.id);
         setIsFavorite(favoriteStatus);
@@ -51,7 +54,7 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
     };
 
     checkFavoriteStatus();
-  }, [fusion.id]);
+  }, [fusion.id, user?.id]);
 
   const handleShare = (platform: string) => {
     // Simple share implementation
@@ -77,10 +80,10 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
 
   const handleLike = async () => {
     try {
-      const userId = getCurrentUserId();
+      const userId = user?.id;
       
       if (!userId) {
-        toast.error('You must be logged in to like fusions');
+        toast.error('Please sign in to like fusions');
         return;
       }
       
@@ -99,10 +102,10 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
 
   const handleFavorite = async () => {
     try {
-      const userId = getCurrentUserId();
+      const userId = user?.id;
       
       if (!userId) {
-        toast.error('You must be logged in to favorite fusions');
+        toast.error('Please sign in to favorite fusions');
         return;
       }
       

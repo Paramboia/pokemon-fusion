@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from 'react'
-// import { supabase } from '@/lib/supabase'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase-client'
 // import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 

@@ -6,20 +6,21 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FusionCard } from "@/components/fusion-card";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
-import { dbService, FusionDB, getCurrentUserId } from "@/lib/supabase";
+import { dbService, FusionDB } from "@/lib/supabase-client";
+import { useUser } from "@clerk/nextjs";
 
 export default function FavoritesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [favorites, setFavorites] = useState<FusionDB[]>([]);
+  const { user } = useUser();
 
   useEffect(() => {
     const fetchFavorites = async () => {
       try {
         setIsLoading(true);
-        const userId = getCurrentUserId();
+        const userId = user?.id;
         
         if (!userId) {
-          setFavorites([]);
           return;
         }
         
@@ -34,25 +35,20 @@ export default function FavoritesPage() {
     };
 
     fetchFavorites();
-  }, []);
+  }, [user?.id]);
 
   const handleRemove = async (id: string) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = user?.id;
       
       if (!userId) {
-        toast.error('You must be logged in to remove favorites');
+        toast.error('Please sign in to manage favorites');
         return;
       }
       
-      const success = await dbService.removeFavorite(userId, id);
-      
-      if (success) {
-        setFavorites(favorites.filter(fusion => fusion.id !== id));
-        toast.success("Removed from favorites");
-      } else {
-        toast.error("Failed to remove from favorites");
-      }
+      await dbService.removeFavorite(userId, id);
+      setFavorites(favorites.filter(fusion => fusion.id !== id));
+      toast.success('Removed from favorites');
     } catch (error) {
       console.error('Error removing favorite:', error);
       toast.error('Failed to remove from favorites');

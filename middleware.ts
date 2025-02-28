@@ -1,8 +1,7 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// First, handle the www to non-www redirect
+// Simple middleware that only handles www to non-www redirect
 export function middleware(request: NextRequest) {
   const url = new URL(request.url);
   const hostname = url.hostname;
@@ -14,27 +13,8 @@ export function middleware(request: NextRequest) {
   }
   
   // Otherwise, continue with the request
-  return clerkMiddlewareHandler(request);
+  return NextResponse.next();
 }
-
-// Then, handle Clerk authentication
-const clerkMiddlewareHandler = clerkMiddleware((auth, request) => {
-  // Define public routes that don't require authentication
-  const isPublicRoute = createRouteMatcher([
-    "/", 
-    "/popular", 
-    "/favorites", 
-    "/api/generate", 
-    "/api/webhooks(.*)",
-    "/about",
-    "/explore"
-  ]);
-  
-  // If it's not a public route, protect it
-  if (!isPublicRoute(request)) {
-    return auth.protect();
-  }
-});
 
 // Stop Middleware running on static files and configure matcher
 export const config = {
@@ -49,7 +29,6 @@ export const config = {
      */
     "/((?!api/auth|_next|_static|_vercel|[\\w-]+\\.\\w+).*)",
     "/",
-    "/(api|trpc)(.*)",
   ],
 };
 

@@ -1,9 +1,9 @@
+#!/usr/bin/env node
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const glob = require('glob');
 
-console.log('Starting custom build process...');
+console.log('Starting Vercel build process...');
 
 // Remove TypeScript configuration files
 const typescriptFiles = [
@@ -33,8 +33,10 @@ const babelFiles = [
 babelFiles.forEach(file => {
   const filePath = path.join(__dirname, file);
   if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    console.log(`Removed ${file}`);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`Removed ${file}`);
+    }
   }
 });
 
@@ -92,61 +94,6 @@ module.exports = nextConfig;
 fs.writeFileSync(nextConfigPath, simpleNextConfig);
 console.log('Created simplified next.config.js for build');
 
-// Create a temporary directory for JavaScript files
-const tempDir = path.join(__dirname, 'temp_js_build');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir);
-}
-
-// Copy all files to the temporary directory, converting .ts/.tsx to .js/.jsx
-console.log('Converting TypeScript files to JavaScript...');
-function copyDirRecursiveSync(src, dest) {
-  const exists = fs.existsSync(src);
-  if (!exists) return;
-
-  const stats = fs.statSync(src);
-  if (stats.isDirectory()) {
-    if (!fs.existsSync(dest)) {
-      fs.mkdirSync(dest, { recursive: true });
-    }
-    
-    const entries = fs.readdirSync(src);
-    
-    for (const entry of entries) {
-      const srcPath = path.join(src, entry);
-      const srcStat = fs.statSync(srcPath);
-      
-      if (srcStat.isDirectory()) {
-        // Skip node_modules and .next directories
-        if (entry === 'node_modules' || entry === '.next' || entry === '.git') {
-          continue;
-        }
-        copyDirRecursiveSync(srcPath, path.join(dest, entry));
-      } else {
-        // Convert TypeScript files to JavaScript
-        let destEntry = entry;
-        if (entry.endsWith('.ts')) {
-          destEntry = entry.replace('.ts', '.js');
-        } else if (entry.endsWith('.tsx')) {
-          destEntry = entry.replace('.tsx', '.jsx');
-        }
-        
-        const destPath = path.join(dest, destEntry);
-        
-        // Skip TypeScript config files
-        if (entry === 'tsconfig.json' || entry === 'tsconfig.build.json' || entry === 'next-env.d.ts') {
-          continue;
-        }
-        
-        fs.copyFileSync(srcPath, destPath);
-      }
-    }
-  }
-}
-
-// Copy all files to the temporary directory
-copyDirRecursiveSync(__dirname, tempDir);
-
 try {
   // Run the Next.js build with linting disabled
   console.log('Running Next.js build...');
@@ -186,15 +133,5 @@ try {
   if (originalNextConfig) {
     fs.writeFileSync(nextConfigPath, originalNextConfig);
     console.log('Restored original next.config.js');
-  }
-  
-  // Clean up temporary directory
-  try {
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-      console.log('Removed temporary build directory');
-    }
-  } catch (error) {
-    console.warn('Warning: Failed to remove temporary directory:', error.message);
   }
 } 

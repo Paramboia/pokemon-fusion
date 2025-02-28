@@ -6,17 +6,21 @@ import { toast } from 'sonner'
 export function useFusion() {
   const [generating, setGenerating] = useState(false)
   const [fusionImage, setFusionImage] = useState<string | null>(null)
+  const [fusionId, setFusionId] = useState<string | null>(null)
+  const [fusionName, setFusionName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPaymentRequired, setIsPaymentRequired] = useState(false)
   const [isLocalFallback, setIsLocalFallback] = useState(false)
 
-  const generateFusion = async (image1Url: string, image2Url: string, name1: string, name2: string) => {
+  const generateFusion = async (image1Url: string, image2Url: string, name1: string, name2: string, pokemon1Id: number, pokemon2Id: number) => {
     try {
       // Reset state
       setGenerating(true)
       setError(null)
       setIsPaymentRequired(false)
       setIsLocalFallback(false)
+      setFusionId(null)
+      setFusionName(null)
       
       console.log('Generating fusion for:', { name1, name2 })
       
@@ -30,7 +34,9 @@ export function useFusion() {
           pokemon1: image1Url,
           pokemon2: image2Url,
           name1,
-          name2
+          name2,
+          pokemon1Id,
+          pokemon2Id
         }),
       })
       
@@ -60,8 +66,10 @@ export function useFusion() {
         toast.warning('Using local fallback for fusion generation')
       }
       
-      // Set the fusion image URL
+      // Set the fusion data
       setFusionImage(data.url)
+      setFusionId(data.id)
+      setFusionName(data.name)
       
       return true
     } catch (error) {
@@ -79,6 +87,8 @@ export function useFusion() {
   return {
     generating,
     fusionImage,
+    fusionId,
+    fusionName,
     error,
     isPaymentRequired,
     isLocalFallback,

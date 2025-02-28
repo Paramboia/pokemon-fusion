@@ -5,61 +5,28 @@ import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { FusionCard } from "@/components/fusion-card";
 import { PopularAuthGate } from "@/components/popular-auth-gate";
+import { dbService, FusionDB } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export default function PopularPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [popularFusions, setPopularFusions] = useState<any[]>([]);
+  const [popularFusions, setPopularFusions] = useState<FusionDB[]>([]);
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      // Mock popular fusions data with the structure expected by FusionCard
-      setPopularFusions([
-        { 
-          id: "1", 
-          user_id: "user1",
-          pokemon_1_id: 25,
-          pokemon_2_id: 1,
-          fusion_name: "Pikasaur", 
-          fusion_image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
-          likes: 245,
-          created_at: new Date().toISOString()
-        },
-        { 
-          id: "2", 
-          user_id: "user1",
-          pokemon_1_id: 4,
-          pokemon_2_id: 7,
-          fusion_name: "Chartle", 
-          fusion_image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/4.png",
-          likes: 189,
-          created_at: new Date().toISOString()
-        },
-        { 
-          id: "3", 
-          user_id: "user1",
-          pokemon_1_id: 1,
-          pokemon_2_id: 4,
-          fusion_name: "Bulbmander", 
-          fusion_image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png",
-          likes: 156,
-          created_at: new Date().toISOString()
-        },
-        { 
-          id: "4", 
-          user_id: "user1",
-          pokemon_1_id: 7,
-          pokemon_2_id: 25,
-          fusion_name: "Squirchu", 
-          fusion_image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png",
-          likes: 132,
-          created_at: new Date().toISOString()
-        },
-      ]);
-      setIsLoading(false);
-    }, 1500);
+    const fetchPopularFusions = async () => {
+      try {
+        setIsLoading(true);
+        const fusions = await dbService.getPopularFusions(12); // Fetch top 12 fusions
+        setPopularFusions(fusions);
+      } catch (error) {
+        console.error('Error fetching popular fusions:', error);
+        toast.error('Failed to load popular fusions');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    fetchPopularFusions();
   }, []);
 
   if (isLoading) {
@@ -83,15 +50,24 @@ export default function PopularPage() {
       </div>
 
       <PopularAuthGate>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-          {popularFusions.map((fusion) => (
-            <FusionCard 
-              key={fusion.id} 
-              fusion={fusion}
-              showActions={false}
-            />
-          ))}
-        </div>
+        {popularFusions.length === 0 ? (
+          <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
+            <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">No fusions found</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Be the first to create a Pokémon fusion!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+            {popularFusions.map((fusion) => (
+              <FusionCard 
+                key={fusion.id} 
+                fusion={fusion}
+                showActions={false}
+              />
+            ))}
+          </div>
+        )}
       </PopularAuthGate>
     </div>
   );

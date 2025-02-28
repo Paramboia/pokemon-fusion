@@ -49,21 +49,16 @@ export default function Home() {
     }
 
     try {
-      console.log("Generating fusion for:", {
-        pokemon1: selectedPokemon.pokemon1.name,
-        pokemon2: selectedPokemon.pokemon2.name
-      });
-      
       await generateFusion(
         selectedPokemon.pokemon1.sprites.other["official-artwork"].front_default,
         selectedPokemon.pokemon2.sprites.other["official-artwork"].front_default,
         selectedPokemon.pokemon1.name,
-        selectedPokemon.pokemon2.name
+        selectedPokemon.pokemon2.name,
+        selectedPokemon.pokemon1.id,
+        selectedPokemon.pokemon2.id
       );
-      toast.success("Fusion generated successfully!");
     } catch (error) {
-      console.error("Error in handleGenerateFusion:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate fusion");
+      console.error("Error generating fusion:", error);
     }
   };
 

@@ -1,23 +1,13 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Heart, Download, Share2, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { downloadImage } from '@/lib/utils'
-
-// Define the FusionDB interface here
-interface FusionDB {
-  id: string;
-  user_id: string;
-  pokemon_1_id: number;
-  pokemon_2_id: number;
-  fusion_name: string;
-  fusion_image: string;
-  likes: number;
-  created_at: string;
-}
+import { dbService, FusionDB, getCurrentUserId } from '@/lib/supabase'
+import { toast } from 'sonner'
 
 // Simple share button component
 const ShareButton = ({ 
@@ -46,7 +36,22 @@ interface FusionCardProps {
 
 export function FusionCard({ fusion, onDelete, onLike, showActions = true }: FusionCardProps) {
   const [showShare, setShowShare] = useState(false)
+  const [isLiked, setIsLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(fusion.likes)
+  const [isFavorite, setIsFavorite] = useState(false)
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
+
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      const userId = getCurrentUserId();
+      if (userId) {
+        const favoriteStatus = await dbService.isFavorite(userId, fusion.id);
+        setIsFavorite(favoriteStatus);
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [fusion.id]);
 
   const handleShare = (platform: string) => {
     // Simple share implementation
@@ -70,6 +75,62 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
     }
   };
 
+  const handleLike = async () => {
+    try {
+      const userId = getCurrentUserId();
+      
+      if (!userId) {
+        toast.error('You must be logged in to like fusions');
+        return;
+      }
+      
+      const success = await dbService.likeFusion(fusion.id);
+      
+      if (success) {
+        setLikeCount(prev => prev + 1);
+        onLike?.(fusion.id);
+        toast.success('Liked fusion!');
+      }
+    } catch (error) {
+      console.error('Error liking fusion:', error);
+      toast.error('Failed to like fusion');
+    }
+  };
+
+  const handleFavorite = async () => {
+    try {
+      const userId = getCurrentUserId();
+      
+      if (!userId) {
+        toast.error('You must be logged in to favorite fusions');
+        return;
+      }
+      
+      if (isFavorite) {
+        const success = await dbService.removeFavorite(userId, fusion.id);
+        
+        if (success) {
+          setIsFavorite(false);
+          toast.success('Removed from favorites');
+        } else {
+          toast.error('Failed to remove from favorites');
+        }
+      } else {
+        const success = await dbService.addFavorite(userId, fusion.id);
+        
+        if (success) {
+          setIsFavorite(true);
+          toast.success('Added to favorites');
+        } else {
+          toast.error('Failed to add to favorites');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorites');
+    }
+  };
+
   return (
     <div className="h-full">
       <Card className="relative group overflow-hidden h-full flex flex-col">
@@ -90,10 +151,10 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onLike?.(fusion.id)}
+                onClick={handleFavorite}
                 className="text-white hover:bg-white/20"
               >
-                <Heart className="h-5 w-5" />
+                <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
               </Button>
               
               <Button
@@ -151,8 +212,15 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
               {new Date(fusion.created_at).toLocaleDateString()}
             </p>
             <div className="flex items-center gap-1">
-              <Heart className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-              <span className="text-sm text-gray-500 dark:text-gray-400">{fusion.likes}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-0 h-auto"
+                onClick={handleLike}
+              >
+                <Heart className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              </Button>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{likeCount}</span>
             </div>
           </div>
         </div>

@@ -6,46 +6,57 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FusionCard } from "@/components/fusion-card";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
+import { dbService, FusionDB, getCurrentUserId } from "@/lib/supabase";
 
 export default function FavoritesPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [favorites, setFavorites] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<FusionDB[]>([]);
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      // Mock favorites data with the structure expected by FusionCard
-      setFavorites([
-        { 
-          id: "1", 
-          user_id: "user1",
-          pokemon_1_id: 25,
-          pokemon_2_id: 1,
-          fusion_name: "Pikasaur", 
-          fusion_image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
-          likes: 24,
-          created_at: new Date().toISOString()
-        },
-        { 
-          id: "2", 
-          user_id: "user1",
-          pokemon_1_id: 4,
-          pokemon_2_id: 7,
-          fusion_name: "Chartle", 
-          fusion_image: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/4.png",
-          likes: 18,
-          created_at: new Date().toISOString()
-        },
-      ]);
-      setIsLoading(false);
-    }, 1500);
+    const fetchFavorites = async () => {
+      try {
+        setIsLoading(true);
+        const userId = getCurrentUserId();
+        
+        if (!userId) {
+          setFavorites([]);
+          return;
+        }
+        
+        const userFavorites = await dbService.getUserFavorites(userId);
+        setFavorites(userFavorites);
+      } catch (error) {
+        console.error('Error fetching favorites:', error);
+        toast.error('Failed to load favorites');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    fetchFavorites();
   }, []);
 
-  const handleRemove = (id: string) => {
-    setFavorites(favorites.filter(fusion => fusion.id !== id));
-    toast.success("Removed from favorites");
+  const handleRemove = async (id: string) => {
+    try {
+      const userId = getCurrentUserId();
+      
+      if (!userId) {
+        toast.error('You must be logged in to remove favorites');
+        return;
+      }
+      
+      const success = await dbService.removeFavorite(userId, id);
+      
+      if (success) {
+        setFavorites(favorites.filter(fusion => fusion.id !== id));
+        toast.success("Removed from favorites");
+      } else {
+        toast.error("Failed to remove from favorites");
+      }
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+      toast.error('Failed to remove from favorites');
+    }
   };
 
   if (isLoading) {

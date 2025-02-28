@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:vercel": "node vercel-build.js",
+    "build:vercel": "node build-vercel.js",
     "build:js": "NODE_OPTIONS=--max_old_space_size=4096 NEXT_DISABLE_SWC=1 next build --no-lint",
-    "vercel-build": "node vercel-build.js",
+    "vercel-build": "node build-vercel.js",
     "start": "next start",
     "lint": "next lint",
     "install-types": "npm install --save-dev typescript @types/react @types/react-dom @types/node"

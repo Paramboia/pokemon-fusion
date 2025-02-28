@@ -1,7 +1,7 @@
 {
-  "buildCommand": "bash vercel-build-override.sh",
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npm run build:vercel",
   "env": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "NEXT_TELEMETRY_DISABLED": "1",

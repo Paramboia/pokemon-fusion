@@ -44,11 +44,16 @@ const nextConfig = {
     port: 3000,
   },
   typescript: {
-    ignoreBuildErrors: true, // Ignore TypeScript errors during build
-    tsconfigPath: "tsconfig.build.json" // Use a non-existent file to skip TypeScript checking
+    // !! WARN !!
+    // Dangerously allow production builds to successfully complete even if
+    // your project has type errors.
+    // !! WARN !!
+    ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: true, // Ignore ESLint errors during build
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
+    ignoreDuringBuilds: true,
   },
   // Add svix and onesignal to the list of external packages
   serverExternalPackages: ['@prisma/client', 'bcrypt', 'svix', '@onesignal/node-onesignal'],

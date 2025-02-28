@@ -11,7 +11,7 @@ interface FusionGridProps {
 }
 
 export function FusionGrid({ userId, onDelete, onLike }: FusionGridProps) {
-  const { fusions, isLoading, error, hasMore, loadMoreRef } = useInfiniteFusions(userId)
+  const { fusions, isLoading, error, hasMore, ref } = useInfiniteFusions(userId)
 
   if (error) {
     return <div className="text-center text-red-500">{error}</div>
@@ -31,7 +31,7 @@ export function FusionGrid({ userId, onDelete, onLike }: FusionGridProps) {
       </div>
 
       {hasMore && (
-        <div ref={loadMoreRef} className="flex justify-center p-4">
+        <div ref={ref} className="flex justify-center p-4">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       )}

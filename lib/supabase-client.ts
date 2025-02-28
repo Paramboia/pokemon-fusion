@@ -95,6 +95,50 @@ export const dbService = {
     return data || [];
   },
   
+  async likeFusion(fusionId: string): Promise<boolean> {
+    const { error } = await supabase.rpc('increment_fusion_likes', {
+      fusion_id: fusionId
+    });
+    
+    if (error) {
+      console.error('Error liking fusion:', error);
+      return false;
+    }
+    
+    return true;
+  },
+  
+  async addFavorite(userId: string, fusionId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('favorites')
+      .insert({
+        user_id: userId,
+        fusion_id: fusionId
+      });
+    
+    if (error) {
+      console.error('Error adding favorite:', error);
+      return false;
+    }
+    
+    return true;
+  },
+  
+  async removeFavorite(userId: string, fusionId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('fusion_id', fusionId);
+    
+    if (error) {
+      console.error('Error removing favorite:', error);
+      return false;
+    }
+    
+    return true;
+  },
+  
   async getUserFavorites(userId: string): Promise<FusionDB[]> {
     const { data, error } = await supabase
       .from('favorites')

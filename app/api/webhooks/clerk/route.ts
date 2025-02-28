@@ -1,7 +1,7 @@
 import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase-server';
 
 export async function POST(req: Request) {
   // Get the headers

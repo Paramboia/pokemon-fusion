@@ -4,14 +4,14 @@
   "buildCommand": "node vercel-build-override.js",
   "redirects": [
     {
-      "source": "/(.*)",
+      "source": "/:path(.*)",
       "has": [
         {
           "type": "host",
           "value": "www.pokemon-fusion.com"
         }
       ],
-      "destination": "https://pokemon-fusion.com/$1",
+      "destination": "https://pokemon-fusion.com/:path",
       "permanent": true
     }
   ],

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { SearchBar, FusionGrid, TrendingSection } from '@/components'
-import { useLikes } from '@/hooks/use-likes'
+import { useLikes } from '@/hooks'
 import { toast } from 'sonner'
 
 export default function ExplorePage() {

@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
   reactStrictMode: true,
   images: {
@@ -27,6 +29,10 @@ const nextConfig = {
     config.externals = [...config.externals, 'bcrypt'];
     // This is to handle case sensitivity issues
     config.resolve.fallback = { fs: false, path: false };
+    
+    // Add path alias
+    config.resolve.alias['@'] = path.join(__dirname, './');
+    
     return config;
   },
   // Specify the server port

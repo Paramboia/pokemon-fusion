@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { usePokemon } from "@/hooks/use-pokemon";
-import { useFusion } from "@/hooks/use-fusion";
+import { usePokemon, useFusion } from "@/hooks";
 import { PokemonSelector } from "@/components/pokemon-selector";
-import { Button } from "@/components/ui/button";
+import { Button, Card } from "@/components/ui";
 import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { SparklesText } from "@/components/ui";
-import type { Pokemon } from "@/types/pokemon";
+import type { Pokemon } from "@/types";
 import { toast } from "sonner";
 import Image from "next/image";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts";
 import { AuthCtaButton } from "@/components/auth-cta-button";
 import { FusionAuthGate } from "@/components/fusion-auth-gate";
 

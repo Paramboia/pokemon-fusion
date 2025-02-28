@@ -21,4 +21,5 @@ typescript
 !**/dummy.ts
 vercel-build-override.sh
 vercel-build.js
-build-vercel.js 
+build-vercel.js
+!vercel-build-override.js 

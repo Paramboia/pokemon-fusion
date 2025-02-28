@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install --legacy-peer-deps typescript @types/react @types/react-dom @types/node && npm run build",
+  "buildCommand": "npm install --legacy-peer-deps typescript @types/react @types/react-dom @types/node && npm run build:vercel",
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps",
   "env": {

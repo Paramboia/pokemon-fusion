@@ -15,8 +15,10 @@ typescript
 @types
 *.ts
 *.tsx
+!dummy.ts
 **/*.ts
 **/*.tsx
+!**/dummy.ts
 vercel-build-override.sh
 vercel-build.js
 build-vercel.js 

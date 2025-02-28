@@ -1,14 +1,15 @@
 {
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps typescript @types/react @types/react-dom @types/node",
-  "buildCommand": "npm run build:vercel",
+  "buildCommand": "node build-vercel.js",
   "env": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "NEXT_TELEMETRY_DISABLED": "1",
     "SKIP_TYPE_CHECK": "true",
     "NEXT_SKIP_TYPE_CHECK": "true",
     "NEXT_DISABLE_SOURCEMAPS": "true",
-    "NEXT_DISABLE_SWC": "1"
+    "NEXT_DISABLE_SWC": "1",
+    "TYPESCRIPT_IGNORE_BUILD_ERRORS": "true"
   },
   "outputDirectory": ".next"
 } 

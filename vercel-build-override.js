@@ -18,7 +18,7 @@ function deleteFileIfExists(filePath) {
 // Explicitly install TypeScript and type definitions
 console.log('Installing TypeScript and type definitions...');
 try {
-  execSync('npm install --no-save typescript@5.7.3 @types/react@19.0.10 @types/react-dom@19.0.4 @types/node@20.17.19', {
+  execSync('npm install --no-save --legacy-peer-deps typescript@5.7.3 @types/react@19.0.10 @types/react-dom@19.0.4 @types/node@20.17.19', {
     stdio: 'inherit'
   });
   console.log('TypeScript and type definitions installed successfully');
@@ -151,6 +151,10 @@ SKIP_TYPE_CHECK=true
 NEXT_SKIP_TYPE_CHECK=true
 NEXT_DISABLE_SOURCEMAPS=true
 TYPESCRIPT_IGNORE_BUILD_ERRORS=true
+
+# Supabase placeholder values (these should be set in Vercel environment variables)
+NEXT_PUBLIC_SUPABASE_URL=${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co'}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel'}
 `;
 fs.writeFileSync(envPath, envContent);
 

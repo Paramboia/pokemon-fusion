@@ -6,4 +6,8 @@ node_modules
 .env.development.local
 .env.test.local
 .env.production.local
-.babelrc 
+.babelrc
+tsconfig.json
+tsconfig.build.json
+next-env.d.ts
+babel.config.js 

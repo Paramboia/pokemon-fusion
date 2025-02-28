@@ -3,7 +3,7 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true, // Ensure SWC minification is enabled
+  swcMinify: false, // Disable SWC minification
   images: {
     remotePatterns: [
       {
@@ -62,7 +62,8 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_REPLICATE_API_TOKEN: process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN,
     REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
-    SKIP_TYPE_CHECK: "true"
+    SKIP_TYPE_CHECK: "true",
+    NEXT_DISABLE_SWC: "1"
   },
 };
 

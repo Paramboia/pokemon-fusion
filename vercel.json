@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install --legacy-peer-deps svix @onesignal/node-onesignal uuid && npm run build",
+  "buildCommand": "npm install --legacy-peer-deps svix @onesignal/node-onesignal uuid tailwindcss postcss autoprefixer && npm run build",
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps",
   "env": {

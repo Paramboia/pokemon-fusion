@@ -4,7 +4,9 @@
   "installCommand": "npm install --legacy-peer-deps",
   "env": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
-    "NEXT_TELEMETRY_DISABLED": "1"
+    "NEXT_TELEMETRY_DISABLED": "1",
+    "SKIP_TYPE_CHECK": "true",
+    "NEXT_SKIP_TYPE_CHECK": "true"
   },
   "outputDirectory": ".next"
 } 

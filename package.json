@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:vercel": "next build --no-lint",
+    "build:vercel": "node build-vercel.js",
     "start": "next start",
     "lint": "next lint",
     "install-types": "npm install --save-dev typescript @types/react @types/react-dom @types/node"

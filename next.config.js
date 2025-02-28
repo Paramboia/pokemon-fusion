@@ -60,6 +60,11 @@ const nextConfig = {
     NEXT_PUBLIC_REPLICATE_API_TOKEN: process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN,
     REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
   },
+  // Configure Babel
+  compiler: {
+    // Disable SWC to use Babel instead
+    styledComponents: true,
+  },
 };
 
 module.exports = nextConfig; 

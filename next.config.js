@@ -3,7 +3,6 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: false, // Disable SWC minification
   images: {
     remotePatterns: [
       {

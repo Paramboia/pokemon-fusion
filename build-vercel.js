@@ -49,7 +49,6 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: false,
   images: {
     remotePatterns: [
       {
@@ -92,36 +91,50 @@ module.exports = nextConfig;
 fs.writeFileSync(nextConfigPath, simpleNextConfig);
 console.log('Created simplified next.config.js for build');
 
-// Temporarily rename tsconfig.json to avoid TypeScript errors
-const tsconfigPath = path.join(__dirname, 'tsconfig.json');
-const tsconfigBackupPath = path.join(__dirname, 'tsconfig.json.bak');
-const jsconfigPath = path.join(__dirname, 'jsconfig.json');
-let jsconfigExists = false;
-
-// Backup jsconfig.json if it exists
-if (fs.existsSync(jsconfigPath)) {
-  fs.copyFileSync(jsconfigPath, path.join(__dirname, 'jsconfig.json.bak'));
-  jsconfigExists = true;
+// Make sure TypeScript is installed
+try {
+  console.log('Installing TypeScript and React types...');
+  execSync('npm install --no-save --legacy-peer-deps typescript @types/react @types/react-dom @types/node', { stdio: 'inherit' });
+} catch (error) {
+  console.warn('Warning: Failed to install TypeScript dependencies, but continuing build:', error.message);
 }
 
-// Create a simple jsconfig.json
-const jsconfig = {
+// Create a temporary tsconfig.json that allows JavaScript
+const tsconfigPath = path.join(__dirname, 'tsconfig.json');
+let originalTsconfig = null;
+
+if (fs.existsSync(tsconfigPath)) {
+  originalTsconfig = fs.readFileSync(tsconfigPath, 'utf8');
+  console.log('Backed up original tsconfig.json');
+}
+
+// Create a simplified tsconfig.json for the build
+const simpleTsconfig = {
   compilerOptions: {
-    baseUrl: ".",
+    target: "es5",
+    lib: ["dom", "dom.iterable", "esnext"],
+    allowJs: true,
+    skipLibCheck: true,
+    strict: false,
+    forceConsistentCasingInFileNames: true,
+    noEmit: true,
+    incremental: true,
+    esModuleInterop: true,
+    module: "esnext",
+    moduleResolution: "node",
+    resolveJsonModule: true,
+    isolatedModules: true,
+    jsx: "preserve",
     paths: {
       "@/*": ["./*"]
     }
-  }
+  },
+  include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+  exclude: ["node_modules"]
 };
 
-fs.writeFileSync(jsconfigPath, JSON.stringify(jsconfig, null, 2));
-console.log('Created jsconfig.json for build');
-
-// Rename tsconfig.json to avoid TypeScript errors
-if (fs.existsSync(tsconfigPath)) {
-  fs.renameSync(tsconfigPath, tsconfigBackupPath);
-  console.log('Temporarily renamed tsconfig.json to avoid TypeScript errors');
-}
+fs.writeFileSync(tsconfigPath, JSON.stringify(simpleTsconfig, null, 2));
+console.log('Created simplified tsconfig.json for build');
 
 try {
   // Run the Next.js build with linting disabled
@@ -149,19 +162,9 @@ try {
   process.exit(1);
 } finally {
   // Restore the original tsconfig.json
-  if (fs.existsSync(tsconfigBackupPath)) {
-    fs.renameSync(tsconfigBackupPath, tsconfigPath);
+  if (originalTsconfig) {
+    fs.writeFileSync(tsconfigPath, originalTsconfig);
     console.log('Restored original tsconfig.json');
-  }
-  
-  // Restore the original jsconfig.json
-  if (jsconfigExists) {
-    fs.copyFileSync(path.join(__dirname, 'jsconfig.json.bak'), jsconfigPath);
-    fs.unlinkSync(path.join(__dirname, 'jsconfig.json.bak'));
-    console.log('Restored original jsconfig.json');
-  } else {
-    fs.unlinkSync(jsconfigPath);
-    console.log('Removed temporary jsconfig.json');
   }
   
   // Restore the original next.config.js

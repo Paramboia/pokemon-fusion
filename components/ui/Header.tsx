@@ -7,6 +7,7 @@ import { MoonIcon, SunIcon, Menu, Home, Flame, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { UserButton } from "@/components/ui/user-button";
 
 export function Header() {
   const pathname = usePathname();
@@ -90,6 +91,7 @@ export function Header() {
                 )
               )}
             </button>
+            <UserButton />
             <button
               className="md:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -134,6 +136,9 @@ export function Header() {
               <Heart className="h-5 w-5 mr-2" />
               <span>Favorites</span>
             </Link>
+            <div className="px-3 py-2">
+              <UserButton />
+            </div>
           </div>
         )}
       </div>

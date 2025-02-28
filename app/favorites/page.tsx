@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FusionCard } from "@/components/fusion-card";
+import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
 
 export default function FavoritesPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -67,25 +68,27 @@ export default function FavoritesPage() {
         </p>
       </div>
 
-      {favorites.length === 0 ? (
-        <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
-          <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">You don't have any favorites yet</p>
-          <p className="text-gray-600 dark:text-gray-400">
-            Start creating fusions and add them to your favorites!
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-          {favorites.map((fusion) => (
-            <FusionCard
-              key={fusion.id}
-              fusion={fusion}
-              onDelete={handleRemove}
-              showActions={true}
-            />
-          ))}
-        </div>
-      )}
+      <FavoritesAuthGate>
+        {favorites.length === 0 ? (
+          <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
+            <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">You don't have any favorites yet</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Start creating fusions and add them to your favorites!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+            {favorites.map((fusion) => (
+              <FusionCard
+                key={fusion.id}
+                fusion={fusion}
+                onDelete={handleRemove}
+                showActions={true}
+              />
+            ))}
+          </div>
+        )}
+      </FavoritesAuthGate>
     </div>
   );
 } 

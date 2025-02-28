@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-// import { useUser } from '@clerk/nextjs'
+import { useUser } from '@clerk/nextjs'
 
 declare global {
   interface Window {
@@ -11,7 +11,7 @@ declare global {
 
 export function useNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false)
-  // const { user } = useUser()
+  const { user } = useUser()
 
   // Simplified version without Clerk authentication
   const toggleNotifications = async () => {

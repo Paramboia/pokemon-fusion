@@ -11,10 +11,14 @@ import { SparklesText } from "@/components/ui/sparkles-text";
 import type { Pokemon } from "@/types/pokemon";
 import { toast } from "sonner";
 import Image from "next/image";
+import { useAuth } from "@/contexts/auth-context";
+import { AuthCtaButton } from "@/components/auth-cta-button";
+import { FusionAuthGate } from "@/components/fusion-auth-gate";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
   const { generating, fusionImage, generateFusion } = useFusion();
+  const { isSignedIn } = useAuth();
   const [selectedPokemon, setSelectedPokemon] = useState<{
     pokemon1: Pokemon | null;
     pokemon2: Pokemon | null;
@@ -123,80 +127,90 @@ export default function Home() {
       />
 
       <div className="mt-10 flex justify-center">
-        <Button 
-          onClick={handleGenerateFusion}
-          disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
-          className="bg-indigo-600 hover:bg-indigo-700"
-        >
-          {generating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            "Generate Fusion"
-          )}
-        </Button>
+        {isSignedIn ? (
+          <Button 
+            onClick={handleGenerateFusion}
+            disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
+            className="bg-indigo-600 hover:bg-indigo-700"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              "Generate Fusion"
+            )}
+          </Button>
+        ) : (
+          <AuthCtaButton 
+            ctaText="Sign in to Generate"
+            className="bg-indigo-600 hover:bg-indigo-700"
+            disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
+          />
+        )}
       </div>
 
       {fusionImage && (
-        <Card className="mt-10 relative group overflow-hidden h-full flex flex-col max-w-md mx-auto">
-          <div className="flex-grow flex items-center justify-center p-4">
-            <div className="w-full h-64 relative">
-              {fusionImage && (
-                <div className="relative w-full h-full">
-                  <img
-                    src={fusionImage}
-                    alt={fusionName}
-                    className="object-contain w-full h-full"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="absolute bottom-4 left-4 right-4 flex justify-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={handleLike}
-                className="text-white hover:bg-white/20"
-              >
-                <Heart className={`h-5 w-5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={handleDownload}
-                className="text-white hover:bg-white/20"
-              >
-                <Download className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={handleShare}
-                className="text-white hover:bg-white/20"
-              >
-                <Send className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          
-          <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-gray-200">{fusionName}</h3>
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {new Date().toLocaleDateString()}
-              </p>
-              <div className="flex items-center gap-1">
-                <Heart className={`h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-500 dark:text-gray-400'}`} />
-                <span className="text-sm text-gray-500 dark:text-gray-400">{isLiked ? 1 : 0}</span>
+        <FusionAuthGate>
+          <Card className="mt-10 relative group overflow-hidden h-full flex flex-col max-w-md mx-auto">
+            <div className="flex-grow flex items-center justify-center p-4">
+              <div className="w-full h-64 relative">
+                {fusionImage && (
+                  <div className="relative w-full h-full">
+                    <img
+                      src={fusionImage}
+                      alt={fusionName}
+                      className="object-contain w-full h-full"
+                    />
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </Card>
+            
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute bottom-4 left-4 right-4 flex justify-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleLike}
+                  className="text-white hover:bg-white/20"
+                >
+                  <Heart className={`h-5 w-5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleDownload}
+                  className="text-white hover:bg-white/20"
+                >
+                  <Download className="h-5 w-5" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleShare}
+                  className="text-white hover:bg-white/20"
+                >
+                  <Send className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-gray-200">{fusionName}</h3>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {new Date().toLocaleDateString()}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Heart className={`h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-500 dark:text-gray-400'}`} />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{isLiked ? 1 : 0}</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </FusionAuthGate>
       )}
     </div>
   );

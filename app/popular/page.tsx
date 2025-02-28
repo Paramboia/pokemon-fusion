@@ -4,6 +4,7 @@ import { SparklesText } from "@/components/ui/sparkles-text";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { FusionCard } from "@/components/fusion-card";
+import { PopularAuthGate } from "@/components/popular-auth-gate";
 
 export default function PopularPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -81,15 +82,17 @@ export default function PopularPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-        {popularFusions.map((fusion) => (
-          <FusionCard 
-            key={fusion.id} 
-            fusion={fusion}
-            showActions={false}
-          />
-        ))}
-      </div>
+      <PopularAuthGate>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+          {popularFusions.map((fusion) => (
+            <FusionCard 
+              key={fusion.id} 
+              fusion={fusion}
+              showActions={false}
+            />
+          ))}
+        </div>
+      </PopularAuthGate>
     </div>
   );
 } 

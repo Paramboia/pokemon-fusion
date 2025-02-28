@@ -1,30 +1,77 @@
 "use client"
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 export function useFusion() {
   const [generating, setGenerating] = useState(false)
   const [fusionImage, setFusionImage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isPaymentRequired, setIsPaymentRequired] = useState(false)
+  const [isLocalFallback, setIsLocalFallback] = useState(false)
 
-  const generateFusion = async (image1Url: string, image2Url: string) => {
+  const generateFusion = async (image1Url: string, image2Url: string, name1: string, name2: string) => {
     try {
+      // Reset state
       setGenerating(true)
+      setError(null)
+      setIsPaymentRequired(false)
+      setIsLocalFallback(false)
       
-      // For now, we'll just use a placeholder image
-      // In a real implementation, you would call the Replicate API here
-      // This is a temporary solution until the API integration is set up
+      console.log('Generating fusion for:', { name1, name2 })
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Call the API endpoint to generate the fusion
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pokemon1: image1Url,
+          pokemon2: image2Url,
+          name1,
+          name2
+        }),
+      })
       
-      // Use a placeholder image for now
-      setFusionImage('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png')
+      // Parse the response
+      const data = await response.json()
+      
+      // Check if the response is successful
+      if (!response.ok) {
+        const errorMessage = data.error || 'Failed to generate fusion'
+        console.error('API error:', errorMessage)
+        
+        // Check if payment is required
+        if (response.status === 402 || data.paymentRequired) {
+          setIsPaymentRequired(true)
+        }
+        
+        setError(errorMessage)
+        toast.error(errorMessage)
+        throw new Error(errorMessage)
+      }
+      
+      console.log('Fusion generated successfully:', data)
+      
+      // Check if this is a local fallback
+      if (data.isLocalFallback) {
+        setIsLocalFallback(true)
+        toast.warning('Using local fallback for fusion generation')
+      }
+      
+      // Set the fusion image URL
+      setFusionImage(data.url)
       
       return true
     } catch (error) {
-      console.error('Error generating fusion:', error)
+      // Handle errors
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate fusion'
+      console.error('Error generating fusion:', errorMessage)
+      setError(errorMessage)
       throw error
     } finally {
+      // Always reset the generating state
       setGenerating(false)
     }
   }
@@ -32,6 +79,9 @@ export function useFusion() {
   return {
     generating,
     fusionImage,
+    error,
+    isPaymentRequired,
+    isLocalFallback,
     generateFusion,
   }
 } 

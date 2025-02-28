@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const email = clerkUser.primaryEmailAddress?.emailAddress;
     if (!email) {
-      console.error("No primary email found for user");
+      console.warn("No primary email found for user");
       return;
     }
 
@@ -48,9 +48,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("id", clerkUser.id)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-        console.error("Error fetching user data:", fetchError);
-        return;
+      // Handle the case where the user doesn't exist yet (PGRST116 is "no rows returned" error)
+      // This is an expected error when a user signs in for the first time
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        // Only log actual errors, not the "no rows returned" which is expected for new users
+        console.warn("Warning fetching user data:", fetchError.message || "Unknown error");
+        // Continue execution to create the user
       }
 
       if (existingUser) {
@@ -64,8 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq("id", clerkUser.id);
 
         if (updateError) {
-          console.error("Error updating user:", updateError);
-          return;
+          console.warn("Warning updating user:", updateError.message || "Unknown error");
+          // Still set the user with the data we have
         }
       } else {
         // Insert new user
@@ -78,19 +81,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
 
         if (insertError) {
-          console.error("Error inserting user:", insertError);
-          return;
+          console.warn("Warning inserting user:", insertError.message || "Unknown error");
+          // Continue with what we have
         }
       }
 
-      // Set the user in state
+      // Set the user in state regardless of database operations
+      // This ensures the UI can continue to function
       setUser({
         id: clerkUser.id,
         name,
         email
       });
     } catch (error) {
-      console.error("Error syncing user to Supabase:", error);
+      console.warn("Warning syncing user to Supabase:", error instanceof Error ? error.message : "Unknown error");
+      // Still set the user with the data we have from Clerk
+      setUser({
+        id: clerkUser.id,
+        name,
+        email
+      });
     }
   };
 
@@ -101,23 +111,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Also fetch user data from Supabase
       const fetchUserData = async () => {
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", clerkUser.id)
-          .single();
+        try {
+          const { data, error } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", clerkUser.id)
+            .single();
 
-        if (error) {
-          console.error("Error fetching user data:", error);
-          return;
-        }
+          // Handle the case where the user doesn't exist yet
+          if (error) {
+            if (error.code === 'PGRST116') {
+              // This is expected for new users, not an actual error
+              // The syncUserToSupabase function will create the user
+              return;
+            }
+            console.warn("Warning fetching user data:", error.message || "Unknown error");
+            return;
+          }
 
-        if (data) {
-          setUser({
-            id: data.id,
-            name: data.name,
-            email: data.email,
-          });
+          if (data) {
+            setUser({
+              id: data.id,
+              name: data.name,
+              email: data.email,
+            });
+          }
+        } catch (error) {
+          console.warn("Warning in fetchUserData:", error instanceof Error ? error.message : "Unknown error");
+          // Use Clerk data as fallback
+          const email = clerkUser.primaryEmailAddress?.emailAddress;
+          const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Anonymous User';
+          
+          if (email) {
+            setUser({
+              id: clerkUser.id,
+              name,
+              email
+            });
+          }
         }
       };
 

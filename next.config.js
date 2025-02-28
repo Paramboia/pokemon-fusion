@@ -30,6 +30,7 @@ const nextConfig = {
   // Specify the server port
   serverRuntimeConfig: {
     port: 3000,
+    replicateApiToken: process.env.REPLICATE_API_TOKEN,
   },
   publicRuntimeConfig: {
     port: 3000,
@@ -42,6 +43,11 @@ const nextConfig = {
     serverActions: {
       allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002', 'localhost:3003'],
     },
+  },
+  // Ensure environment variables are available to the server
+  env: {
+    NEXT_PUBLIC_REPLICATE_API_TOKEN: process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN,
+    REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN,
   },
 };
 

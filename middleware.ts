@@ -5,7 +5,8 @@ import { authMiddleware } from "@clerk/nextjs";
 // See https://clerk.com/docs/references/nextjs/auth-middleware for more information about configuring your middleware
 export default authMiddleware({
   // Add any public routes that don't require authentication
-  publicRoutes: ["/", "/popular", "/favorites"]
+  publicRoutes: ["/", "/popular", "/favorites", "/api/generate"],
+  ignoredRoutes: ["/api/webhooks(.*)"]
 });
 
 // Stop Middleware running on static files

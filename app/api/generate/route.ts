@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Replicate from 'replicate';
-import { auth } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { dbService } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 

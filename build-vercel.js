@@ -3,50 +3,88 @@ const fs = require('fs');
 const path = require('path');
 const glob = require('glob');
 
-console.log('Starting custom build process...');
+console.log('Starting custom build process for JavaScript-only build...');
 
-// Remove TypeScript configuration files
-const typescriptFiles = [
-  'tsconfig.json',
-  'tsconfig.build.json',
-  'next-env.d.ts'
-];
-
-// Backup and remove TypeScript files
-typescriptFiles.forEach(file => {
-  const filePath = path.join(__dirname, file);
-  if (fs.existsSync(filePath)) {
-    fs.renameSync(filePath, `${filePath}.bak`);
-    console.log(`Renamed ${file} to ${file}.bak`);
+// Function to ensure a directory exists
+function ensureDirectoryExists(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
-});
-
-// Remove Babel configuration files
-const babelFiles = [
-  '.babelrc',
-  '.babelrc.js',
-  '.babelrc.json',
-  'babel.config.js',
-  'babel.config.json'
-];
-
-babelFiles.forEach(file => {
-  const filePath = path.join(__dirname, file);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    console.log(`Removed ${file}`);
-  }
-});
-
-// Create a simple next.config.js for the build
-const nextConfigPath = path.join(__dirname, 'next.config.js');
-let originalNextConfig = null;
-
-if (fs.existsSync(nextConfigPath)) {
-  originalNextConfig = fs.readFileSync(nextConfigPath, 'utf8');
-  console.log('Backed up original next.config.js');
 }
 
+// Create a temporary directory for JavaScript files
+const tempDir = path.join(__dirname, 'js_build_temp');
+ensureDirectoryExists(tempDir);
+console.log(`Created temporary directory: ${tempDir}`);
+
+// Copy all non-TypeScript files to the temporary directory
+console.log('Copying non-TypeScript files to temporary directory...');
+function copyNonTsFiles(src, dest) {
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    
+    // Skip node_modules, .git, and .next directories
+    if (entry.isDirectory() && 
+        (entry.name === 'node_modules' || 
+         entry.name === '.git' || 
+         entry.name === '.next' ||
+         entry.name === '.vercel')) {
+      continue;
+    }
+    
+    if (entry.isDirectory()) {
+      ensureDirectoryExists(destPath);
+      copyNonTsFiles(srcPath, destPath);
+    } else {
+      // Skip TypeScript files and config files
+      if (entry.name.endsWith('.ts') || 
+          entry.name.endsWith('.tsx') || 
+          entry.name === 'tsconfig.json' || 
+          entry.name === 'tsconfig.build.json' ||
+          entry.name === 'next-env.d.ts' ||
+          entry.name === '.babelrc' ||
+          entry.name === 'babel.config.js') {
+        continue;
+      }
+      
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+// Copy all non-TypeScript files
+copyNonTsFiles(__dirname, tempDir);
+console.log('Copied all non-TypeScript files');
+
+// Create a simple package.json without TypeScript
+const packageJsonPath = path.join(tempDir, 'package.json');
+if (fs.existsSync(path.join(__dirname, 'package.json'))) {
+  const originalPackageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+  
+  // Remove TypeScript dependencies
+  if (originalPackageJson.devDependencies) {
+    delete originalPackageJson.devDependencies.typescript;
+    delete originalPackageJson.devDependencies['@types/node'];
+    delete originalPackageJson.devDependencies['@types/react'];
+    delete originalPackageJson.devDependencies['@types/react-dom'];
+    delete originalPackageJson.devDependencies['@types/uuid'];
+  }
+  
+  // Update scripts to use simple next build
+  if (originalPackageJson.scripts) {
+    originalPackageJson.scripts.build = 'next build --no-lint';
+    originalPackageJson.scripts['build:vercel'] = 'next build --no-lint';
+  }
+  
+  fs.writeFileSync(packageJsonPath, JSON.stringify(originalPackageJson, null, 2));
+  console.log('Created simplified package.json without TypeScript');
+}
+
+// Create a simple next.config.js
+const nextConfigPath = path.join(tempDir, 'next.config.js');
 const simpleNextConfig = `
 /** @type {import('next').NextConfig} */
 const path = require('path');
@@ -90,17 +128,10 @@ module.exports = nextConfig;
 `;
 
 fs.writeFileSync(nextConfigPath, simpleNextConfig);
-console.log('Created simplified next.config.js for build');
+console.log('Created simplified next.config.js');
 
-// Create a jsconfig.json file to prevent TypeScript detection
-const jsConfigPath = path.join(__dirname, 'jsconfig.json');
-let originalJsConfig = null;
-
-if (fs.existsSync(jsConfigPath)) {
-  originalJsConfig = fs.readFileSync(jsConfigPath, 'utf8');
-  console.log('Backed up original jsconfig.json');
-}
-
+// Create a jsconfig.json file
+const jsConfigPath = path.join(tempDir, 'jsconfig.json');
 const simpleJsConfig = `{
   "compilerOptions": {
     "baseUrl": ".",
@@ -112,114 +143,104 @@ const simpleJsConfig = `{
 }`;
 
 fs.writeFileSync(jsConfigPath, simpleJsConfig);
-console.log('Created jsconfig.json to prevent TypeScript detection');
+console.log('Created jsconfig.json');
 
-// Backup package.json and create a version without TypeScript
-const packageJsonPath = path.join(__dirname, 'package.json');
-let originalPackageJson = null;
+// Create a .npmrc file
+const npmrcPath = path.join(tempDir, '.npmrc');
+const npmrcContent = `legacy-peer-deps=true
+ignore-workspace-root-check=true
+strict-peer-dependencies=false
+auto-install-peers=false
+engine-strict=false`;
 
-if (fs.existsSync(packageJsonPath)) {
-  originalPackageJson = fs.readFileSync(packageJsonPath, 'utf8');
-  console.log('Backed up original package.json');
-  
-  try {
-    const packageJson = JSON.parse(originalPackageJson);
-    
-    // Remove TypeScript from devDependencies
-    if (packageJson.devDependencies) {
-      delete packageJson.devDependencies.typescript;
-      delete packageJson.devDependencies['@types/node'];
-      delete packageJson.devDependencies['@types/react'];
-      delete packageJson.devDependencies['@types/react-dom'];
-      delete packageJson.devDependencies['@types/uuid'];
-    }
-    
-    // Write the modified package.json
-    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
-    console.log('Created package.json without TypeScript dependencies');
-  } catch (error) {
-    console.error('Error modifying package.json:', error);
-  }
-}
+fs.writeFileSync(npmrcPath, npmrcContent);
+console.log('Created .npmrc file');
 
-// Rename all TypeScript files to .js.bak and .jsx.bak
-console.log('Renaming TypeScript files...');
-const tsFiles = glob.sync('**/*.{ts,tsx}', {
-  ignore: ['node_modules/**', '.next/**', '.git/**', '*.d.ts']
-});
+// Create a vercel.json file
+const vercelJsonPath = path.join(tempDir, 'vercel.json');
+const vercelJsonContent = `{
+  "buildCommand": "next build --no-lint",
+  "framework": "nextjs",
+  "installCommand": "npm install --legacy-peer-deps",
+  "env": {
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "NEXT_TELEMETRY_DISABLED": "1",
+    "SKIP_TYPE_CHECK": "true",
+    "NEXT_SKIP_TYPE_CHECK": "true",
+    "NEXT_DISABLE_SOURCEMAPS": "true",
+    "NEXT_DISABLE_SWC": "1"
+  },
+  "outputDirectory": ".next"
+}`;
 
-const renamedFiles = [];
-tsFiles.forEach(file => {
-  const filePath = path.join(__dirname, file);
-  const newPath = `${filePath}.bak`;
-  if (fs.existsSync(filePath)) {
-    fs.renameSync(filePath, newPath);
-    renamedFiles.push({ original: filePath, backup: newPath });
-    console.log(`Renamed ${file} to ${file}.bak`);
-  }
-});
+fs.writeFileSync(vercelJsonPath, vercelJsonContent);
+console.log('Created vercel.json file');
 
 try {
-  // Run the Next.js build with linting disabled
+  // Change to the temporary directory
+  process.chdir(tempDir);
+  console.log(`Changed working directory to: ${tempDir}`);
+  
+  // Install dependencies
+  console.log('Installing dependencies...');
+  execSync('npm install --legacy-peer-deps', { stdio: 'inherit' });
+  
+  // Run the Next.js build
   console.log('Running Next.js build...');
-  
-  // Set environment variables for the build command
-  const buildEnv = {
-    ...process.env,
-    NEXT_DISABLE_SWC: '1',
-    SKIP_TYPE_CHECK: 'true',
-    NEXT_SKIP_TYPE_CHECK: 'true',
-    NEXT_DISABLE_SOURCEMAPS: 'true',
-    NODE_OPTIONS: '--max-old-space-size=4096'
-  };
-  
-  // Use cross-platform command
   execSync('next build --no-lint', { 
     stdio: 'inherit',
-    env: buildEnv
+    env: {
+      ...process.env,
+      NEXT_DISABLE_SWC: '1',
+      SKIP_TYPE_CHECK: 'true',
+      NEXT_SKIP_TYPE_CHECK: 'true',
+      NEXT_DISABLE_SOURCEMAPS: 'true',
+      NODE_OPTIONS: '--max-old-space-size=4096'
+    }
   });
+  
+  // Copy the .next directory back to the original directory
+  const tempNextDir = path.join(tempDir, '.next');
+  const originalNextDir = path.join(__dirname, '.next');
+  
+  if (fs.existsSync(originalNextDir)) {
+    fs.rmSync(originalNextDir, { recursive: true, force: true });
+  }
+  
+  // Use a recursive function to copy the .next directory
+  function copyDirRecursive(src, dest) {
+    ensureDirectoryExists(dest);
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+      
+      if (entry.isDirectory()) {
+        copyDirRecursive(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  }
+  
+  copyDirRecursive(tempNextDir, originalNextDir);
+  console.log('Copied built .next directory back to original directory');
   
   console.log('Build completed successfully');
 } catch (error) {
   console.error('Build failed:', error);
   process.exit(1);
 } finally {
-  // Restore TypeScript files
-  typescriptFiles.forEach(file => {
-    const backupPath = path.join(__dirname, `${file}.bak`);
-    const originalPath = path.join(__dirname, file);
-    if (fs.existsSync(backupPath)) {
-      fs.renameSync(backupPath, originalPath);
-      console.log(`Restored ${file}`);
-    }
-  });
+  // Change back to the original directory
+  process.chdir(__dirname);
+  console.log(`Changed working directory back to: ${__dirname}`);
   
-  // Restore renamed TypeScript files
-  renamedFiles.forEach(file => {
-    if (fs.existsSync(file.backup)) {
-      fs.renameSync(file.backup, file.original);
-      console.log(`Restored ${path.relative(__dirname, file.original)}`);
-    }
-  });
-  
-  // Restore the original next.config.js
-  if (originalNextConfig) {
-    fs.writeFileSync(nextConfigPath, originalNextConfig);
-    console.log('Restored original next.config.js');
-  }
-  
-  // Restore the original jsconfig.json if it existed
-  if (originalJsConfig) {
-    fs.writeFileSync(jsConfigPath, originalJsConfig);
-    console.log('Restored original jsconfig.json');
-  } else if (fs.existsSync(jsConfigPath)) {
-    fs.unlinkSync(jsConfigPath);
-    console.log('Removed temporary jsconfig.json');
-  }
-  
-  // Restore the original package.json
-  if (originalPackageJson) {
-    fs.writeFileSync(packageJsonPath, originalPackageJson);
-    console.log('Restored original package.json');
+  // Clean up the temporary directory
+  try {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    console.log(`Removed temporary directory: ${tempDir}`);
+  } catch (cleanupError) {
+    console.warn('Warning: Failed to remove temporary directory:', cleanupError.message);
   }
 } 

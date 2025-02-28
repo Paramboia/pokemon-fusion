@@ -16,4 +16,5 @@ typescript
 *.ts
 *.tsx
 **/*.ts
-**/*.tsx 
+**/*.tsx
+vercel-build-override.sh 

@@ -1,6 +1,6 @@
 "use client";
 
-import { SparklesText } from "@/components/ui/sparkles-text";
+import { SparklesText } from "@/components/ui";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { FusionCard } from "@/components/fusion-card";

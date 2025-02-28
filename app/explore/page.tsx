@@ -1,9 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { SearchBar } from '@/components/search-bar'
-import { FusionGrid } from '@/components/fusion-grid'
-import { TrendingSection } from '@/components/trending-section'
+import { SearchBar, FusionGrid, TrendingSection } from '@/components'
 import { useLikes } from '@/hooks/use-likes'
 import { toast } from 'sonner'
 

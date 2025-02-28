@@ -1,6 +1,6 @@
 "use client";
 
-import { SparklesText } from "@/components/ui/sparkles-text";
+import { SparklesText } from "@/components/ui";
 
 export default function AboutPage() {
   return (

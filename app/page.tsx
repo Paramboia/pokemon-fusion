@@ -7,7 +7,7 @@ import { PokemonSelector } from "@/components/pokemon-selector";
 import { Button } from "@/components/ui/button";
 import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { SparklesText } from "@/components/ui/sparkles-text";
+import { SparklesText } from "@/components/ui";
 import type { Pokemon } from "@/types/pokemon";
 import { toast } from "sonner";
 import Image from "next/image";

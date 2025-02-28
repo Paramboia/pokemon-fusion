@@ -25,6 +25,8 @@ const nextConfig = {
   },
   webpack: (config) => {
     config.externals = [...config.externals, 'bcrypt'];
+    // This is to handle case sensitivity issues
+    config.resolve.fallback = { fs: false, path: false };
     return config;
   },
   // Specify the server port

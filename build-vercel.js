@@ -1,7 +1,6 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const glob = require('glob');
 
 console.log('Starting custom build process...');
 
@@ -12,7 +11,7 @@ const typescriptFiles = [
   'next-env.d.ts'
 ];
 
-// Backup TypeScript files
+// Backup and remove TypeScript files
 typescriptFiles.forEach(file => {
   const filePath = path.join(__dirname, file);
   if (fs.existsSync(filePath)) {
@@ -92,60 +91,27 @@ module.exports = nextConfig;
 fs.writeFileSync(nextConfigPath, simpleNextConfig);
 console.log('Created simplified next.config.js for build');
 
-// Create a temporary directory for JavaScript files
-const tempDir = path.join(__dirname, 'temp_js_build');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir);
+// Create a jsconfig.json file to prevent TypeScript detection
+const jsConfigPath = path.join(__dirname, 'jsconfig.json');
+let originalJsConfig = null;
+
+if (fs.existsSync(jsConfigPath)) {
+  originalJsConfig = fs.readFileSync(jsConfigPath, 'utf8');
+  console.log('Backed up original jsconfig.json');
 }
 
-// Copy all files to the temporary directory, converting .ts/.tsx to .js/.jsx
-console.log('Converting TypeScript files to JavaScript...');
-function copyDirRecursiveSync(src, dest) {
-  const exists = fs.existsSync(src);
-  if (!exists) return;
-
-  const stats = fs.statSync(src);
-  if (stats.isDirectory()) {
-    if (!fs.existsSync(dest)) {
-      fs.mkdirSync(dest, { recursive: true });
-    }
-    
-    const entries = fs.readdirSync(src);
-    
-    for (const entry of entries) {
-      const srcPath = path.join(src, entry);
-      const srcStat = fs.statSync(srcPath);
-      
-      if (srcStat.isDirectory()) {
-        // Skip node_modules and .next directories
-        if (entry === 'node_modules' || entry === '.next' || entry === '.git') {
-          continue;
-        }
-        copyDirRecursiveSync(srcPath, path.join(dest, entry));
-      } else {
-        // Convert TypeScript files to JavaScript
-        let destEntry = entry;
-        if (entry.endsWith('.ts')) {
-          destEntry = entry.replace('.ts', '.js');
-        } else if (entry.endsWith('.tsx')) {
-          destEntry = entry.replace('.tsx', '.jsx');
-        }
-        
-        const destPath = path.join(dest, destEntry);
-        
-        // Skip TypeScript config files
-        if (entry === 'tsconfig.json' || entry === 'tsconfig.build.json' || entry === 'next-env.d.ts') {
-          continue;
-        }
-        
-        fs.copyFileSync(srcPath, destPath);
-      }
-    }
+const simpleJsConfig = `{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "jsx": "react-jsx"
   }
-}
+}`;
 
-// Copy all files to the temporary directory
-copyDirRecursiveSync(__dirname, tempDir);
+fs.writeFileSync(jsConfigPath, simpleJsConfig);
+console.log('Created jsconfig.json to prevent TypeScript detection');
 
 try {
   // Run the Next.js build with linting disabled
@@ -188,13 +154,12 @@ try {
     console.log('Restored original next.config.js');
   }
   
-  // Clean up temporary directory
-  try {
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-      console.log('Removed temporary build directory');
-    }
-  } catch (error) {
-    console.warn('Warning: Failed to remove temporary directory:', error.message);
+  // Restore the original jsconfig.json if it existed
+  if (originalJsConfig) {
+    fs.writeFileSync(jsConfigPath, originalJsConfig);
+    console.log('Restored original jsconfig.json');
+  } else if (fs.existsSync(jsConfigPath)) {
+    fs.unlinkSync(jsConfigPath);
+    console.log('Removed temporary jsconfig.json');
   }
 } 

@@ -10,4 +10,6 @@ node_modules
 tsconfig.json
 tsconfig.build.json
 next-env.d.ts
-babel.config.js 
+babel.config.js
+typescript
+@types 

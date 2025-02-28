@@ -99,11 +99,11 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 items-center">
+    <div className="grid grid-cols-2 gap-4 md:gap-10 items-center">
       <div className="flex flex-col items-center">
-        <Card className="w-full max-w-sm p-4 card-retro rounded-lg">
+        <Card className="w-full p-4 rounded-lg shadow-md bg-white">
           <div className="text-center mb-4">
-            <h3 className="text-lg font-semibold">First Pokémon</h3>
+            <h3 className="text-lg font-semibold text-gray-800">First Pokémon</h3>
           </div>
           
           <div className="relative mb-4">
@@ -117,17 +117,17 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
                   setShowDropdown1(true);
                 }}
                 onFocus={() => setShowDropdown1(true)}
-                className="pl-10 bg-gray-800 border-gray-700"
+                className="pl-10 bg-white border-gray-300"
               />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
             </div>
             
             {showDropdown1 && filteredList1.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto">
                 {filteredList1.map((pokemon) => (
                   <div
                     key={pokemon.id}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+                    className="p-2 hover:bg-gray-100 cursor-pointer flex items-center"
                     onClick={() => handlePokemon1Change(pokemon)}
                   >
                     <img
@@ -151,13 +151,13 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
                   className="max-w-full max-h-full object-contain"
                 />
               </div>
-              <h3 className="mt-2 text-lg font-medium capitalize">
+              <h3 className="mt-2 text-lg font-medium capitalize text-gray-800">
                 {selectedPokemon.pokemon1.name}
               </h3>
             </div>
           ) : (
-            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400 text-sm text-center">
+            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 rounded-lg">
+              <p className="text-gray-500 text-sm text-center">
                 Select a Pokémon
               </p>
             </div>
@@ -165,34 +165,10 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
         </Card>
       </div>
 
-      <div className="hidden md:flex justify-center items-center">
-        <Button
-          variant="outline"
-          size="icon"
-          className="rounded-full p-2"
-          onClick={handleSwapPokemon}
-          disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
-        >
-          <ArrowLeftRight className="h-5 w-5" />
-        </Button>
-      </div>
-
-      <div className="flex md:hidden justify-center items-center my-2">
-        <Button
-          variant="outline"
-          size="icon"
-          className="rounded-full p-2"
-          onClick={handleSwapPokemon}
-          disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
-        >
-          <ArrowLeftRight className="h-5 w-5" />
-        </Button>
-      </div>
-
       <div className="flex flex-col items-center">
-        <Card className="w-full max-w-sm p-4 card-retro rounded-lg">
+        <Card className="w-full p-4 rounded-lg shadow-md bg-white">
           <div className="text-center mb-4">
-            <h3 className="text-lg font-semibold">Second Pokémon</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Second Pokémon</h3>
           </div>
           
           <div className="relative mb-4">
@@ -206,17 +182,17 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
                   setShowDropdown2(true);
                 }}
                 onFocus={() => setShowDropdown2(true)}
-                className="pl-10 bg-gray-800 border-gray-700"
+                className="pl-10 bg-white border-gray-300"
               />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
             </div>
             
             {showDropdown2 && filteredList2.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto">
                 {filteredList2.map((pokemon) => (
                   <div
                     key={pokemon.id}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+                    className="p-2 hover:bg-gray-100 cursor-pointer flex items-center"
                     onClick={() => handlePokemon2Change(pokemon)}
                   >
                     <img
@@ -240,13 +216,13 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
                   className="max-w-full max-h-full object-contain"
                 />
               </div>
-              <h3 className="mt-2 text-lg font-medium capitalize">
+              <h3 className="mt-2 text-lg font-medium capitalize text-gray-800">
                 {selectedPokemon.pokemon2.name}
               </h3>
             </div>
           ) : (
-            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400 text-sm text-center">
+            <div className="w-32 h-32 mx-auto flex items-center justify-center border border-dashed border-gray-300 rounded-lg">
+              <p className="text-gray-500 text-sm text-center">
                 Select a Pokémon
               </p>
             </div>
@@ -254,7 +230,18 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
         </Card>
       </div>
 
-      <div className="col-span-1 md:col-span-2 flex justify-center mt-2">
+      <div className="col-span-2 flex justify-center mt-4 space-x-4">
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-full p-2"
+          onClick={handleSwapPokemon}
+          disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
+        >
+          <ArrowLeftRight className="h-5 w-5" />
+          <span className="ml-2">Swap</span>
+        </Button>
+        
         <Button
           variant="outline"
           onClick={handleRandomSelect}

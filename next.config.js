@@ -1,40 +1,47 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'replicate.delivery',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'raw.githubusercontent.com',
-        pathname: '/PokeAPI/sprites/**',
+        port: '',
+        pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'replicate.delivery',  // For AI generated images
+        hostname: 'img.pokemondb.net',
+        port: '',
+        pathname: '/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'pbxt.replicate.delivery',  // For Replicate images
-      }
-    ],
-    domains: [
-      'raw.githubusercontent.com', // For Pokemon images
-      'replicate.delivery', // For Replicate generated images
-      'ahgoxvfsxaazfoezwxko.supabase.co', // Your Supabase URL
     ],
   },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-      };
-    }
+  webpack: (config) => {
+    config.externals = [...config.externals, 'bcrypt'];
     return config;
+  },
+  // Specify the server port
+  serverRuntimeConfig: {
+    port: 3000,
+  },
+  publicRuntimeConfig: {
+    port: 3000,
   },
   typescript: {
     ignoreBuildErrors: true, // Only during development
+  },
+  serverExternalPackages: ['@prisma/client', 'bcrypt'],
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002', 'localhost:3003'],
+    },
   },
 };
 

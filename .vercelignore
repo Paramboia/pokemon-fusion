@@ -11,4 +11,11 @@ babel.config.js
 vercel-build-override.sh
 vercel-build.js
 build-vercel.js
-!vercel-build-override.js 
+!vercel-build-override.js
+*.ts
+*.tsx
+**/*.ts
+**/*.tsx
+tsconfig.json
+tsconfig.build.json
+next-env.d.ts 

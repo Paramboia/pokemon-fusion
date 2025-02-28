@@ -34,8 +34,6 @@ console.log('Creating simplified next.config.js...');
 const nextConfigPath = path.join(__dirname, 'next.config.js');
 const simpleNextConfig = `
 /** @type {import('next').NextConfig} */
-const path = require('path');
-
 const nextConfig = {
   reactStrictMode: true,
   images: {
@@ -63,7 +61,10 @@ const nextConfig = {
   webpack: (config) => {
     config.externals = [...config.externals, 'bcrypt'];
     config.resolve.fallback = { fs: false, path: false };
-    config.resolve.alias['@'] = path.join(__dirname, './');
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': __dirname
+    };
     return config;
   },
   eslint: {
@@ -90,6 +91,30 @@ const simpleJsConfig = `{
 }`;
 
 fs.writeFileSync(jsConfigPath, simpleJsConfig);
+
+// Modify package.json to remove TypeScript dependencies
+console.log('Modifying package.json to remove TypeScript dependencies...');
+try {
+  const packageJsonPath = path.join(__dirname, 'package.json');
+  if (fs.existsSync(packageJsonPath)) {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    
+    // Remove TypeScript-related devDependencies
+    if (packageJson.devDependencies) {
+      delete packageJson.devDependencies.typescript;
+      delete packageJson.devDependencies['@types/react'];
+      delete packageJson.devDependencies['@types/react-dom'];
+      delete packageJson.devDependencies['@types/node'];
+      delete packageJson.devDependencies['@types/uuid'];
+    }
+    
+    // Write the modified package.json back
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    console.log('Successfully removed TypeScript dependencies from package.json');
+  }
+} catch (error) {
+  console.error('Error modifying package.json:', error);
+}
 
 // Run the Next.js build
 console.log('Running Next.js build...');

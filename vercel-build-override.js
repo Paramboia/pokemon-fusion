@@ -15,6 +15,18 @@ function deleteFileIfExists(filePath) {
   return false;
 }
 
+// Explicitly install TypeScript and type definitions
+console.log('Installing TypeScript and type definitions...');
+try {
+  execSync('npm install --no-save typescript@5.7.3 @types/react@19.0.10 @types/react-dom@19.0.4 @types/node@20.17.19', {
+    stdio: 'inherit'
+  });
+  console.log('TypeScript and type definitions installed successfully');
+} catch (error) {
+  console.error('Failed to install TypeScript:', error);
+  // Continue anyway
+}
+
 // Create a minimal tsconfig.json that won't cause errors
 console.log('Creating minimal tsconfig.json...');
 const tsConfigPath = path.join(__dirname, 'tsconfig.json');
@@ -40,7 +52,7 @@ const minimalTsConfig = `{
     }
   },
   "include": ["next-env.d.ts", "**/*.js", "**/*.jsx", "dummy.ts"],
-  "exclude": ["node_modules", "**/*.ts", "**/*.tsx"]
+  "exclude": ["node_modules"]
 }`;
 
 fs.writeFileSync(tsConfigPath, minimalTsConfig);

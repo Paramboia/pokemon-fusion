@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "installCommand": "npm install --legacy-peer-deps typescript @types/react @types/react-dom @types/node",
+  "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "node vercel-build-override.js",
   "env": {
     "NODE_OPTIONS": "--max-old-space-size=4096",

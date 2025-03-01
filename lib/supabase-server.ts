@@ -1,10 +1,24 @@
+'use server';
+
 import { createClient } from '@supabase/supabase-js';
 import { auth } from '@clerk/nextjs/server';
+import { cookies } from 'next/headers';
 
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Create a Supabase client with fallback values for build time
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+
+export function createServerClient() {
+  const cookieStore = cookies();
+  
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value;
+      },
+    },
+  });
+}
 
 // Helper function to get the current user ID from Clerk
 export const getCurrentUserId = async (): Promise<string | null> => {

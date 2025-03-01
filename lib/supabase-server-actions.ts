@@ -9,6 +9,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholde
 // Create a server-side Supabase client
 const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
+// Export the supabase client for use in other files
+export const supabase = supabaseClient;
+
 export interface FusionDB {
   id: string;
   user_id: string;
@@ -136,6 +139,57 @@ export async function removeFavorite(userId: string, fusionId: string): Promise<
     return true;
   } catch (error) {
     console.error('Error in removeFavorite:', error);
+    return false;
+  }
+}
+
+// Function for Clerk webhook to sync user data with Supabase
+export async function syncUserToSupabase(
+  userId: string, 
+  name: string, 
+  email: string
+): Promise<boolean> {
+  try {
+    // Check if user already exists
+    const { data: existingUser } = await supabaseClient
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (existingUser) {
+      // Update existing user
+      const { error } = await supabaseClient
+        .from('users')
+        .update({
+          name,
+          email
+        })
+        .eq('id', userId);
+        
+      if (error) {
+        console.error('Error updating user:', error);
+        return false;
+      }
+    } else {
+      // Insert new user
+      const { error } = await supabaseClient
+        .from('users')
+        .insert({
+          id: userId,
+          name,
+          email
+        });
+        
+      if (error) {
+        console.error('Error inserting user:', error);
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in syncUserToSupabase:', error);
     return false;
   }
 } 

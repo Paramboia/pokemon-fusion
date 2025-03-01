@@ -1,7 +1,7 @@
 import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
-import { supabase } from '@/lib/supabase-server';
+import { syncUserToSupabase } from '@/lib/supabase-server-actions';
 
 export async function POST(req: Request) {
   // Get the headers
@@ -59,31 +59,17 @@ export async function POST(req: Request) {
     const name = [first_name, last_name].filter(Boolean).join(' ') || 'Anonymous User';
 
     try {
-      // Check if user already exists
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Sync user to Supabase using our server action
+      const success = await syncUserToSupabase(
+        id, 
+        name, 
+        primaryEmail.email_address
+      );
 
-      if (existingUser) {
-        // Update existing user
-        await supabase
-          .from('users')
-          .update({
-            name,
-            email: primaryEmail.email_address
-          })
-          .eq('id', id);
-      } else {
-        // Insert new user
-        await supabase
-          .from('users')
-          .insert({
-            id,
-            name,
-            email: primaryEmail.email_address
-          });
+      if (!success) {
+        return new Response('Error syncing user to Supabase', {
+          status: 500
+        });
       }
 
       return new Response(JSON.stringify({ success: true }), {

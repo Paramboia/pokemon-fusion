@@ -79,10 +79,10 @@ export default function Home() {
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex flex-col items-center justify-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
-          <SparklesText>Pokémon Fusion Generator</SparklesText>
+          Pokémon Fusion
         </h1>
         <p className="text-lg text-center text-gray-600 dark:text-gray-400 max-w-2xl">
-          Create unique Pokémon fusions by combining any two Pokémon from the original 151!
+          Create unique Pokémon combinations with our fusion generator
         </p>
       </div>
 
@@ -97,24 +97,30 @@ export default function Home() {
             selectedPokemon={selectedPokemon}
           />
           
-          <div className="mt-8 w-full max-w-md">
-            <Button
-              onClick={handleGenerateFusion}
-              disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
-              className="w-full py-6 text-lg"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Generating Fusion...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-5 w-5" />
-                  Generate Fusion
-                </>
-              )}
-            </Button>
+          <div className="mt-8 w-full flex justify-center">
+            {isSignedIn ? (
+              <Button
+                onClick={handleGenerateFusion}
+                disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
+                className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white"
+                size="lg"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Generating Fusion...
+                  </>
+                ) : (
+                  <>
+                    Generate Fusion
+                  </>
+                )}
+              </Button>
+            ) : (
+              <AuthCtaButton className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white">
+                Sign in to generate
+              </AuthCtaButton>
+            )}
           </div>
         </div>
 

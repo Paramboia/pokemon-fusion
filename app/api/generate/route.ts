@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import Replicate from 'replicate';
 import { auth } from '@clerk/nextjs/server';
-import { dbService } from '@/lib/supabase-server';
+import { savePokemon, saveFusion } from '@/lib/supabase-server';
 import { v4 as uuidv4 } from 'uuid';
 
 // Initialize Replicate with the API token
@@ -67,13 +67,13 @@ export async function POST(req: Request) {
     
     // Save Pokemon data to Supabase if they don't exist
     await Promise.all([
-      dbService.savePokemon({
+      savePokemon({
         id: pokemon1Id,
         name: name1,
         image_url: pokemon1,
         type: [] // You would need to fetch this from the PokeAPI
       }),
-      dbService.savePokemon({
+      savePokemon({
         id: pokemon2Id,
         name: name2,
         image_url: pokemon2,
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
     const fusionId = uuidv4();
     
     // Save the fusion to Supabase
-    const fusion = await dbService.saveFusion({
+    const fusion = await saveFusion({
       id: fusionId,
       user_id: userId,
       pokemon_1_id: pokemon1Id,

@@ -9,8 +9,10 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholde
 // Create a server-side Supabase client
 const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-// Export the supabase client for use in other files
-export const supabase = supabaseClient;
+// Instead of exporting the client directly, create a function to get it
+async function getSupabaseClient() {
+  return supabaseClient;
+}
 
 export interface FusionDB {
   id: string;
@@ -35,7 +37,8 @@ export interface PokemonDB {
 export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promise<PokemonDB | null> {
   try {
     // Check if pokemon already exists
-    const { data: existingPokemon } = await supabaseClient
+    const client = await getSupabaseClient();
+    const { data: existingPokemon } = await client
       .from('pokemon')
       .select('*')
       .eq('id', pokemon.id)
@@ -46,7 +49,7 @@ export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promi
     }
     
     // Insert new pokemon
-    const { data, error } = await supabaseClient
+    const { data, error } = await client
       .from('pokemon')
       .insert(pokemon)
       .select()
@@ -66,7 +69,8 @@ export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promi
 
 export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<FusionDB | null> {
   try {
-    const { data, error } = await supabaseClient
+    const client = await getSupabaseClient();
+    const { data, error } = await client
       .from('fusions')
       .insert(fusion)
       .select()
@@ -86,7 +90,8 @@ export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<
 
 export async function likeFusion(fusionId: string): Promise<boolean> {
   try {
-    const { error } = await supabaseClient.rpc('increment_fusion_likes', {
+    const client = await getSupabaseClient();
+    const { error } = await client.rpc('increment_fusion_likes', {
       fusion_id: fusionId
     });
     
@@ -104,7 +109,8 @@ export async function likeFusion(fusionId: string): Promise<boolean> {
 
 export async function addFavorite(userId: string, fusionId: string): Promise<boolean> {
   try {
-    const { error } = await supabaseClient
+    const client = await getSupabaseClient();
+    const { error } = await client
       .from('favorites')
       .insert({
         user_id: userId,
@@ -125,7 +131,8 @@ export async function addFavorite(userId: string, fusionId: string): Promise<boo
 
 export async function removeFavorite(userId: string, fusionId: string): Promise<boolean> {
   try {
-    const { error } = await supabaseClient
+    const client = await getSupabaseClient();
+    const { error } = await client
       .from('favorites')
       .delete()
       .eq('user_id', userId)
@@ -150,8 +157,9 @@ export async function syncUserToSupabase(
   email: string
 ): Promise<boolean> {
   try {
+    const client = await getSupabaseClient();
     // Check if user already exists
-    const { data: existingUser } = await supabaseClient
+    const { data: existingUser } = await client
       .from('users')
       .select('*')
       .eq('id', userId)
@@ -159,7 +167,7 @@ export async function syncUserToSupabase(
 
     if (existingUser) {
       // Update existing user
-      const { error } = await supabaseClient
+      const { error } = await client
         .from('users')
         .update({
           name,
@@ -173,7 +181,7 @@ export async function syncUserToSupabase(
       }
     } else {
       // Insert new user
-      const { error } = await supabaseClient
+      const { error } = await client
         .from('users')
         .insert({
           id: userId,

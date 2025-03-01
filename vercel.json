@@ -8,13 +8,9 @@
   },
   "outputDirectory": ".next",
   "rewrites": [
+    { "source": "/static-test", "destination": "/static-test" },
+    { "source": "/api/health", "destination": "/api/health" },
     { "source": "/(.*)", "destination": "/$1" }
-  ],
-  "routes": [
-    { "src": "/static-test", "dest": "/static-test" },
-    { "src": "/api/health", "dest": "/api/health" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/" }
   ],
   "headers": [
     {

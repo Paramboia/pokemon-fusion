@@ -10,6 +10,12 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/$1" }
   ],
+  "routes": [
+    { "src": "/static-test", "dest": "/static-test" },
+    { "src": "/api/health", "dest": "/api/health" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

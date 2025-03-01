@@ -5,7 +5,8 @@ import { dbService } from '@/lib/supabase';
 export async function POST(req: Request) {
   try {
     // Get the current user ID from Clerk
-    const { userId } = auth();
+    const session = await auth();
+    const userId = session?.userId;
     
     if (!userId) {
       return NextResponse.json(
@@ -49,7 +50,8 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     // Get the current user ID from Clerk
-    const { userId } = auth();
+    const session = await auth();
+    const userId = session?.userId;
     
     if (!userId) {
       return NextResponse.json(

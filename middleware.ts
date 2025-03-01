@@ -5,10 +5,15 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const url = new URL(request.url);
   const hostname = url.hostname;
+  const pathname = url.pathname;
+  
+  // Log for debugging
+  console.log(`Middleware processing: ${hostname}${pathname}`);
   
   // If the hostname is www.pokemon-fusion.com, redirect to pokemon-fusion.com
   if (hostname === 'www.pokemon-fusion.com') {
     const newUrl = new URL(url.pathname + url.search, `https://pokemon-fusion.com`);
+    console.log(`Redirecting from www to non-www: ${newUrl.toString()}`);
     return NextResponse.redirect(newUrl);
   }
   

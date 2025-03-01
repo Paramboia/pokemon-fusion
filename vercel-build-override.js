@@ -16,12 +16,13 @@ function deleteFileIfExists(filePath) {
   return false;
 }
 
-// IMPORTANT: We're commenting out the TypeScript file deletion
-// as it might be causing routing issues
-console.log('Skipping TypeScript file deletion to preserve routing...');
-// deleteFileIfExists(path.join(__dirname, 'tsconfig.json'));
-// deleteFileIfExists(path.join(__dirname, 'tsconfig.build.json'));
-// deleteFileIfExists(path.join(__dirname, 'next-env.d.ts'));
+// IMPORTANT: We're completely disabling TypeScript file deletion
+// as it's causing routing issues
+console.log('Preserving TypeScript configuration to ensure proper routing...');
+// DO NOT delete TypeScript configuration files
+// DO NOT delete tsconfig.json
+// DO NOT delete tsconfig.build.json
+// DO NOT delete next-env.d.ts
 
 // Delete Babel configuration files
 console.log('Removing Babel configuration files...');
@@ -97,11 +98,6 @@ fs.writeFileSync(nextConfigPath, simpleNextConfig);
 console.log('Creating .env.local file...');
 const envPath = path.join(__dirname, '.env.local');
 const envContent = `
-NEXT_DISABLE_SWC=1
-SKIP_TYPE_CHECK=true
-NEXT_SKIP_TYPE_CHECK=true
-NEXT_DISABLE_SOURCEMAPS=true
-TYPESCRIPT_IGNORE_BUILD_ERRORS=true
 NEXT_TELEMETRY_DISABLED=1
 
 # Supabase placeholder values (these should be set in Vercel environment variables)
@@ -157,11 +153,6 @@ try {
     stdio: 'inherit',
     env: {
       ...process.env,
-      NEXT_DISABLE_SWC: '1',
-      SKIP_TYPE_CHECK: 'true',
-      NEXT_SKIP_TYPE_CHECK: 'true',
-      NEXT_DISABLE_SOURCEMAPS: 'true',
-      TYPESCRIPT_IGNORE_BUILD_ERRORS: 'true',
       NEXT_TELEMETRY_DISABLED: '1',
       NODE_OPTIONS: '--max-old-space-size=4096'
     }

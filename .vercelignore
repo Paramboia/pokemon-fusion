@@ -10,4 +10,6 @@ node_modules
 vercel-build-override.sh
 vercel-build.js
 build-vercel.js
-!vercel-build-override.js 
+!vercel-build-override.js
+!**/*.ts
+!**/*.tsx 

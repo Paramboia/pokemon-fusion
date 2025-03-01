@@ -16,11 +16,12 @@ function deleteFileIfExists(filePath) {
   return false;
 }
 
-// Delete all TypeScript files and configurations
-console.log('Removing all TypeScript files and configurations...');
-deleteFileIfExists(path.join(__dirname, 'tsconfig.json'));
-deleteFileIfExists(path.join(__dirname, 'tsconfig.build.json'));
-deleteFileIfExists(path.join(__dirname, 'next-env.d.ts'));
+// IMPORTANT: We're commenting out the TypeScript file deletion
+// as it might be causing routing issues
+console.log('Skipping TypeScript file deletion to preserve routing...');
+// deleteFileIfExists(path.join(__dirname, 'tsconfig.json'));
+// deleteFileIfExists(path.join(__dirname, 'tsconfig.build.json'));
+// deleteFileIfExists(path.join(__dirname, 'next-env.d.ts'));
 
 // Delete Babel configuration files
 console.log('Removing Babel configuration files...');

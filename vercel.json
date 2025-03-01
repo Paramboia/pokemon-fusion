@@ -1,17 +1,32 @@
 {
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "node vercel-build-override.js",
+  "buildCommand": "npm run build",
   "env": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
-    "NEXT_TELEMETRY_DISABLED": "1",
-    "SKIP_TYPE_CHECK": "true",
-    "NEXT_SKIP_TYPE_CHECK": "true",
-    "NEXT_DISABLE_SOURCEMAPS": "true",
-    "NEXT_DISABLE_SWC": "1",
-    "TYPESCRIPT_IGNORE_BUILD_ERRORS": "true",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://placeholder-value-replace-in-vercel.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "placeholder-value-replace-in-vercel"
+    "NEXT_TELEMETRY_DISABLED": "1"
   },
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ]
 } 

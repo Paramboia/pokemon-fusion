@@ -79,7 +79,7 @@ export default function Home() {
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex flex-col items-center justify-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
-          Pokémon Fusion
+          <SparklesText text="Pokémon Fusion" />
         </h1>
         <p className="text-lg text-center text-gray-600 dark:text-gray-400 max-w-2xl">
           Create unique Pokémon combinations with our fusion generator
@@ -117,7 +117,10 @@ export default function Home() {
                 )}
               </Button>
             ) : (
-              <AuthCtaButton className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white">
+              <AuthCtaButton 
+                className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white"
+                ctaText="Sign in to generate"
+              >
                 Sign in to generate
               </AuthCtaButton>
             )}
@@ -150,7 +153,7 @@ export default function Home() {
                     Download
                   </Button>
                   
-                  <FusionAuthGate fallback={<AuthCtaButton />}>
+                  {isSignedIn ? (
                     <Button
                       variant={isLiked ? "default" : "outline"}
                       onClick={() => setIsLiked(!isLiked)}
@@ -158,7 +161,15 @@ export default function Home() {
                       <Heart className={`mr-2 h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
                       {isLiked ? "Liked" : "Like"}
                     </Button>
-                  </FusionAuthGate>
+                  ) : (
+                    <AuthCtaButton 
+                      variant="outline"
+                      ctaText="Sign in to like"
+                    >
+                      <Heart className="mr-2 h-4 w-4" />
+                      Like
+                    </AuthCtaButton>
+                  )}
                 </div>
               </div>
             </Card>

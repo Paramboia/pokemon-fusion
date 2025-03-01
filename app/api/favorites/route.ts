@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { dbService } from '@/lib/supabase';
+import { addFavorite, removeFavorite } from '@/lib/supabase-server-actions';
 
 export async function POST(req: Request) {
   try {
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     // Add the fusion to favorites
-    const success = await dbService.addFavorite(userId, fusionId);
+    const success = await addFavorite(userId, fusionId);
 
     if (!success) {
       return NextResponse.json(
@@ -73,7 +73,7 @@ export async function DELETE(req: Request) {
     }
 
     // Remove the fusion from favorites
-    const success = await dbService.removeFavorite(userId, fusionId);
+    const success = await removeFavorite(userId, fusionId);
 
     if (!success) {
       return NextResponse.json(

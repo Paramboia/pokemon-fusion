@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import Replicate from 'replicate';
 import { auth } from '@clerk/nextjs/server';
-import { savePokemon, saveFusion } from '@/lib/supabase-server';
+import { savePokemon, saveFusion } from '@/lib/supabase-server-actions';
 import { v4 as uuidv4 } from 'uuid';
 
 // Initialize Replicate with the API token

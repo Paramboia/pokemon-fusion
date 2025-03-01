@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { dbService } from '@/lib/supabase';
+import { likeFusion } from '@/lib/supabase-server-actions';
 
 export async function POST(req: Request) {
   try {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     // Like the fusion
-    const success = await dbService.likeFusion(fusionId);
+    const success = await likeFusion(fusionId);
 
     if (!success) {
       return NextResponse.json(

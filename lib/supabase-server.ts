@@ -8,7 +8,10 @@ import { cookies } from 'next/headers';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
-export function createServerClient() {
+// Create a server-side Supabase client
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export async function createServerClient() {
   const cookieStore = cookies();
   
   return createClient(supabaseUrl, supabaseAnonKey, {
@@ -56,75 +59,95 @@ export interface FavoriteDB {
 export const dbService = {
   // Pokemon functions
   async getPokemon(id: number): Promise<PokemonDB | null> {
-    const { data, error } = await supabase
-      .from('pokemon')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching pokemon:', error);
+    try {
+      const { data, error } = await supabase
+        .from('pokemon')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching pokemon:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in getPokemon:', error);
       return null;
     }
-    
-    return data;
   },
   
   async savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promise<PokemonDB | null> {
-    // Check if pokemon already exists
-    const { data: existingPokemon } = await supabase
-      .from('pokemon')
-      .select('*')
-      .eq('id', pokemon.id)
-      .single();
-    
-    if (existingPokemon) {
-      return existingPokemon;
-    }
-    
-    // Insert new pokemon
-    const { data, error } = await supabase
-      .from('pokemon')
-      .insert(pokemon)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Error saving pokemon:', error);
+    try {
+      // Check if pokemon already exists
+      const { data: existingPokemon } = await supabase
+        .from('pokemon')
+        .select('*')
+        .eq('id', pokemon.id)
+        .single();
+      
+      if (existingPokemon) {
+        return existingPokemon;
+      }
+      
+      // Insert new pokemon
+      const { data, error } = await supabase
+        .from('pokemon')
+        .insert(pokemon)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error saving pokemon:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in savePokemon:', error);
       return null;
     }
-    
-    return data;
   },
   
   // Fusion functions
   async getFusion(id: string): Promise<FusionDB | null> {
-    const { data, error } = await supabase
-      .from('fusions')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching fusion:', error);
+    try {
+      const { data, error } = await supabase
+        .from('fusions')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching fusion:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in getFusion:', error);
       return null;
     }
-    
-    return data;
   },
   
   async saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<FusionDB | null> {
-    const { data, error } = await supabase
-      .from('fusions')
-      .insert(fusion)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Error saving fusion:', error);
+    try {
+      const { data, error } = await supabase
+        .from('fusions')
+        .insert(fusion)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error saving fusion:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in saveFusion:', error);
       return null;
     }
-    
-    return data;
   }
 }; 

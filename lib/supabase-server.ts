@@ -151,11 +151,5 @@ export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<
   }
 }
 
-// For backward compatibility, we'll also export a dbService object
-// that calls the async functions
-export const dbService = {
-  getPokemon,
-  savePokemon,
-  getFusion,
-  saveFusion
-}; 
+// Note: We've removed the dbService object export since it's not allowed in 'use server' files
+// If you need to use these functions in client components, you'll need to import them individually 

@@ -12,22 +12,31 @@ console.log('Supabase Client - Anon Key available:', !!supabaseAnonKey);
 // Create a Supabase client with minimal configuration
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
+    // IMPORTANT: We're using Clerk for authentication, NOT Supabase Auth
+    // These settings explicitly disable all Supabase Auth functionality
     persistSession: false,
     autoRefreshToken: false,
-    detectSessionInUrl: false, // We're using Clerk for auth, not Supabase Auth
+    detectSessionInUrl: false,
+    flowType: 'implicit',  // Most minimal flow type
+    storage: null,  // Don't store anything in local storage
   },
 });
 
 // Log when the client is created
 console.log('Supabase Client - Client created successfully');
+console.log('Supabase Client - Auth is DISABLED - using Clerk for authentication only');
 
 // Function to create an authenticated Supabase client for a single request
 const createAuthenticatedClient = (token: string, userId: string) => {
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
+      // IMPORTANT: We're using Clerk for authentication, NOT Supabase Auth
+      // These settings explicitly disable all Supabase Auth functionality
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+      flowType: 'implicit',  // Most minimal flow type
+      storage: null,  // Don't store anything in local storage
     },
     global: {
       headers: {

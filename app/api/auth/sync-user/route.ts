@@ -9,12 +9,17 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.
 
 console.log('Sync-user API - Supabase URL:', supabaseUrl);
 console.log('Sync-user API - Service Key available:', !!supabaseServiceKey);
+console.log('Sync-user API - Service Key first 10 chars:', supabaseServiceKey ? supabaseServiceKey.substring(0, 10) + '...' : 'N/A');
 
 // Create a server-side Supabase client with additional headers
 const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
+    // IMPORTANT: We're using Clerk for authentication, NOT Supabase Auth
+    // These settings explicitly disable all Supabase Auth functionality
     persistSession: false,
     autoRefreshToken: false,
+    flowType: 'implicit',  // Most minimal flow type
+    storage: null,  // Don't store anything in local storage
   },
   global: {
     headers: {
@@ -27,6 +32,8 @@ const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
     schema: 'public',
   },
 });
+
+console.log('Sync-user API - Supabase client created with Auth DISABLED - using Clerk for authentication only');
 
 // Helper function to ensure the users table exists
 async function ensureUsersTable() {
@@ -119,6 +126,8 @@ async function ensureUsersTable() {
     return true;
   } catch (error) {
     console.error('Sync-user API - Error ensuring users table:', error);
+    console.error('Sync-user API - Error details:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Sync-user API - Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return false;
   }
 }
@@ -133,6 +142,16 @@ export async function POST(req: Request) {
     
     console.log('Sync-user API - Clerk user:', user ? 'Found' : 'Not found');
     console.log('Sync-user API - Clerk userId from auth():', userId);
+    
+    if (user) {
+      console.log('Sync-user API - User details:', {
+        id: user.id,
+        fullName: user.fullName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        hasEmail: !!user.emailAddresses?.length
+      });
+    }
     
     // Use either the user ID from currentUser() or from auth()
     const clerkUserId = user?.id || userId;
@@ -250,6 +269,8 @@ export async function POST(req: Request) {
       }
     } catch (error) {
       console.error('Sync-user API - Error syncing user to Supabase:', error);
+      console.error('Sync-user API - Error details:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Sync-user API - Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       return NextResponse.json(
         { error: 'Error syncing user to Supabase' },
         { status: 500 }
@@ -257,6 +278,8 @@ export async function POST(req: Request) {
     }
   } catch (error) {
     console.error('Sync-user API - Error in sync-user API:', error);
+    console.error('Sync-user API - Error details:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Sync-user API - Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

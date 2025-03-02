@@ -46,6 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       console.log('Auth Context - User is signed in, syncing to Supabase');
+      console.log('Auth Context - User details:', {
+        id: user.id,
+        fullName: user.fullName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        hasEmail: !!user.primaryEmailAddress
+      });
       
       // Get user data from Clerk
       const name = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Anonymous User';
@@ -56,6 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthError('No email found for user');
         return null;
       }
+      
+      console.log('Auth Context - Calling sync-user API with name:', name, 'and email:', email);
       
       // Call our API to sync the user to Supabase
       const response = await fetch('/api/auth/sync-user', {
@@ -69,10 +78,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }),
       });
       
+      console.log('Auth Context - sync-user API response status:', response.status);
+      
       // Check if the response is ok
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Auth Context - Error syncing user to Supabase:', errorData);
+        console.error('Auth Context - Response status:', response.status);
         
         // For errors, use Clerk data as fallback
         console.log('Auth Context - Using Clerk user data as fallback due to sync error');
@@ -92,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return data.user;
     } catch (error) {
       console.error('Auth Context - Error in syncUserToSupabase:', error);
+      console.error('Auth Context - Error details:', error instanceof Error ? error.message : 'Unknown error');
       setAuthError(`Error syncing user: ${error instanceof Error ? error.message : 'Unknown error'}`);
       
       // Use Clerk data as fallback
@@ -124,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }).catch(error => {
           console.error('Auth Context - Exception in syncUserToSupabase promise:', error);
+          console.error('Auth Context - Error stack:', error.stack);
           toast.error('Error syncing user data');
         });
       } else if (!isSignedIn) {

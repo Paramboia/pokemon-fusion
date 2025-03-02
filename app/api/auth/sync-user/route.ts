@@ -7,6 +7,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder
 // Use the service role key for server-side operations to bypass RLS
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
+console.log('Sync-user API - Supabase URL:', supabaseUrl);
+console.log('Sync-user API - Service Key available:', !!supabaseServiceKey);
+
 // Create a server-side Supabase client with additional headers
 const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
@@ -30,6 +33,8 @@ export async function POST(req: Request) {
     // Get the current user ID from Clerk
     const { userId } = auth();
     
+    console.log('Sync-user API - Clerk userId:', userId);
+    
     if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -40,6 +45,8 @@ export async function POST(req: Request) {
     // Parse the request body
     const body = await req.json();
     const { name, email } = body;
+    
+    console.log('Sync-user API - Syncing user with name:', name, 'and email:', email);
 
     // Validate the request parameters
     if (!name || !email) {
@@ -50,46 +57,75 @@ export async function POST(req: Request) {
     }
 
     try {
+      // First, ensure the users table exists
+      console.log('Sync-user API - Ensuring users table exists');
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS users (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT,
+          email TEXT UNIQUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `;
+      
+      try {
+        const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+        if (createTableError) {
+          console.log('Sync-user API - Error creating users table (may already exist):', createTableError);
+        } else {
+          console.log('Sync-user API - Users table created or already exists');
+        }
+      } catch (tableError) {
+        console.log('Sync-user API - Error in table creation (may not have permission):', tableError);
+        // Continue anyway, as the table might already exist
+      }
+
       // Check if user already exists by email
+      console.log('Sync-user API - Checking if user exists with email:', email);
       const { data: existingUser, error: fetchError } = await supabaseClient
         .from('users')
         .select('*')
         .eq('email', email)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error fetching user:', fetchError);
+      if (fetchError) {
+        if (fetchError.code === 'PGRST116') {
+          console.log('Sync-user API - User not found with email:', email);
+        } else {
+          console.error('Sync-user API - Error fetching user:', fetchError);
+        }
+      } else {
+        console.log('Sync-user API - Found existing user:', existingUser);
       }
 
       if (existingUser) {
+        console.log('Sync-user API - Updating existing user with ID:', existingUser.id);
         // Update existing user
-        const { error: updateError } = await supabaseClient
+        const { data: updatedUser, error: updateError } = await supabaseClient
           .from('users')
           .update({
             name,
             email
           })
-          .eq('id', existingUser.id);
+          .eq('id', existingUser.id)
+          .select();
           
         if (updateError) {
-          console.error('Error updating user:', updateError);
+          console.error('Sync-user API - Error updating user:', updateError);
           return NextResponse.json(
             { error: 'Error updating user in Supabase' },
             { status: 500 }
           );
         }
         
-        console.log('Successfully updated user in Supabase');
+        console.log('Sync-user API - Successfully updated user in Supabase:', updatedUser);
         
         return NextResponse.json({ 
           success: true,
-          user: {
-            id: existingUser.id,
-            name,
-            email
-          }
+          user: updatedUser?.[0] || existingUser
         });
       } else {
+        console.log('Sync-user API - Creating new user with name:', name, 'and email:', email);
         // Insert new user - let Supabase generate the UUID
         const { data: newUser, error: insertError } = await supabaseClient
           .from('users')
@@ -97,33 +133,35 @@ export async function POST(req: Request) {
             name,
             email
           })
-          .select()
-          .single();
+          .select();
           
         if (insertError) {
-          console.error('Error inserting user:', insertError);
+          console.error('Sync-user API - Error inserting user:', insertError);
+          console.error('Sync-user API - Error details:', JSON.stringify(insertError));
           return NextResponse.json(
             { error: 'Error inserting user to Supabase' },
             { status: 500 }
           );
         }
         
-        console.log('Successfully inserted new user in Supabase');
+        console.log('Sync-user API - Successfully inserted new user in Supabase:', newUser);
         
         return NextResponse.json({ 
           success: true,
-          user: newUser
+          user: newUser?.[0] || null
         });
       }
     } catch (error) {
-      console.error('Error syncing user to Supabase:', error);
+      console.error('Sync-user API - Error syncing user to Supabase:', error);
+      console.error('Sync-user API - Error details:', JSON.stringify(error));
       return NextResponse.json(
         { error: 'Error syncing user to Supabase' },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('Error in sync-user API:', error);
+    console.error('Sync-user API - Error in sync-user API:', error);
+    console.error('Sync-user API - Error details:', JSON.stringify(error));
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

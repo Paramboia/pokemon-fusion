@@ -114,25 +114,36 @@ export async function POST(req: Request) {
 
     // Ensure the favorites table exists before adding
     try {
-      console.log('Favorites API - Ensuring favorites table exists');
-      const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS favorites (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-          user_id TEXT NOT NULL,
-          fusion_id UUID NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          UNIQUE(user_id, fusion_id)
-        );
-      `;
+      console.log('Favorites API - Checking if favorites table exists');
+      const { data, error } = await supabaseClient
+        .from('favorites')
+        .select('id')
+        .limit(1);
       
-      const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
-      if (createTableError) {
-        console.log('Favorites API - Error creating favorites table (may already exist):', createTableError);
+      if (error) {
+        console.log('Favorites API - Error checking favorites table, attempting to create it:', error.message);
+        
+        // Create the table with the correct structure matching the schema
+        const createTableQuery = `
+          CREATE TABLE IF NOT EXISTS favorites (
+            id SERIAL PRIMARY KEY,
+            user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+            fusion_id UUID REFERENCES fusions(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT now()
+          );
+        `;
+        
+        const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+        if (createTableError) {
+          console.log('Favorites API - Error creating favorites table:', createTableError);
+        } else {
+          console.log('Favorites API - Favorites table created successfully');
+        }
       } else {
-        console.log('Favorites API - Favorites table created or already exists');
+        console.log('Favorites API - Favorites table already exists');
       }
     } catch (tableError) {
-      console.log('Favorites API - Error in favorites table creation (may not have permission):', tableError);
+      console.log('Favorites API - Error in favorites table check/creation:', tableError);
       // Continue anyway, as the table might already exist
     }
 
@@ -198,25 +209,36 @@ export async function DELETE(req: Request) {
 
     // Ensure the favorites table exists before deleting
     try {
-      console.log('Favorites API - Ensuring favorites table exists');
-      const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS favorites (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-          user_id TEXT NOT NULL,
-          fusion_id UUID NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          UNIQUE(user_id, fusion_id)
-        );
-      `;
+      console.log('Favorites API - Checking if favorites table exists');
+      const { data, error } = await supabaseClient
+        .from('favorites')
+        .select('id')
+        .limit(1);
       
-      const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
-      if (createTableError) {
-        console.log('Favorites API - Error creating favorites table (may already exist):', createTableError);
+      if (error) {
+        console.log('Favorites API - Error checking favorites table, attempting to create it:', error.message);
+        
+        // Create the table with the correct structure matching the schema
+        const createTableQuery = `
+          CREATE TABLE IF NOT EXISTS favorites (
+            id SERIAL PRIMARY KEY,
+            user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+            fusion_id UUID REFERENCES fusions(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT now()
+          );
+        `;
+        
+        const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+        if (createTableError) {
+          console.log('Favorites API - Error creating favorites table:', createTableError);
+        } else {
+          console.log('Favorites API - Favorites table created successfully');
+        }
       } else {
-        console.log('Favorites API - Favorites table created or already exists');
+        console.log('Favorites API - Favorites table already exists');
       }
     } catch (tableError) {
-      console.log('Favorites API - Error in favorites table creation (may not have permission):', tableError);
+      console.log('Favorites API - Error in favorites table check/creation:', tableError);
       // Continue anyway, as the table might already exist
     }
 
@@ -289,30 +311,41 @@ export async function GET(req: Request) {
 
     // Ensure the favorites table exists before querying
     try {
-      console.log('Favorites API - Ensuring favorites table exists');
-      const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS favorites (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-          user_id TEXT NOT NULL,
-          fusion_id UUID NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          UNIQUE(user_id, fusion_id)
-        );
-      `;
+      console.log('Favorites API - Checking if favorites table exists');
+      const { data, error } = await supabaseClient
+        .from('favorites')
+        .select('id')
+        .limit(1);
       
-      const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
-      if (createTableError) {
-        console.log('Favorites API - Error creating favorites table (may already exist):', createTableError);
+      if (error) {
+        console.log('Favorites API - Error checking favorites table, attempting to create it:', error.message);
+        
+        // Create the table with the correct structure matching the schema
+        const createTableQuery = `
+          CREATE TABLE IF NOT EXISTS favorites (
+            id SERIAL PRIMARY KEY,
+            user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+            fusion_id UUID REFERENCES fusions(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT now()
+          );
+        `;
+        
+        const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+        if (createTableError) {
+          console.log('Favorites API - Error creating favorites table:', createTableError);
+        } else {
+          console.log('Favorites API - Favorites table created successfully');
+        }
       } else {
-        console.log('Favorites API - Favorites table created or already exists');
+        console.log('Favorites API - Favorites table already exists');
       }
     } catch (tableError) {
-      console.log('Favorites API - Error in favorites table creation (may not have permission):', tableError);
+      console.log('Favorites API - Error in favorites table check/creation:', tableError);
       // Continue anyway, as the table might already exist
     }
 
     // Query the favorites table for this user
-    const { data, error } = await supabaseClient
+    const { data: favoritesData, error: favoritesError } = await supabaseClient
       .from('favorites')
       .select(`
         fusion_id,
@@ -327,18 +360,18 @@ export async function GET(req: Request) {
       `)
       .eq('user_id', supabaseUserId);
 
-    if (error) {
-      console.error('Favorites API - Error fetching favorites:', error.message);
+    if (favoritesError) {
+      console.error('Favorites API - Error fetching favorites:', favoritesError.message);
       return NextResponse.json(
         { error: 'Failed to fetch favorites' },
         { status: 500 }
       );
     }
 
-    console.log('Favorites API - Fetched favorites count:', data?.length || 0);
+    console.log('Favorites API - Fetched favorites count:', favoritesData?.length || 0);
 
     // Transform the data to a more usable format
-    const favorites = data?.map(item => item.fusions) || [];
+    const favorites = favoritesData?.map(item => item.fusions) || [];
 
     return NextResponse.json({ favorites });
   } catch (error) {

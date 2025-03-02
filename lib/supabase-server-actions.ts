@@ -213,24 +213,36 @@ async function ensureFavoritesTableExists() {
     console.log('Server Actions - Ensuring favorites table exists');
     const client = await getSupabaseClient();
     
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS favorites (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id TEXT NOT NULL,
-        fusion_id UUID NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        UNIQUE(user_id, fusion_id)
-      );
-    `;
+    // Check if the favorites table exists
+    const { data, error } = await client
+      .from('favorites')
+      .select('id')
+      .limit(1);
     
-    const { error: createTableError } = await client.rpc('exec_sql', { query: createTableQuery });
-    if (createTableError) {
-      console.log('Server Actions - Error creating favorites table (may already exist):', createTableError);
+    if (error) {
+      console.log('Server Actions - Error checking favorites table, attempting to create it:', error.message);
+      
+      // Create the table with the correct structure matching the schema
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS favorites (
+          id SERIAL PRIMARY KEY,
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          fusion_id UUID REFERENCES fusions(id) ON DELETE CASCADE,
+          created_at TIMESTAMP DEFAULT now()
+        );
+      `;
+      
+      const { error: createTableError } = await client.rpc('exec_sql', { query: createTableQuery });
+      if (createTableError) {
+        console.log('Server Actions - Error creating favorites table:', createTableError);
+      } else {
+        console.log('Server Actions - Favorites table created successfully');
+      }
     } else {
-      console.log('Server Actions - Favorites table created or already exists');
+      console.log('Server Actions - Favorites table already exists');
     }
   } catch (tableError) {
-    console.log('Server Actions - Error in favorites table creation (may not have permission):', tableError);
+    console.log('Server Actions - Error in favorites table check/creation:', tableError);
     // Continue anyway, as the table might already exist
   }
 }

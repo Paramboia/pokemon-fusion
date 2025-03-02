@@ -23,13 +23,21 @@ export function useFusion() {
       setIsLocalFallback(false)
       setFusionId(null)
       setFusionName(null)
-      
+
       console.log('Generating fusion for:', { name1, name2 })
-      
+
       // Get the Clerk session token
       const token = await getToken()
       console.log('Got authentication token:', token ? 'Yes' : 'No')
-      
+
+      if (!token) {
+        console.error('No authentication token available')
+        toast.error('Authentication required. Please sign in.')
+        setError('Authentication required')
+        setGenerating(false)
+        return
+      }
+
       // Call the API endpoint to generate the fusion
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -47,50 +55,44 @@ export function useFusion() {
           pokemon2Id
         }),
       })
-      
+
       // Parse the response
       const data = await response.json()
-      
+
       // Check if the response is successful
       if (!response.ok) {
         const errorMessage = data.error || 'Failed to generate fusion'
-        console.error('API error:', errorMessage)
+        console.error('Error generating fusion:', errorMessage, 'Status:', response.status)
         
-        // Check if payment is required
-        if (response.status === 402 || data.paymentRequired) {
+        if (response.status === 401) {
+          toast.error('Authentication required. Please sign in again.')
+          setError('Authentication required')
+        } else if (response.status === 402) {
           setIsPaymentRequired(true)
+          setError('Payment required to generate more fusions')
+        } else {
+          toast.error(errorMessage)
+          setError(errorMessage)
         }
         
-        setError(errorMessage)
-        toast.error(errorMessage)
-        throw new Error(errorMessage)
+        setGenerating(false)
+        return
       }
-      
-      console.log('Fusion generated successfully:', data)
-      
-      // Check if this is a local fallback
-      if (data.isLocalFallback) {
-        setIsLocalFallback(true)
-        toast.warning('Using local fallback for fusion generation')
-      }
-      
+
       // Set the fusion data
-      setFusionImage(data.url)
-      setFusionId(data.id)
-      setFusionName(data.name)
+      console.log('Fusion generated successfully:', data)
+      setFusionImage(data.fusionImage)
+      setFusionId(data.fusionId)
+      setFusionName(data.fusionName)
+      setIsLocalFallback(data.isLocalFallback || false)
       
       // Show success message
       toast.success('Fusion generated successfully!')
-      
-      return true
-    } catch (error) {
-      // Handle errors
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate fusion'
-      console.error('Error generating fusion:', errorMessage)
-      setError(errorMessage)
-      throw error
+    } catch (err) {
+      console.error('Error in generateFusion:', err)
+      setError('An unexpected error occurred')
+      toast.error('Failed to generate fusion. Please try again.')
     } finally {
-      // Always reset the generating state
       setGenerating(false)
     }
   }

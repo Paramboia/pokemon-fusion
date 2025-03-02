@@ -166,99 +166,58 @@ export async function POST(req: Request) {
   try {
     // Get the current user ID from Clerk
     const { userId: clerkUserId } = auth();
-    
     console.log('Generate API - Clerk userId from auth():', clerkUserId);
-    
-    // Check for authorization header as fallback
-    if (!clerkUserId) {
+
+    // Variable to store the final user ID we'll use
+    let finalUserId: string | null = null;
+
+    // First try to get the user from the auth() function
+    if (clerkUserId) {
+      console.log('Generate API - Using Clerk userId from auth()');
+      finalUserId = clerkUserId;
+    } else {
+      // If no user from auth(), check the Authorization header
       console.log('Generate API - No Clerk userId found from auth(), checking Authorization header');
-      
-      // Get the authorization header
       const authHeader = req.headers.get('Authorization');
       console.log('Generate API - Authorization header present:', authHeader ? 'Yes' : 'No');
-      
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        console.log('Generate API - No valid Authorization header found, checking cookies');
-        
-        // Try to get the session from cookies
-        const sessionCookie = req.headers.get('cookie');
-        console.log('Generate API - Session cookie present:', sessionCookie ? 'Yes' : 'No');
-        
-        if (!sessionCookie) {
-          console.log('Generate API - No authentication method available, returning 401');
-          return NextResponse.json(
-            { error: 'Authentication required' },
-            { status: 401 }
-          );
-        }
-        
-        // Try to use the session cookie for authentication
+
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        // Extract the token
+        const token = authHeader.split(' ')[1];
+        console.log('Generate API - Extracted token (first 10 chars):', token.substring(0, 10) + '...');
+
         try {
-          // This is a placeholder for session-based authentication
-          // In a real implementation, you would validate the session cookie
-          console.log('Generate API - Attempting to use session cookie for authentication');
-          
-          // For now, we'll just proceed with the request
-          // In a real implementation, you would extract the user ID from the session
-          const dummyUserId = 'session-based-auth-not-implemented';
-          console.log('Generate API - Using dummy user ID for testing:', dummyUserId);
-          
-          // Parse the request body to get the user information
-          const body = await req.json();
-          console.log('Generate API - Request body:', body);
-          
-          // Process the fusion generation with a dummy user ID
-          // This is just for testing - in production, you should properly authenticate the user
-          return handleFusionGeneration(req, dummyUserId);
-        } catch (sessionError) {
-          console.error('Generate API - Error using session cookie:', sessionError);
-        }
-        
-        console.log('Generate API - Session-based authentication failed, returning 401');
-        return NextResponse.json(
-          { error: 'Authentication required' },
-          { status: 401 }
-        );
-      }
-      
-      // Extract the token
-      const token = authHeader.split(' ')[1];
-      console.log('Generate API - Extracted token (first 10 chars):', token.substring(0, 10) + '...');
-      
-      console.log('Generate API - Attempting to verify token with Clerk');
-      
-      try {
-        // Verify the token with Clerk
-        const verifiedToken = await clerkClient.verifyToken(token);
-        console.log('Generate API - Token verification result:', verifiedToken ? 'Success' : 'Failed');
-        
-        if (verifiedToken && verifiedToken.sub) {
-          console.log('Generate API - Verified token, userId:', verifiedToken.sub);
-          
-          // Get the corresponding Supabase user ID
-          const supabaseUserId = await getSupabaseUserId(verifiedToken.sub);
-          console.log('Generate API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
-          
-          if (supabaseUserId) {
-            console.log('Generate API - Found Supabase user ID from token:', supabaseUserId);
-            return handleFusionGeneration(req, supabaseUserId);
+          // Verify the token with Clerk
+          const verifiedToken = await clerkClient.verifyToken(token);
+          console.log('Generate API - Token verification result:', verifiedToken ? 'Success' : 'Failed');
+
+          if (verifiedToken && verifiedToken.sub) {
+            console.log('Generate API - Verified token, userId:', verifiedToken.sub);
+            finalUserId = verifiedToken.sub;
+          } else {
+            console.log('Generate API - Token verification failed or no sub claim');
           }
+        } catch (tokenError) {
+          console.error('Generate API - Error verifying token:', tokenError);
         }
-      } catch (tokenError) {
-        console.error('Generate API - Error verifying token:', tokenError);
+      } else {
+        console.log('Generate API - No valid Authorization header found');
       }
-      
-      console.log('Generate API - Token-based authentication failed, returning 401');
+    }
+
+    // If we still don't have a user ID, return 401
+    if (!finalUserId) {
+      console.log('Generate API - No user ID found from any source, returning 401');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
-    
+
     // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserId(clerkUserId);
-    console.log('Generate API - Supabase user lookup result for Clerk ID:', supabaseUserId ? 'Found' : 'Not found');
-    
+    const supabaseUserId = await getSupabaseUserId(finalUserId);
+    console.log('Generate API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
+
     if (!supabaseUserId) {
       console.log('Generate API - No Supabase user found for Clerk ID, returning 401');
       return NextResponse.json(
@@ -266,12 +225,11 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
-    
+
     // Process the fusion generation
-    console.log('Generate API - Proceeding with fusion generation for user:', supabaseUserId);
     return handleFusionGeneration(req, supabaseUserId);
   } catch (error) {
-    console.error('Generate API - Error in POST handler:', error);
+    console.error('Generate API - Unexpected error in POST handler:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

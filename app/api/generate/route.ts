@@ -10,6 +10,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder
 // Use the service role key for server-side operations to bypass RLS
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
+console.log('Generate API - Supabase URL:', supabaseUrl);
+console.log('Generate API - Service Key available:', !!supabaseServiceKey);
+
 // Create a server-side Supabase client with additional headers
 const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
@@ -49,7 +52,10 @@ export async function POST(req: Request) {
     // Get the current user ID from Clerk
     const { userId } = auth();
     
+    console.log('Generate API - Clerk userId:', userId);
+    
     if (!userId) {
+      console.log('Generate API - No userId found, returning 401');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -60,7 +66,7 @@ export async function POST(req: Request) {
     const isReplicateConfigured = !!(process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN);
     
     if (!isReplicateConfigured) {
-      console.warn('Replicate API token is not defined, using local fallback');
+      console.warn('Generate API - Replicate API token is not defined, using local fallback');
     }
 
     // Parse the request body
@@ -69,7 +75,7 @@ export async function POST(req: Request) {
 
     // Validate the request parameters
     if (!pokemon1 || !pokemon2 || !name1 || !name2 || !pokemon1Id || !pokemon2Id) {
-      console.error('Missing required parameters:', { 
+      console.error('Generate API - Missing required parameters:', { 
         pokemon1: !!pokemon1, 
         pokemon2: !!pokemon2, 
         name1: !!name1, 
@@ -83,13 +89,14 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log('Generating fusion for:', { name1, name2 });
-    console.log('Image URLs length:', { 
+    console.log('Generate API - Generating fusion for:', { name1, name2 });
+    console.log('Generate API - Image URLs length:', { 
       pokemon1Length: pokemon1.length, 
       pokemon2Length: pokemon2.length 
     });
     
     // Save Pokemon data to Supabase if they don't exist
+    console.log('Generate API - Saving Pokemon data to Supabase');
     await Promise.all([
       savePokemon({
         id: pokemon1Id,
@@ -104,12 +111,13 @@ export async function POST(req: Request) {
         type: [] // You would need to fetch this from the PokeAPI
       })
     ]);
+    console.log('Generate API - Pokemon data saved successfully');
 
     let fusionImageUrl: string;
     let isLocalFallback = false;
     
     if (isReplicateConfigured) {
-      console.log('Using API token:', process.env.REPLICATE_API_TOKEN ? 'Server-side token' : 'Public token');
+      console.log('Generate API - Using API token:', process.env.REPLICATE_API_TOKEN ? 'Server-side token' : 'Public token');
 
       // Define the model input
       const modelInput = {
@@ -127,7 +135,7 @@ export async function POST(req: Request) {
         upscale_steps: 20,
       };
 
-      console.log('Calling Replicate API with model:', "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867");
+      console.log('Generate API - Calling Replicate API with model:', "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867");
 
       try {
         // Call the Replicate API
@@ -136,11 +144,11 @@ export async function POST(req: Request) {
           { input: modelInput }
         );
 
-        console.log('Replicate API response:', output);
+        console.log('Generate API - Replicate API response:', output);
 
         // Validate the output
         if (!output || !Array.isArray(output) || output.length === 0) {
-          console.error('Invalid output from Replicate:', output);
+          console.error('Generate API - Invalid output from Replicate:', output);
           return NextResponse.json(
             { error: 'Failed to generate fusion image' },
             { status: 500 }
@@ -151,7 +159,7 @@ export async function POST(req: Request) {
       } catch (error: any) {
         // Check for payment required error
         if (error.response && error.response.status === 402) {
-          console.error('Payment required for Replicate API');
+          console.error('Generate API - Payment required for Replicate API');
           return NextResponse.json(
             { 
               error: 'This feature requires a paid Replicate account. Please set up billing at https://replicate.com/account/billing',
@@ -177,6 +185,7 @@ export async function POST(req: Request) {
     const fusionId = uuidv4();
     
     // Save the fusion to Supabase
+    console.log('Generate API - Saving fusion to Supabase with user ID:', userId);
     const fusion = await saveFusion({
       id: fusionId,
       user_id: userId,
@@ -188,12 +197,14 @@ export async function POST(req: Request) {
     });
 
     if (!fusion) {
-      console.error('Failed to save fusion to Supabase');
+      console.error('Generate API - Failed to save fusion to Supabase');
       return NextResponse.json(
         { error: 'Failed to save fusion' },
         { status: 500 }
       );
     }
+
+    console.log('Generate API - Fusion saved successfully with ID:', fusionId);
 
     // Return the generated fusion
     return NextResponse.json({ 
@@ -204,7 +215,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     // Log the error
-    console.error('Error generating fusion:', error instanceof Error ? error.message : 'Unknown error', error);
+    console.error('Generate API - Error generating fusion:', error instanceof Error ? error.message : 'Unknown error', error);
     
     // Return an error response
     return NextResponse.json(

@@ -6,11 +6,15 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
+console.log('Supabase Client - Initializing with URL:', supabaseUrl);
+console.log('Supabase Client - Anon Key available:', !!supabaseAnonKey);
+
 // Create a Supabase client with additional headers for authentication
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: false, // We're using Clerk for auth, not Supabase Auth
   },
   global: {
     headers: {
@@ -24,6 +28,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     schema: 'public',
   },
 });
+
+// Log when the client is created
+console.log('Supabase Client - Client created successfully');
 
 export default supabase;
 

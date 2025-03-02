@@ -118,6 +118,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear user data when signed out
       console.log("Auth Context - User is signed out, clearing user data");
       setUser(null);
+      
+      // Clear Supabase session when signed out
+      supabase.auth.signOut();
+      console.log("Auth Context - Cleared Supabase session");
     }
   }, [isLoaded, isSignedIn, clerkUser]);
   
@@ -125,24 +129,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user) {
       console.log("Auth Context - Setting up Supabase client with user ID:", user.id);
-      // Set the user ID in the Supabase client for RLS
-      supabase.auth.setSession({
-        access_token: user.id,
-        refresh_token: '',
-        expires_in: 3600,
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-        token_type: 'bearer',
-        user: {
-          id: user.id,
-          email: user.email,
-          app_metadata: {},
-          user_metadata: {},
-          aud: 'authenticated',
-          role: 'authenticated',
-        },
-      });
       
-      console.log('Auth Context - Set Supabase session with user ID:', user.id);
+      // Set the user ID in the Supabase client for RLS
+      // This is a workaround to use Clerk auth with Supabase RLS
+      const setupSupabaseAuth = async () => {
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: user.id, // Use the user ID as the access token
+            refresh_token: '',
+          });
+          
+          if (error) {
+            console.error("Auth Context - Error setting Supabase session:", error);
+          } else {
+            console.log("Auth Context - Successfully set Supabase session:", data);
+          }
+        } catch (error) {
+          console.error("Auth Context - Error in setupSupabaseAuth:", error);
+        }
+      };
+      
+      setupSupabaseAuth();
     }
   }, [user]);
 

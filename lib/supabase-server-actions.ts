@@ -7,6 +7,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder
 // Use the service role key for server-side operations to bypass RLS
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
+console.log('Server Actions - Supabase URL:', supabaseUrl);
+console.log('Server Actions - Service Key available:', !!supabaseServiceKey);
+
 // Create a server-side Supabase client with additional headers
 const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
@@ -85,7 +88,36 @@ export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promi
 
 export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<FusionDB | null> {
   try {
+    console.log('Server Actions - Saving fusion with user ID:', fusion.user_id);
     const client = await getSupabaseClient();
+    
+    // First, ensure the fusions table exists
+    try {
+      console.log('Server Actions - Ensuring fusions table exists');
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS fusions (
+          id UUID PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          pokemon_1_id INTEGER NOT NULL,
+          pokemon_2_id INTEGER NOT NULL,
+          fusion_name TEXT NOT NULL,
+          fusion_image TEXT NOT NULL,
+          likes INTEGER DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `;
+      
+      const { error: createTableError } = await client.rpc('exec_sql', { query: createTableQuery });
+      if (createTableError) {
+        console.log('Server Actions - Error creating fusions table (may already exist):', createTableError);
+      } else {
+        console.log('Server Actions - Fusions table created or already exists');
+      }
+    } catch (tableError) {
+      console.log('Server Actions - Error in table creation (may not have permission):', tableError);
+      // Continue anyway, as the table might already exist
+    }
+    
     const { data, error } = await client
       .from('fusions')
       .insert(fusion)
@@ -93,13 +125,14 @@ export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<
       .single();
     
     if (error) {
-      console.error('Error saving fusion:', error);
+      console.error('Server Actions - Error saving fusion:', error);
       return null;
     }
     
+    console.log('Server Actions - Fusion saved successfully:', data);
     return data;
   } catch (error) {
-    console.error('Error in saveFusion:', error);
+    console.error('Server Actions - Error in saveFusion:', error);
     return null;
   }
 }

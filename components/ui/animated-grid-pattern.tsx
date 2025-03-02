@@ -1,118 +1,102 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
-interface AnimatedGridPatternProps extends React.SVGProps<SVGSVGElement> {
-  /**
-   * The width of each cell in the grid
-   * @default 40
-   */
+import { cn } from "@/lib/utils";
+
+interface AnimatedGridPatternProps {
   width?: number;
-  /**
-   * The height of each cell in the grid
-   * @default 40
-   */
   height?: number;
-  /**
-   * The x position of the grid
-   * @default 0
-   */
   x?: number;
-  /**
-   * The y position of the grid
-   * @default 0
-   */
   y?: number;
-  /**
-   * The number of squares to show
-   * @default 20
-   */
+  strokeDasharray?: any;
   numSquares?: number;
-  /**
-   * The maximum opacity of the squares
-   * @default 0.5
-   */
+  className?: string;
   maxOpacity?: number;
-  /**
-   * The duration of the animation in seconds
-   * @default 2
-   */
   duration?: number;
-  /**
-   * The stroke dash array for the grid lines
-   * @default "1 1"
-   */
-  strokeDasharray?: string;
+  repeatDelay?: number;
 }
 
 export function AnimatedGridPattern({
   width = 40,
   height = 40,
-  x = 0,
-  y = 0,
-  numSquares = 20,
-  maxOpacity = 0.5,
-  duration = 2,
-  strokeDasharray = "1 1",
+  x = -1,
+  y = -1,
+  strokeDasharray = 0,
+  numSquares = 50,
   className,
+  maxOpacity = 0.5,
+  duration = 4,
+  repeatDelay = 0.5,
   ...props
 }: AnimatedGridPatternProps) {
   const id = useId();
-  const [squares, setSquares] = useState<{ pos: [number, number]; id: number }[]>([]);
-  
-  // Simplified approach - use fixed dimensions instead of dynamic ones
-  useEffect(() => {
-    // Use a fixed grid size for better performance
-    const cols = 12;
-    const rows = 8;
-    
-    // Limit the number of squares
-    const adjustedNumSquares = Math.min(numSquares, 10);
-    
-    try {
-      const initialSquares = Array.from({ length: adjustedNumSquares }).map((_, i) => ({
-        pos: [
-          Math.floor(Math.random() * cols),
-          Math.floor(Math.random() * rows),
-        ] as [number, number],
-        id: i,
-      }));
-      
-      setSquares(initialSquares);
-    } catch (error) {
-      console.error("Error initializing animated grid pattern:", error);
-      setSquares([]);
-    }
-  }, [numSquares]);
-  
+  const containerRef = useRef(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [squares, setSquares] = useState(() => generateSquares(numSquares));
+
+  function getPos() {
+    return [
+      Math.floor((Math.random() * dimensions.width) / width),
+      Math.floor((Math.random() * dimensions.height) / height),
+    ];
+  }
+
+  // Adjust the generateSquares function to return objects with an id, x, and y
+  function generateSquares(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      pos: getPos(),
+    }));
+  }
+
+  // Function to update a single square's position
   const updateSquarePosition = (id: number) => {
-    try {
-      setSquares((prev) => {
-        const cols = 12;
-        const rows = 8;
-        
-        return prev.map((square) => {
-          if (square.id === id) {
-            return {
-              ...square,
-              pos: [
-                Math.floor(Math.random() * cols),
-                Math.floor(Math.random() * rows),
-              ] as [number, number],
-            };
-          }
-          return square;
-        });
-      });
-    } catch (error) {
-      console.error("Error updating square position:", error);
-    }
+    setSquares((currentSquares) =>
+      currentSquares.map((sq) =>
+        sq.id === id
+          ? {
+              ...sq,
+              pos: getPos(),
+            }
+          : sq,
+      ),
+    );
   };
-  
+
+  // Update squares to animate in
+  useEffect(() => {
+    if (dimensions.width && dimensions.height) {
+      setSquares(generateSquares(numSquares));
+    }
+  }, [dimensions, numSquares]);
+
+  // Resize observer to update container dimensions
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setDimensions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
+      }
+    };
+  }, [containerRef]);
+
   return (
     <svg
+      ref={containerRef}
       aria-hidden="true"
       className={cn(
         "pointer-events-none absolute inset-0 h-full w-full fill-gray-400/30 stroke-gray-400/30",
@@ -145,7 +129,7 @@ export function AnimatedGridPattern({
             transition={{
               duration,
               repeat: 1,
-              delay: index * 0.2,
+              delay: index * 0.1,
               repeatType: "reverse",
             }}
             onAnimationComplete={() => updateSquarePosition(id)}

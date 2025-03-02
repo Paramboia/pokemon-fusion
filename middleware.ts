@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { clerkMiddleware } from "@clerk/nextjs";
+import { authMiddleware, clerkMiddleware, getAuth } from "@clerk/nextjs";
 import { clerkClient } from "@clerk/nextjs";
 
 // Create a middleware that combines Clerk auth with our custom logic
-const combinedMiddleware = clerkMiddleware({
+const combinedMiddleware = authMiddleware({
   // Public routes that don't require authentication
   publicRoutes: [
     '/',
@@ -26,6 +26,24 @@ const combinedMiddleware = clerkMiddleware({
       isPublicRoute: auth.isPublicRoute,
       isApiRoute: req.url.includes('/api/')
     });
+    
+    // For API routes, ensure the auth token is passed
+    if (req.url.includes('/api/') && auth.userId) {
+      const requestHeaders = new Headers(req.headers);
+      requestHeaders.set('x-clerk-user-id', auth.userId);
+      
+      // Create a new request with the updated headers
+      const response = NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      });
+      
+      return response;
+    }
+    
+    // For non-API routes, just continue
+    return NextResponse.next();
   },
 });
 

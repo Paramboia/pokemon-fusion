@@ -29,6 +29,109 @@ const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   },
 });
 
+// Helper function to ensure the UUID extension exists
+async function ensureUuidExtension() {
+  try {
+    console.log('Sync-user API - Ensuring UUID extension exists');
+    // Try to create the UUID extension if it doesn't exist
+    await supabaseClient.rpc('create_uuid_extension');
+    console.log('Sync-user API - UUID extension created or already exists');
+    return true;
+  } catch (error) {
+    console.error('Sync-user API - Error creating UUID extension:', error);
+    
+    // Try a direct SQL approach
+    try {
+      const { error: sqlError } = await supabaseClient.rpc('execute_sql', {
+        sql: 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+      });
+      
+      if (sqlError) {
+        console.error('Sync-user API - Error with direct SQL for UUID extension:', sqlError);
+        return false;
+      }
+      
+      console.log('Sync-user API - UUID extension created with direct SQL');
+      return true;
+    } catch (sqlError) {
+      console.error('Sync-user API - Error with direct SQL approach:', sqlError);
+      return false;
+    }
+  }
+}
+
+// Helper function to ensure the users table exists
+async function ensureUsersTable() {
+  try {
+    console.log('Sync-user API - Ensuring users table exists');
+    
+    // First ensure UUID extension exists
+    await ensureUuidExtension();
+    
+    // Check if the users table exists
+    const { data, error } = await supabaseClient
+      .from('users')
+      .select('id')
+      .limit(1);
+      
+    if (error && error.code === 'PGRST116') {
+      console.log('Sync-user API - Users table does not exist, creating it');
+      
+      // Create the users table with the correct schema
+      const { error: createError } = await supabaseClient.rpc('execute_sql', {
+        sql: `
+          CREATE TABLE IF NOT EXISTS users (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            clerk_id TEXT UNIQUE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `
+      });
+      
+      if (createError) {
+        console.error('Sync-user API - Error creating users table:', createError);
+        return false;
+      }
+      
+      console.log('Sync-user API - Users table created successfully');
+      return true;
+    }
+    
+    // Check if clerk_id column exists
+    try {
+      const { error: columnError } = await supabaseClient
+        .from('users')
+        .select('clerk_id')
+        .limit(1);
+        
+      if (columnError && columnError.message.includes('column "clerk_id" does not exist')) {
+        console.log('Sync-user API - clerk_id column does not exist, adding it');
+        
+        // Add the clerk_id column
+        const { error: alterError } = await supabaseClient.rpc('execute_sql', {
+          sql: 'ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_id TEXT UNIQUE;'
+        });
+        
+        if (alterError) {
+          console.error('Sync-user API - Error adding clerk_id column:', alterError);
+          return false;
+        }
+        
+        console.log('Sync-user API - clerk_id column added successfully');
+      }
+    } catch (columnCheckError) {
+      console.error('Sync-user API - Error checking clerk_id column:', columnCheckError);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Sync-user API - Error ensuring users table:', error);
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Get the current user from Clerk - this is more reliable than auth()
@@ -61,6 +164,16 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
+      );
+    }
+
+    // Ensure the users table exists before proceeding
+    const tableExists = await ensureUsersTable();
+    if (!tableExists) {
+      console.error('Sync-user API - Failed to ensure users table exists');
+      return NextResponse.json(
+        { error: 'Database setup failed' },
+        { status: 500 }
       );
     }
 

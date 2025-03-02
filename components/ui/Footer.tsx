@@ -1,27 +1,40 @@
 "use client";
 
 import Link from "next/link";
+import { Info, Facebook } from "lucide-react";
 import { useTheme } from "next-themes";
 
 export function Footer() {
   const { theme } = useTheme();
   
+  console.log("Footer component rendering");
+  
   return (
-    <footer className="bg-white dark:bg-black text-gray-800 dark:text-gray-200 w-full py-4 border-t border-gray-200 dark:border-gray-800">
+    <footer className="bg-white dark:bg-black text-gray-800 dark:text-white py-6 w-full border-t border-gray-200 dark:border-gray-800">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <div className="mb-4 md:mb-0">
-            <p className="text-sm">© {new Date().getFullYear()} Pokémon Fusion. All rights reserved.</p>
+        <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2">
+            <Link 
+              href="/about"
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <Info className="h-5 w-5" />
+              <span>About Us</span>
+            </Link>
           </div>
-          <div className="flex space-x-6">
-            <Link href="/about" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
-              About
-            </Link>
-            <Link href="/privacy" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
-              Privacy
-            </Link>
-            <Link href="/terms" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
-              Terms
+
+          <div className="text-gray-500 dark:text-gray-300 text-sm text-center">
+            &copy; {new Date().getFullYear()} PokéFusion.
+            <br className="md:hidden" /> All rights reserved.
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Link 
+              href="/community"
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <Facebook className="h-5 w-5" />
+              <span>Join the Community</span>
             </Link>
           </div>
         </div>

@@ -77,7 +77,7 @@ const SparklesText: React.FC<SparklesTextProps> = ({
 
   return (
     <div
-      className={cn("text-6xl font-bold", className)}
+      className={cn("text-6xl font-bold text-gray-800 dark:text-white", className)}
       {...props}
       style={
         {
@@ -90,7 +90,7 @@ const SparklesText: React.FC<SparklesTextProps> = ({
         {sparkles.map((sparkle) => (
           <Sparkle key={sparkle.id} {...sparkle} />
         ))}
-        <strong>{text}</strong>
+        <strong className="text-inherit">{text}</strong>
       </span>
     </div>
   );

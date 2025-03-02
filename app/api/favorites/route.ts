@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { addFavorite, removeFavorite } from '@/lib/supabase-server-actions';
 import { createClient } from '@supabase/supabase-js';
+import { currentUser } from '@clerk/nextjs';
 
 // Create a Supabase client with fallback values for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
@@ -139,16 +140,50 @@ export async function GET(req: Request) {
     // For security, ensure the requested userId matches the authenticated user
     if (clerkUserId && userId !== clerkUserId) {
       console.warn('Favorites API - User requested favorites for a different user ID');
-      // Allow it for now, but log a warning
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      );
     }
     
     console.log('Favorites API - Fetching favorites for user:', userId);
     
-    // First, get the favorite fusion IDs
+    // Get the user's email from Clerk
+    const user = await currentUser();
+    if (!user || !user.emailAddresses || user.emailAddresses.length === 0) {
+      console.error('Favorites API - No email found for user');
+      return NextResponse.json(
+        { error: 'User email not found' },
+        { status: 404 }
+      );
+    }
+    
+    const email = user.emailAddresses[0].emailAddress;
+    console.log('Favorites API - User email:', email);
+    
+    // Find the Supabase user ID from the email
+    const { data: supabaseUser, error: userError } = await supabaseClient
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+    
+    if (userError) {
+      console.error('Favorites API - Error finding user in Supabase:', userError);
+      return NextResponse.json(
+        { error: 'User not found in database' },
+        { status: 404 }
+      );
+    }
+    
+    const supabaseUserId = supabaseUser.id;
+    console.log('Favorites API - Found Supabase user ID:', supabaseUserId);
+    
+    // Get the favorite fusion IDs
     const { data: favoriteIds, error: favoritesError } = await supabaseClient
       .from('favorites')
       .select('fusion_id')
-      .eq('user_id', userId);
+      .eq('user_id', supabaseUserId);
     
     if (favoritesError) {
       console.error('Favorites API - Error fetching user favorites:', favoritesError);

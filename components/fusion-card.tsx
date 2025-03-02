@@ -48,8 +48,25 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
     const checkFavoriteStatus = async () => {
       const userId = user?.id;
       if (userId) {
-        const favoriteStatus = await dbService.isFavorite(userId, fusion.id);
-        setIsFavorite(favoriteStatus);
+        try {
+          setIsLoading(true);
+          // Fetch favorites from the API
+          const response = await fetch(`/api/favorites?userId=${userId}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            const favorites = data.favorites || [];
+            // Check if this fusion is in the favorites
+            const isFav = favorites.some((fav: any) => fav.id === fusion.id);
+            setIsFavorite(isFav);
+          } else {
+            console.error('Error fetching favorites');
+          }
+        } catch (error) {
+          console.error('Error checking favorite status:', error);
+        } finally {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -102,35 +119,63 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
 
   const handleFavorite = async () => {
     try {
+      setIsLoading(true);
       const userId = user?.id;
       
       if (!userId) {
         toast.error('Please sign in to favorite fusions');
+        setIsLoading(false);
         return;
       }
       
       if (isFavorite) {
-        const success = await dbService.removeFavorite(userId, fusion.id);
+        // Use the API endpoint to remove favorite
+        const response = await fetch('/api/favorites/remove', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            fusionId: fusion.id
+          }),
+        });
         
-        if (success) {
+        if (response.ok) {
           setIsFavorite(false);
           toast.success('Removed from favorites');
         } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Error removing favorite:', errorData);
           toast.error('Failed to remove from favorites');
         }
       } else {
-        const success = await dbService.addFavorite(userId, fusion.id);
+        // Use the API endpoint to add favorite
+        const response = await fetch('/api/favorites/add', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            fusionId: fusion.id
+          }),
+        });
         
-        if (success) {
+        if (response.ok) {
           setIsFavorite(true);
           toast.success('Added to favorites');
         } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Error adding favorite:', errorData);
           toast.error('Failed to add to favorites');
         }
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
       toast.error('Failed to update favorites');
+    } finally {
+      setIsLoading(false);
     }
   };
 

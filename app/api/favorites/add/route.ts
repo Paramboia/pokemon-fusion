@@ -7,8 +7,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder
 // Use the service role key for server-side operations to bypass RLS
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
-console.log('Remove Favorite API - Supabase URL:', supabaseUrl);
-console.log('Remove Favorite API - Service Key available:', !!supabaseServiceKey);
+console.log('Add Favorite API - Supabase URL:', supabaseUrl);
+console.log('Add Favorite API - Service Key available:', !!supabaseServiceKey);
 
 // Create a server-side Supabase client with additional headers
 const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
@@ -47,19 +47,19 @@ export async function POST(req: Request) {
     
     // For security, ensure the requested userId matches the authenticated user
     if (clerkUserId && userId !== clerkUserId) {
-      console.warn('Remove Favorite API - User attempted to remove a favorite for a different user ID');
+      console.warn('Add Favorite API - User attempted to add a favorite for a different user ID');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
       );
     }
     
-    console.log('Remove Favorite API - Removing favorite for user:', userId, 'fusion:', fusionId);
+    console.log('Add Favorite API - Adding favorite for user:', userId, 'fusion:', fusionId);
     
     // Get the user's email from Clerk
     const user = await currentUser();
     if (!user || !user.emailAddresses || user.emailAddresses.length === 0) {
-      console.error('Remove Favorite API - No email found for user');
+      console.error('Add Favorite API - No email found for user');
       return NextResponse.json(
         { error: 'User email not found' },
         { status: 404 }
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     }
     
     const email = user.emailAddresses[0].emailAddress;
-    console.log('Remove Favorite API - User email:', email);
+    console.log('Add Favorite API - User email:', email);
     
     // Find the Supabase user ID from the email
     const { data: supabaseUser, error: userError } = await supabaseClient
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       .single();
     
     if (userError) {
-      console.error('Remove Favorite API - Error finding user in Supabase:', userError);
+      console.error('Add Favorite API - Error finding user in Supabase:', userError);
       return NextResponse.json(
         { error: 'User not found in database' },
         { status: 404 }
@@ -85,28 +85,42 @@ export async function POST(req: Request) {
     }
     
     const supabaseUserId = supabaseUser.id;
-    console.log('Remove Favorite API - Found Supabase user ID:', supabaseUserId);
+    console.log('Add Favorite API - Found Supabase user ID:', supabaseUserId);
     
-    // Remove the favorite
+    // Check if the favorite already exists
+    const { data: existingFavorite, error: checkError } = await supabaseClient
+      .from('favorites')
+      .select('*')
+      .eq('user_id', supabaseUserId)
+      .eq('fusion_id', fusionId)
+      .single();
+    
+    if (existingFavorite) {
+      console.log('Add Favorite API - Favorite already exists');
+      return NextResponse.json({ success: true });
+    }
+    
+    // Add the favorite
     const { error } = await supabaseClient
       .from('favorites')
-      .delete()
-      .eq('user_id', supabaseUserId)
-      .eq('fusion_id', fusionId);
+      .insert({
+        user_id: supabaseUserId,
+        fusion_id: fusionId
+      });
     
     if (error) {
-      console.error('Remove Favorite API - Error removing favorite:', error);
+      console.error('Add Favorite API - Error adding favorite:', error);
       return NextResponse.json(
-        { error: 'Error removing favorite' },
+        { error: 'Error adding favorite' },
         { status: 500 }
       );
     }
     
-    console.log('Remove Favorite API - Favorite removed successfully');
+    console.log('Add Favorite API - Favorite added successfully');
     
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Remove Favorite API - Error in remove favorite API:', error);
+    console.error('Add Favorite API - Error in add favorite API:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

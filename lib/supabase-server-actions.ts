@@ -206,7 +206,9 @@ export async function syncUserToSupabase(
   email: string
 ): Promise<boolean> {
   try {
+    console.log('Server Actions - Syncing user with email:', email);
     const client = await getSupabaseClient();
+    
     // Check if user already exists by email
     const { data: existingUser } = await client
       .from('users')
@@ -215,38 +217,39 @@ export async function syncUserToSupabase(
       .single();
 
     if (existingUser) {
+      console.log('Server Actions - Updating existing user with ID:', existingUser.id);
       // Update existing user
       const { error } = await client
         .from('users')
         .update({
-          name,
-          email
+          name
         })
         .eq('id', existingUser.id);
         
       if (error) {
-        console.error('Error updating user:', error);
+        console.error('Server Actions - Error updating user:', error);
         return false;
       }
       
-      console.log('Successfully updated user in Supabase');
-    } else {
-      // Insert new user - let Supabase generate the UUID
-      const { error } = await client
-        .from('users')
-        .insert({
-          name,
-          email
-        });
-        
-      if (error) {
-        console.error('Error inserting user:', error);
-        return false;
-      }
-      
-      console.log('Successfully inserted new user in Supabase');
+      console.log('Server Actions - Successfully updated user in Supabase');
+      return true;
     }
     
+    // Insert new user without clerk_id
+    console.log('Server Actions - Creating new user with email:', email);
+    const { error } = await client
+      .from('users')
+      .insert({
+        name,
+        email
+      });
+      
+    if (error) {
+      console.error('Server Actions - Error inserting user:', error);
+      return false;
+    }
+    
+    console.log('Server Actions - Successfully inserted new user in Supabase');
     return true;
   } catch (error) {
     console.error('Error in syncUserToSupabase:', error);

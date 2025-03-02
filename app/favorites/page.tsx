@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { FusionCard } from "@/components/fusion-card";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
 import { dbService, FusionDB } from "@/lib/supabase-client";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { useAuthContext } from "@/contexts/auth-context";
 
 export default function FavoritesPage() {
@@ -15,29 +15,38 @@ export default function FavoritesPage() {
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<FusionDB[]>([]);
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const { authError } = useAuthContext();
 
   useEffect(() => {
     const fetchFavorites = async () => {
       if (!isLoaded) return;
-      
+
       try {
         setIsLoading(true);
         setError(null);
-        
+
         const userId = user?.id;
-        
+
         if (!userId) {
           console.log('User not authenticated, skipping favorites fetch');
           setIsLoading(false);
           return;
         }
-        
+
         console.log('Fetching favorites for user:', userId);
-        
+
+        // Get the authentication token
+        const token = await getToken();
+        console.log('Got authentication token:', token ? 'Yes' : 'No');
+
         // Call the API endpoint to get favorites
-        const response = await fetch(`/api/favorites?userId=${userId}`);
-        
+        const response = await fetch(`/api/favorites?userId=${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           console.error('Error fetching favorites:', errorData);
@@ -45,7 +54,7 @@ export default function FavoritesPage() {
           setIsLoading(false);
           return;
         }
-        
+
         const data = await response.json();
         console.log('Fetched favorites:', data.favorites);
         setFavorites(data.favorites || []);
@@ -59,36 +68,36 @@ export default function FavoritesPage() {
     };
 
     fetchFavorites();
-  }, [user?.id, isLoaded]);
+  }, [user?.id, isLoaded, getToken]);
 
   const handleRemove = async (id: string) => {
     try {
       const userId = user?.id;
-      
+
       if (!userId) {
         toast.error('Please sign in to manage favorites');
         return;
       }
+
+      // Get the authentication token
+      const token = await getToken();
       
       // Call the API endpoint to remove a favorite
-      const response = await fetch(`/api/favorites/remove`, {
-        method: 'POST',
+      const response = await fetch(`/api/favorites?fusionId=${id}`, {
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          fusionId: id
-        }),
+          'Authorization': `Bearer ${token}`
+        }
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Error removing favorite:', errorData);
         toast.error('Failed to remove from favorites');
         return;
       }
-      
+
       setFavorites(favorites.filter(fusion => fusion.id !== id));
       toast.success('Removed from favorites');
     } catch (error) {
@@ -126,7 +135,7 @@ export default function FavoritesPage() {
   return (
     <div className="flex flex-col items-center">
       <div className="text-center mb-10">
-        <SparklesText 
+        <SparklesText
           text="Your Favorites"
           className="text-4xl md:text-5xl font-bold mb-4"
         />
@@ -144,13 +153,13 @@ export default function FavoritesPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {favorites.map((fusion) => (
               <FusionCard
                 key={fusion.id}
                 fusion={fusion}
-                onDelete={handleRemove}
-                showActions={true}
+                onRemoveFavorite={() => handleRemove(fusion.id)}
+                showRemoveButton
               />
             ))}
           </div>

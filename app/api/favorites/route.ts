@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { auth, currentUser, clerkClient } from '@clerk/nextjs/server';
-import { addFavorite, removeFavorite } from '@/lib/supabase-server-actions';
+import { auth, clerkClient } from '@clerk/nextjs';
+import { addFavorite, removeFavorite, getSupabaseUserId } from '@/lib/supabase-server-actions';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseClient } from "@/lib/supabase-server";
 
 // Create a Supabase client with fallback values for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
@@ -275,28 +276,60 @@ export async function GET(req: Request) {
     const { userId: authClerkUserId } = auth();
     console.log('Favorites API - Authenticated userId from auth():', authClerkUserId);
 
-    // If no userId is provided or it doesn't match the authenticated user, return an error
-    if (!clerkUserId) {
-      console.log('Favorites API - Missing userId parameter');
+    // Check for authorization header as fallback
+    let finalUserId = authClerkUserId;
+    
+    if (!finalUserId) {
+      console.log('Favorites API - No userId from auth(), checking Authorization header');
+      const authHeader = req.headers.get('Authorization');
+      console.log('Favorites API - Authorization header present:', authHeader ? 'Yes' : 'No');
+
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        // Extract the token
+        const token = authHeader.split(' ')[1];
+        console.log('Favorites API - Extracted token (first 10 chars):', token.substring(0, 10) + '...');
+
+        try {
+          // Verify the token with Clerk
+          const verifiedToken = await clerkClient.verifyToken(token);
+          console.log('Favorites API - Token verification result:', verifiedToken ? 'Success' : 'Failed');
+
+          if (verifiedToken && verifiedToken.sub) {
+            console.log('Favorites API - Verified token, userId:', verifiedToken.sub);
+            finalUserId = verifiedToken.sub;
+          }
+        } catch (tokenError) {
+          console.error('Favorites API - Error verifying token:', tokenError);
+        }
+      }
+    }
+
+    // If no userId is provided or we couldn't authenticate, return an error
+    if (!finalUserId) {
+      console.log('Favorites API - No authenticated user found');
       return NextResponse.json(
-        { error: 'Missing userId parameter' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       );
     }
 
-    // For security, ensure the requested userId matches the authenticated user
-    if (authClerkUserId && clerkUserId !== authClerkUserId) {
+    // If the requested userId doesn't match the authenticated user, return an error
+    if (clerkUserId && clerkUserId !== finalUserId) {
       console.warn('Favorites API - User requested favorites for a different user ID');
       console.warn('  Requested:', clerkUserId);
-      console.warn('  Authenticated:', authClerkUserId);
+      console.warn('  Authenticated:', finalUserId);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
       );
     }
 
+    // Use the authenticated user ID if no specific userId was requested
+    const userIdToUse = clerkUserId || finalUserId;
+    console.log('Favorites API - Using userId for lookup:', userIdToUse);
+
     // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserId(clerkUserId);
+    const supabaseUserId = await getSupabaseUserId(userIdToUse);
     console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
 
     if (!supabaseUserId) {

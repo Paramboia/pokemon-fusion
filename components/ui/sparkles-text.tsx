@@ -88,7 +88,15 @@ const SparklesText: React.FC<SparklesTextProps> = ({
         {sparkles.map((sparkle) => (
           <Sparkle key={sparkle.id} {...sparkle} />
         ))}
-        <strong className="dark:!text-white" style={{ color: 'inherit' }}>
+        <strong 
+          className="dark:!text-white" 
+          style={{ 
+            color: 'inherit',
+            ...(typeof window !== 'undefined' && 
+              document.documentElement.classList.contains('dark') ? 
+              { color: 'white !important' } : {})
+          }}
+        >
           {text}
         </strong>
       </span>

@@ -10,10 +10,13 @@ export function Footer() {
   return (
     <footer 
       className="bg-transparent dark:bg-transparent text-gray-800 dark:text-white py-10 w-full relative z-20"
-      style={{ background: 'transparent !important' }}
+      style={{ 
+        background: 'transparent !important',
+        backgroundColor: 'transparent !important'
+      }}
     >
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
-        <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6" style={{ background: 'transparent !important' }}>
+        <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6" style={{ background: 'transparent !important' }}>
           <div className="flex items-center gap-6">
             <Link 
               href="/about"

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -31,12 +31,17 @@ const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
 
 export async function POST(req: Request) {
   try {
-    // Get the current user ID from Clerk
+    // Get the current user from Clerk - this is more reliable than auth()
+    const user = await currentUser();
     const { userId } = auth();
     
-    console.log('Sync-user API - Clerk userId:', userId);
+    console.log('Sync-user API - Clerk user:', user ? 'Found' : 'Not found');
+    console.log('Sync-user API - Clerk userId from auth():', userId);
     
-    if (!userId) {
+    // Use either the user ID from currentUser() or from auth()
+    const clerkUserId = user?.id || userId;
+    
+    if (!clerkUserId) {
       console.log('Sync-user API - No userId found, returning 401');
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -136,11 +141,11 @@ export async function POST(req: Request) {
         .single();
 
       // Also check if user exists by Clerk ID
-      console.log('Sync-user API - Checking if user exists with Clerk ID:', userId);
+      console.log('Sync-user API - Checking if user exists with Clerk ID:', clerkUserId);
       const { data: existingUserByClerkId, error: fetchClerkIdError } = await supabaseClient
         .from('users')
         .select('*')
-        .eq('clerk_id', userId)
+        .eq('clerk_id', clerkUserId)
         .single();
 
       const existingUser = existingUserByEmail || existingUserByClerkId;
@@ -153,7 +158,7 @@ export async function POST(req: Request) {
           .update({
             name,
             email,
-            clerk_id: userId // Ensure Clerk ID is set
+            clerk_id: clerkUserId // Ensure Clerk ID is set
           })
           .eq('id', existingUser.id)
           .select();
@@ -175,13 +180,42 @@ export async function POST(req: Request) {
       } else {
         console.log('Sync-user API - Creating new user with name:', name, 'and email:', email);
         
-        // Insert new user - let Supabase generate the UUID
+        // Try direct SQL insert first
+        try {
+          console.log('Sync-user API - Trying direct SQL insert');
+          
+          const insertUserQuery = `
+            INSERT INTO users (name, email, clerk_id)
+            VALUES ('${name.replace(/'/g, "''")}', '${email.replace(/'/g, "''")}', '${clerkUserId}')
+            RETURNING *;
+          `;
+          
+          const { data: sqlResult, error: sqlError } = await supabaseClient.rpc('exec_sql', { 
+            query: insertUserQuery 
+          });
+          
+          if (sqlError) {
+            console.error('Sync-user API - Error with SQL insert:', sqlError);
+          } else if (sqlResult && sqlResult.length > 0) {
+            console.log('Sync-user API - Successfully inserted user with SQL:', sqlResult);
+            
+            return NextResponse.json({ 
+              success: true,
+              user: sqlResult[0]
+            });
+          }
+        } catch (sqlError) {
+          console.error('Sync-user API - Error with SQL approach:', sqlError);
+        }
+        
+        // If SQL insert fails, try the Supabase API
+        console.log('Sync-user API - Trying Supabase API insert');
         const { data: newUser, error: insertError } = await supabaseClient
           .from('users')
           .insert({
             name,
             email,
-            clerk_id: userId
+            clerk_id: clerkUserId
           })
           .select();
           
@@ -189,62 +223,10 @@ export async function POST(req: Request) {
           console.error('Sync-user API - Error inserting user:', insertError);
           console.error('Sync-user API - Error details:', JSON.stringify(insertError));
           
-          // Try a different approach if the first one fails
-          console.log('Sync-user API - Trying direct SQL insert');
-          
-          try {
-            const insertUserQuery = `
-              INSERT INTO users (name, email, clerk_id)
-              VALUES ('${name.replace(/'/g, "''")}', '${email.replace(/'/g, "''")}', '${userId}')
-              RETURNING *;
-            `;
-            
-            const { data: sqlResult, error: sqlError } = await supabaseClient.rpc('exec_sql', { 
-              query: insertUserQuery 
-            });
-            
-            if (sqlError) {
-              console.error('Sync-user API - Error with SQL insert:', sqlError);
-              return NextResponse.json(
-                { error: 'Error inserting user to Supabase' },
-                { status: 500 }
-              );
-            }
-            
-            console.log('Sync-user API - Successfully inserted user with SQL:', sqlResult);
-            
-            // Try to get the newly created user
-            const { data: createdUser, error: fetchError } = await supabaseClient
-              .from('users')
-              .select('*')
-              .eq('clerk_id', userId)
-              .single();
-              
-            if (fetchError) {
-              console.error('Sync-user API - Error fetching newly created user:', fetchError);
-              return NextResponse.json(
-                { 
-                  success: true,
-                  user: {
-                    id: sqlResult?.[0]?.id || userId,
-                    name,
-                    email
-                  }
-                }
-              );
-            }
-            
-            return NextResponse.json({ 
-              success: true,
-              user: createdUser
-            });
-          } catch (sqlError) {
-            console.error('Sync-user API - Error with SQL approach:', sqlError);
-            return NextResponse.json(
-              { error: 'Error inserting user to Supabase' },
-              { status: 500 }
-            );
-          }
+          return NextResponse.json(
+            { error: 'Error inserting user to Supabase' },
+            { status: 500 }
+          );
         }
         
         console.log('Sync-user API - Successfully inserted new user in Supabase:', newUser);

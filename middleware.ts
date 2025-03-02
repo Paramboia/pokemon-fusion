@@ -1,38 +1,48 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { authMiddleware } from "@clerk/nextjs";
+import { clerkClient } from "@clerk/nextjs";
 
-// Simple middleware that only handles www to non-www redirect
-export function middleware(request: NextRequest) {
-  const url = new URL(request.url);
-  const hostname = url.hostname;
-  const pathname = url.pathname;
+// Create a middleware that combines Clerk auth with our custom logic
+const combinedMiddleware = authMiddleware({
+  // Public routes that don't require authentication
+  publicRoutes: [
+    '/',
+    '/api/webhooks(.*)',
+    '/api/auth/sync-user',
+    '/api/generate',
+    '/sign-in(.*)',
+    '/sign-up(.*)',
+  ],
   
-  // Log for debugging
-  console.log(`Middleware processing: ${hostname}${pathname}`);
+  // Debug logs for authentication
+  debug: true,
   
-  // If the hostname is www.pokemon-fusion.com, redirect to pokemon-fusion.com
-  if (hostname === 'www.pokemon-fusion.com') {
-    const newUrl = new URL(url.pathname + url.search, `https://pokemon-fusion.com`);
-    console.log(`Redirecting from www to non-www: ${newUrl.toString()}`);
-    return NextResponse.redirect(newUrl);
-  }
-  
-  // Otherwise, continue with the request
-  return NextResponse.next();
-}
+  // Function to run after Clerk's middleware
+  afterAuth(auth, req, evt) {
+    // Log authentication state
+    console.log(`Middleware - Auth state for ${req.url}:`, { 
+      userId: auth.userId, 
+      isPublicRoute: auth.isPublicRoute,
+      isApiRoute: req.url.includes('/api/')
+    });
+  },
+});
+
+// Export the combined middleware
+export default combinedMiddleware;
 
 // Stop Middleware running on static files and configure matcher
 export const config = {
   matcher: [
     /*
      * Match all paths except for:
-     * 1. /api/auth routes
-     * 2. /_next (Next.js internals)
-     * 3. /_static (static files)
-     * 4. /_vercel (Vercel internals)
-     * 5. Static files with extensions (.jpg, .png, etc.)
+     * 1. /_next (Next.js internals)
+     * 2. /_static (static files)
+     * 3. /_vercel (Vercel internals)
+     * 4. Static files with extensions (.jpg, .png, etc.)
      */
-    "/((?!api/auth|_next|_static|_vercel|[\\w-]+\\.\\w+).*)",
+    "/((?!_next|_static|_vercel|[\\w-]+\\.\\w+).*)",
     "/",
   ],
 };

@@ -2,6 +2,14 @@ import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
 import { syncUserToSupabase } from '@/lib/supabase-server-actions';
+import { createClient } from '@supabase/supabase-js';
+
+// Create a Supabase client with fallback values for build time
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+
+// Create a server-side Supabase client
+const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 export async function POST(req: Request) {
   // Get the headers
@@ -57,19 +65,61 @@ export async function POST(req: Request) {
 
     // Construct the user's name
     const name = [first_name, last_name].filter(Boolean).join(' ') || 'Anonymous User';
+    const email = primaryEmail.email_address;
 
     try {
-      // Sync user to Supabase using our server action
-      const success = await syncUserToSupabase(
-        id, 
-        name, 
-        primaryEmail.email_address
-      );
+      // Check if user already exists by email
+      const { data: existingUser, error: fetchError } = await supabaseClient
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
 
-      if (!success) {
-        return new Response('Error syncing user to Supabase', {
-          status: 500
-        });
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error fetching user:', fetchError);
+      }
+
+      if (existingUser) {
+        // Update existing user
+        const { error: updateError } = await supabaseClient
+          .from('users')
+          .update({
+            name,
+            email,
+            clerk_id: id // Store the Clerk ID for reference
+          })
+          .eq('id', existingUser.id);
+          
+        if (updateError) {
+          console.error('Error updating user:', updateError);
+          return new Response('Error updating user in Supabase', {
+            status: 500
+          });
+        }
+        
+        console.log('Successfully updated user in Supabase');
+      } else {
+        // Generate a UUID for the new user
+        const userId = crypto.randomUUID();
+        
+        // Insert new user with generated UUID
+        const { error: insertError } = await supabaseClient
+          .from('users')
+          .insert({
+            id: userId,
+            name,
+            email,
+            clerk_id: id // Store the Clerk ID for reference
+          });
+          
+        if (insertError) {
+          console.error('Error inserting user:', insertError);
+          return new Response('Error inserting user to Supabase', {
+            status: 500
+          });
+        }
+        
+        console.log('Successfully inserted new user in Supabase with UUID:', userId);
       }
 
       return new Response(JSON.stringify({ success: true }), {

@@ -40,12 +40,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Anonymous User';
 
+    // Generate a UUID v4 for Supabase instead of using Clerk's ID directly
+    // This resolves the "invalid input syntax for type uuid" error
+    const userId = crypto.randomUUID();
+    
+    console.log("Syncing user to Supabase with generated UUID:", userId);
+
     try {
-      // First check if user exists
+      // First check if user exists - using email as the identifier instead of ID
       const { data: existingUser, error: fetchError } = await supabase
         .from("users")
         .select("*")
-        .eq("id", clerkUser.id)
+        .eq("email", email)
         .single();
 
       // Handle the case where the user doesn't exist yet (PGRST116 is "no rows returned" error)
@@ -64,40 +70,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name,
             email
           })
-          .eq("id", clerkUser.id);
+          .eq("id", existingUser.id);
 
         if (updateError) {
           console.warn("Warning updating user:", updateError.message || "Unknown error");
           // Still set the user with the data we have
+        } else {
+          console.log("Successfully updated user in Supabase");
         }
+        
+        // Use the existing ID from the database
+        setUser({
+          id: existingUser.id,
+          name,
+          email
+        });
       } else {
-        // Insert new user
+        // Insert new user with the generated UUID
         const { error: insertError } = await supabase
           .from("users")
           .insert({
-            id: clerkUser.id,
+            id: userId,
             name,
-            email
+            email,
+            clerk_id: clerkUser.id // Store the original Clerk ID as a reference
           });
 
         if (insertError) {
           console.warn("Warning inserting user:", insertError.message || "Unknown error");
           // Continue with what we have
+        } else {
+          console.log("Successfully inserted new user in Supabase");
         }
+        
+        // Set the user with the new UUID
+        setUser({
+          id: userId,
+          name,
+          email
+        });
       }
-
-      // Set the user in state regardless of database operations
-      // This ensures the UI can continue to function
-      setUser({
-        id: clerkUser.id,
-        name,
-        email
-      });
     } catch (error) {
       console.warn("Warning syncing user to Supabase:", error instanceof Error ? error.message : "Unknown error");
       // Still set the user with the data we have from Clerk
       setUser({
-        id: clerkUser.id,
+        id: clerkUser.id, // Fallback to Clerk ID
         name,
         email
       });
@@ -109,13 +126,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Try to sync the user to Supabase
       syncUserToSupabase(clerkUser);
       
-      // Also fetch user data from Supabase
+      // Also fetch user data from Supabase - using email as identifier
       const fetchUserData = async () => {
         try {
+          const email = clerkUser.primaryEmailAddress?.emailAddress;
+          if (!email) {
+            console.warn("No primary email found for user");
+            return;
+          }
+          
           const { data, error } = await supabase
             .from("users")
             .select("*")
-            .eq("id", clerkUser.id)
+            .eq("email", email)
             .single();
 
           // Handle the case where the user doesn't exist yet

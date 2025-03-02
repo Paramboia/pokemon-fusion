@@ -152,17 +152,17 @@ export async function removeFavorite(userId: string, fusionId: string): Promise<
 
 // Function for Clerk webhook to sync user data with Supabase
 export async function syncUserToSupabase(
-  userId: string, 
+  clerkId: string, 
   name: string, 
   email: string
 ): Promise<boolean> {
   try {
     const client = await getSupabaseClient();
-    // Check if user already exists
+    // Check if user already exists by email
     const { data: existingUser } = await client
       .from('users')
       .select('*')
-      .eq('id', userId)
+      .eq('email', email)
       .single();
 
     if (existingUser) {
@@ -171,28 +171,37 @@ export async function syncUserToSupabase(
         .from('users')
         .update({
           name,
-          email
+          email,
+          clerk_id: clerkId // Store the Clerk ID for reference
         })
-        .eq('id', userId);
+        .eq('id', existingUser.id);
         
       if (error) {
         console.error('Error updating user:', error);
         return false;
       }
+      
+      console.log('Successfully updated user in Supabase');
     } else {
-      // Insert new user
+      // Generate a UUID for the new user
+      const userId = crypto.randomUUID();
+      
+      // Insert new user with generated UUID
       const { error } = await client
         .from('users')
         .insert({
           id: userId,
           name,
-          email
+          email,
+          clerk_id: clerkId // Store the Clerk ID for reference
         });
         
       if (error) {
         console.error('Error inserting user:', error);
         return false;
       }
+      
+      console.log('Successfully inserted new user in Supabase with UUID:', userId);
     }
     
     return true;

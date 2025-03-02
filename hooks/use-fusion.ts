@@ -28,6 +28,7 @@ export function useFusion() {
       
       // Get the Clerk session token
       const token = await getToken()
+      console.log('Got authentication token:', token ? 'Yes' : 'No')
       
       // Call the API endpoint to generate the fusion
       const response = await fetch('/api/generate', {
@@ -36,6 +37,7 @@ export function useFusion() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include', // Include cookies for session-based auth
         body: JSON.stringify({
           pokemon1: image1Url,
           pokemon2: image2Url,

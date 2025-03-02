@@ -10,6 +10,7 @@
     "install-types": "npm install --save-dev typescript @types/react @types/react-dom @types/node"
   },
   "dependencies": {
+    "@clerk/clerk-sdk-node": "^5.1.6",
     "@clerk/nextjs": "^6.12.1",
     "@hookform/resolvers": "^4.1.2",
     "@onesignal/node-onesignal": "^2.0.1-beta1",

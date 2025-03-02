@@ -84,7 +84,10 @@ export default function ClientLayout({
           {children}
         </div>
       </main>
-      <Footer />
+      
+      <div className="relative z-10 bg-transparent dark:bg-transparent">
+        <Footer />
+      </div>
       <Toaster richColors position="top-center" theme={isDarkMode ? "dark" : "light"} />
     </div>
   );

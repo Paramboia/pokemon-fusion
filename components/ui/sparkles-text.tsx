@@ -77,20 +77,21 @@ const SparklesText: React.FC<SparklesTextProps> = ({
 
   return (
     <div
-      className={cn("text-6xl font-bold text-gray-800 dark:text-white", className)}
+      className={cn("text-6xl font-bold", className)}
       {...props}
       style={
         {
           "--sparkles-first-color": `${colors.first}`,
           "--sparkles-second-color": `${colors.second}`,
+          color: "var(--tw-text-opacity, 1) * rgba(31, 41, 55, var(--tw-text-opacity))",
         } as CSSProperties
       }
     >
-      <span className="relative inline-block">
+      <span className="relative inline-block dark:text-white">
         {sparkles.map((sparkle) => (
           <Sparkle key={sparkle.id} {...sparkle} />
         ))}
-        <strong className="text-inherit">{text}</strong>
+        <strong className="dark:text-white">{text}</strong>
       </span>
     </div>
   );

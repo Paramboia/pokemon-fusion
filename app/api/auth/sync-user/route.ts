@@ -65,73 +65,6 @@ export async function POST(req: Request) {
     }
 
     try {
-      // First, ensure the users table exists with the correct schema
-      console.log('Sync-user API - Ensuring users table exists');
-      try {
-        // Try to create the UUID extension if it doesn't exist
-        const createExtensionQuery = `
-          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-        `;
-        
-        try {
-          const { error: extensionError } = await supabaseClient.rpc('exec_sql', { query: createExtensionQuery });
-          if (extensionError) {
-            console.log('Sync-user API - Error creating UUID extension (may already exist):', extensionError);
-          } else {
-            console.log('Sync-user API - UUID extension created or already exists');
-          }
-        } catch (extensionError) {
-          console.log('Sync-user API - Error creating UUID extension:', extensionError);
-        }
-        
-        // Create the users table with the correct schema
-        const createTableQuery = `
-          CREATE TABLE IF NOT EXISTS users (
-            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            created_at TIMESTAMP DEFAULT NOW()
-          );
-        `;
-        
-        try {
-          const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
-          if (createTableError) {
-            console.log('Sync-user API - Error creating users table:', createTableError);
-          } else {
-            console.log('Sync-user API - Users table created successfully');
-          }
-        } catch (tableError) {
-          console.log('Sync-user API - Error in table creation:', tableError);
-        }
-        
-        // Try to add a clerk_id column if it doesn't exist
-        const addClerkIdColumnQuery = `
-          DO $$
-          BEGIN
-            IF NOT EXISTS (
-              SELECT FROM information_schema.columns 
-              WHERE table_name = 'users' AND column_name = 'clerk_id'
-            ) THEN
-              ALTER TABLE users ADD COLUMN clerk_id TEXT UNIQUE;
-            END IF;
-          END $$;
-        `;
-        
-        try {
-          const { error: columnError } = await supabaseClient.rpc('exec_sql', { query: addClerkIdColumnQuery });
-          if (columnError) {
-            console.log('Sync-user API - Error adding clerk_id column:', columnError);
-          } else {
-            console.log('Sync-user API - clerk_id column added or already exists');
-          }
-        } catch (columnError) {
-          console.log('Sync-user API - Error adding clerk_id column:', columnError);
-        }
-      } catch (tableError) {
-        console.log('Sync-user API - Error checking/creating users table:', tableError);
-      }
-
       // Check if user already exists by email
       console.log('Sync-user API - Checking if user exists with email:', email);
       const { data: existingUserByEmail, error: fetchEmailError } = await supabaseClient
@@ -140,6 +73,10 @@ export async function POST(req: Request) {
         .eq('email', email)
         .single();
 
+      if (fetchEmailError && fetchEmailError.code !== 'PGRST116') {
+        console.error('Sync-user API - Error fetching user by email:', fetchEmailError);
+      }
+
       // Also check if user exists by Clerk ID
       console.log('Sync-user API - Checking if user exists with Clerk ID:', clerkUserId);
       const { data: existingUserByClerkId, error: fetchClerkIdError } = await supabaseClient
@@ -147,6 +84,10 @@ export async function POST(req: Request) {
         .select('*')
         .eq('clerk_id', clerkUserId)
         .single();
+
+      if (fetchClerkIdError && fetchClerkIdError.code !== 'PGRST116') {
+        console.error('Sync-user API - Error fetching user by clerk_id:', fetchClerkIdError);
+      }
 
       const existingUser = existingUserByEmail || existingUserByClerkId;
 
@@ -180,36 +121,7 @@ export async function POST(req: Request) {
       } else {
         console.log('Sync-user API - Creating new user with name:', name, 'and email:', email);
         
-        // Try direct SQL insert first
-        try {
-          console.log('Sync-user API - Trying direct SQL insert');
-          
-          const insertUserQuery = `
-            INSERT INTO users (name, email, clerk_id)
-            VALUES ('${name.replace(/'/g, "''")}', '${email.replace(/'/g, "''")}', '${clerkUserId}')
-            RETURNING *;
-          `;
-          
-          const { data: sqlResult, error: sqlError } = await supabaseClient.rpc('exec_sql', { 
-            query: insertUserQuery 
-          });
-          
-          if (sqlError) {
-            console.error('Sync-user API - Error with SQL insert:', sqlError);
-          } else if (sqlResult && sqlResult.length > 0) {
-            console.log('Sync-user API - Successfully inserted user with SQL:', sqlResult);
-            
-            return NextResponse.json({ 
-              success: true,
-              user: sqlResult[0]
-            });
-          }
-        } catch (sqlError) {
-          console.error('Sync-user API - Error with SQL approach:', sqlError);
-        }
-        
-        // If SQL insert fails, try the Supabase API
-        console.log('Sync-user API - Trying Supabase API insert');
+        // Insert new user directly using the Supabase API
         const { data: newUser, error: insertError } = await supabaseClient
           .from('users')
           .insert({
@@ -222,6 +134,107 @@ export async function POST(req: Request) {
         if (insertError) {
           console.error('Sync-user API - Error inserting user:', insertError);
           console.error('Sync-user API - Error details:', JSON.stringify(insertError));
+          
+          // If there's an error, try to create the table first
+          console.log('Sync-user API - Table might not exist, trying to create it');
+          
+          // Create the users table with the correct schema
+          const { error: tableError } = await supabaseClient
+            .from('_schema')
+            .select('*')
+            .limit(1);
+            
+          if (tableError) {
+            console.log('Sync-user API - Error checking schema, creating users table directly');
+            
+            // Try to create the users table directly
+            try {
+              // Create the users table with the correct schema
+              await supabaseClient.schema.createTable('users', [
+                { name: 'id', type: 'uuid', primaryKey: true, defaultValue: { type: 'uuid_generate_v4' } },
+                { name: 'name', type: 'text', notNull: true },
+                { name: 'email', type: 'text', notNull: true, unique: true },
+                { name: 'clerk_id', type: 'text', unique: true },
+                { name: 'created_at', type: 'timestamp', defaultValue: { type: 'now' } }
+              ]);
+              
+              console.log('Sync-user API - Users table created successfully');
+              
+              // Try inserting again
+              const { data: retryUser, error: retryError } = await supabaseClient
+                .from('users')
+                .insert({
+                  name,
+                  email,
+                  clerk_id: clerkUserId
+                })
+                .select();
+                
+              if (retryError) {
+                console.error('Sync-user API - Error on retry insert:', retryError);
+                return NextResponse.json(
+                  { error: 'Error creating user in Supabase' },
+                  { status: 500 }
+                );
+              }
+              
+              console.log('Sync-user API - Successfully inserted user on retry:', retryUser);
+              
+              return NextResponse.json({ 
+                success: true,
+                user: retryUser?.[0] || null
+              });
+            } catch (createError) {
+              console.error('Sync-user API - Error creating users table:', createError);
+              
+              // Last resort: try a raw insert
+              try {
+                // Generate a UUID for the user
+                const userId = uuidv4();
+                
+                // Insert directly using the REST API
+                const response = await fetch(`${supabaseUrl}/rest/v1/users`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation',
+                    'apikey': supabaseServiceKey,
+                    'Authorization': `Bearer ${supabaseServiceKey}`
+                  },
+                  body: JSON.stringify({
+                    id: userId,
+                    name,
+                    email,
+                    clerk_id: clerkUserId,
+                    created_at: new Date().toISOString()
+                  })
+                });
+                
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  console.error('Sync-user API - Error with REST API insert:', errorData);
+                  return NextResponse.json(
+                    { error: 'Error creating user via REST API' },
+                    { status: 500 }
+                  );
+                }
+                
+                const userData = await response.json();
+                console.log('Sync-user API - Successfully inserted user via REST API:', userData);
+                
+                return NextResponse.json({ 
+                  success: true,
+                  user: userData[0] || { id: userId, name, email, clerk_id: clerkUserId }
+                });
+              } catch (restError) {
+                console.error('Sync-user API - Error with REST API approach:', restError);
+                return NextResponse.json(
+                  { error: 'All user creation methods failed' },
+                  { status: 500 }
+                );
+              }
+            }
+          }
           
           return NextResponse.json(
             { error: 'Error inserting user to Supabase' },

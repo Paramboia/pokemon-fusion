@@ -159,6 +159,10 @@ export async function likeFusion(fusionId: string): Promise<boolean> {
 export async function addFavorite(userId: string, fusionId: string): Promise<boolean> {
   try {
     const client = await getSupabaseClient();
+    
+    // Ensure favorites table exists
+    await ensureFavoritesTableExists();
+    
     const { error } = await client
       .from('favorites')
       .insert({
@@ -181,6 +185,10 @@ export async function addFavorite(userId: string, fusionId: string): Promise<boo
 export async function removeFavorite(userId: string, fusionId: string): Promise<boolean> {
   try {
     const client = await getSupabaseClient();
+    
+    // Ensure favorites table exists
+    await ensureFavoritesTableExists();
+    
     const { error } = await client
       .from('favorites')
       .delete()
@@ -196,6 +204,34 @@ export async function removeFavorite(userId: string, fusionId: string): Promise<
   } catch (error) {
     console.error('Error in removeFavorite:', error);
     return false;
+  }
+}
+
+// Function to ensure the favorites table exists
+async function ensureFavoritesTableExists() {
+  try {
+    console.log('Server Actions - Ensuring favorites table exists');
+    const client = await getSupabaseClient();
+    
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS favorites (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id TEXT NOT NULL,
+        fusion_id UUID NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        UNIQUE(user_id, fusion_id)
+      );
+    `;
+    
+    const { error: createTableError } = await client.rpc('exec_sql', { query: createTableQuery });
+    if (createTableError) {
+      console.log('Server Actions - Error creating favorites table (may already exist):', createTableError);
+    } else {
+      console.log('Server Actions - Favorites table created or already exists');
+    }
+  } catch (tableError) {
+    console.log('Server Actions - Error in favorites table creation (may not have permission):', tableError);
+    // Continue anyway, as the table might already exist
   }
 }
 

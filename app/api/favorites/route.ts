@@ -75,10 +75,12 @@ async function getSupabaseUserId(clerkId: string): Promise<string | null> {
 
 export async function POST(req: Request) {
   try {
-    // Get the current user ID from Clerk
+    // Get the authenticated user ID from Clerk
     const { userId: clerkUserId } = auth();
-    
+    console.log('Favorites API - POST request from user:', clerkUserId);
+
     if (!clerkUserId) {
+      console.log('Favorites API - No authenticated user found');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -87,24 +89,51 @@ export async function POST(req: Request) {
 
     // Get the corresponding Supabase user ID
     const supabaseUserId = await getSupabaseUserId(clerkUserId);
-    
+    console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
+
     if (!supabaseUserId) {
+      console.log('Favorites API - User not found in database');
       return NextResponse.json(
         { error: 'User not found in database' },
         { status: 401 }
       );
     }
 
-    // Parse the request body
-    const body = await req.json();
-    const { fusionId } = body;
+    // Get the fusion ID from the request body
+    const { fusionId } = await req.json();
+    console.log('Favorites API - Adding fusion to favorites:', fusionId);
 
     // Validate the request parameters
     if (!fusionId) {
+      console.log('Favorites API - Missing fusion ID in request body');
       return NextResponse.json(
         { error: 'Missing fusion ID' },
         { status: 400 }
       );
+    }
+
+    // Ensure the favorites table exists before adding
+    try {
+      console.log('Favorites API - Ensuring favorites table exists');
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS favorites (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id TEXT NOT NULL,
+          fusion_id UUID NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(user_id, fusion_id)
+        );
+      `;
+      
+      const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+      if (createTableError) {
+        console.log('Favorites API - Error creating favorites table (may already exist):', createTableError);
+      } else {
+        console.log('Favorites API - Favorites table created or already exists');
+      }
+    } catch (tableError) {
+      console.log('Favorites API - Error in favorites table creation (may not have permission):', tableError);
+      // Continue anyway, as the table might already exist
     }
 
     // Add the fusion to favorites
@@ -129,10 +158,10 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    // Get the current user ID from Clerk
+    // Get the authenticated user ID from Clerk
     const { userId: clerkUserId } = auth();
-    console.log('Favorites API - DELETE request with Clerk userId:', clerkUserId);
-    
+    console.log('Favorites API - DELETE request from user:', clerkUserId);
+
     if (!clerkUserId) {
       console.log('Favorites API - No authenticated user found');
       return NextResponse.json(
@@ -144,7 +173,7 @@ export async function DELETE(req: Request) {
     // Get the corresponding Supabase user ID
     const supabaseUserId = await getSupabaseUserId(clerkUserId);
     console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
-    
+
     if (!supabaseUserId) {
       console.log('Favorites API - User not found in database');
       return NextResponse.json(
@@ -165,6 +194,30 @@ export async function DELETE(req: Request) {
         { error: 'Missing fusion ID' },
         { status: 400 }
       );
+    }
+
+    // Ensure the favorites table exists before deleting
+    try {
+      console.log('Favorites API - Ensuring favorites table exists');
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS favorites (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id TEXT NOT NULL,
+          fusion_id UUID NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(user_id, fusion_id)
+        );
+      `;
+      
+      const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+      if (createTableError) {
+        console.log('Favorites API - Error creating favorites table (may already exist):', createTableError);
+      } else {
+        console.log('Favorites API - Favorites table created or already exists');
+      }
+    } catch (tableError) {
+      console.log('Favorites API - Error in favorites table creation (may not have permission):', tableError);
+      // Continue anyway, as the table might already exist
     }
 
     // Remove the fusion from favorites
@@ -195,11 +248,11 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const clerkUserId = url.searchParams.get('userId');
     console.log('Favorites API - GET request with userId:', clerkUserId);
-    
+
     // Verify the request is authenticated
     const { userId: authClerkUserId } = auth();
     console.log('Favorites API - Authenticated userId from auth():', authClerkUserId);
-    
+
     // If no userId is provided or it doesn't match the authenticated user, return an error
     if (!clerkUserId) {
       console.log('Favorites API - Missing userId parameter');
@@ -208,7 +261,7 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
-    
+
     // For security, ensure the requested userId matches the authenticated user
     if (authClerkUserId && clerkUserId !== authClerkUserId) {
       console.warn('Favorites API - User requested favorites for a different user ID');
@@ -219,11 +272,11 @@ export async function GET(req: Request) {
         { status: 403 }
       );
     }
-    
+
     // Get the corresponding Supabase user ID
     const supabaseUserId = await getSupabaseUserId(clerkUserId);
     console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
-    
+
     if (!supabaseUserId) {
       console.log('Favorites API - User not found in database');
       return NextResponse.json(
@@ -233,7 +286,31 @@ export async function GET(req: Request) {
     }
     
     console.log('Favorites API - Fetching favorites for user:', supabaseUserId);
-    
+
+    // Ensure the favorites table exists before querying
+    try {
+      console.log('Favorites API - Ensuring favorites table exists');
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS favorites (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id TEXT NOT NULL,
+          fusion_id UUID NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(user_id, fusion_id)
+        );
+      `;
+      
+      const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+      if (createTableError) {
+        console.log('Favorites API - Error creating favorites table (may already exist):', createTableError);
+      } else {
+        console.log('Favorites API - Favorites table created or already exists');
+      }
+    } catch (tableError) {
+      console.log('Favorites API - Error in favorites table creation (may not have permission):', tableError);
+      // Continue anyway, as the table might already exist
+    }
+
     // Query the favorites table for this user
     const { data, error } = await supabaseClient
       .from('favorites')
@@ -249,7 +326,7 @@ export async function GET(req: Request) {
         )
       `)
       .eq('user_id', supabaseUserId);
-    
+
     if (error) {
       console.error('Favorites API - Error fetching favorites:', error.message);
       return NextResponse.json(
@@ -257,12 +334,12 @@ export async function GET(req: Request) {
         { status: 500 }
       );
     }
-    
+
     console.log('Favorites API - Fetched favorites count:', data?.length || 0);
-    
+
     // Transform the data to a more usable format
     const favorites = data?.map(item => item.fusions) || [];
-    
+
     return NextResponse.json({ favorites });
   } catch (error) {
     console.error('Favorites API - Error in GET handler:', error);

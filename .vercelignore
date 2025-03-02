@@ -7,6 +7,10 @@ node_modules
 .env.test.local
 .env.production.local
 .babelrc
+.babelrc.js
+.babelrc.json
+babel.config.js
+babel.config.json
 vercel-build-override.sh
 vercel-build.js
 build-vercel.js

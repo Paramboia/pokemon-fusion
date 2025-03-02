@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useUser, useAuth } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
 
 // Define the shape of our auth context
@@ -11,7 +11,6 @@ type AuthContextType = {
   isSignedIn: boolean;
   supabaseUser: any;
   authError: string | null;
-  getSupabaseToken: () => Promise<string | null>;
 };
 
 // Create the context with default values
@@ -21,7 +20,6 @@ const AuthContext = createContext<AuthContextType>({
   isSignedIn: false,
   supabaseUser: null,
   authError: null,
-  getSupabaseToken: async () => null,
 });
 
 // Custom hook to use the auth context
@@ -33,54 +31,11 @@ export const useAuth = useAuthContext;
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Get user and auth state from Clerk
   const { user, isLoaded, isSignedIn } = useUser();
-  const clerkAuth = useAuth();
   
   // State to store the Supabase user and any auth errors
   const [supabaseUser, setSupabaseUser] = useState<any>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [syncAttempted, setSyncAttempted] = useState(false);
-  
-  // Function to get a Supabase token from Clerk
-  const getSupabaseToken = async (): Promise<string | null> => {
-    if (!isSignedIn || !user) {
-      console.log('Auth Context - User not signed in, cannot get token');
-      return null;
-    }
-    
-    try {
-      // Check if getToken is available
-      if (!clerkAuth || typeof clerkAuth.getToken !== 'function') {
-        console.error('Auth Context - getToken is not a function or not available');
-        setAuthError('Authentication method not available');
-        return null;
-      }
-      
-      // Use a more direct approach to get the token
-      const token = await clerkAuth.getToken({ template: 'supabase' });
-      
-      if (!token) {
-        console.log('Auth Context - No token available from Clerk');
-        setAuthError('No authentication token available');
-        return null;
-      }
-      return token;
-    } catch (error) {
-      console.error('Auth Context - Error getting Supabase token:', error);
-      
-      // Handle the specific TypeError
-      if (error instanceof TypeError && error.message.includes('is not a function')) {
-        console.log('Auth Context - Using fallback authentication method');
-        setAuthError('Authentication method not available - please try signing out and back in');
-        
-        // For development/testing, you could return a mock token here
-        // In production, this should be handled more securely
-        return null;
-      }
-      
-      setAuthError(`Error getting authentication token: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return null;
-    }
-  };
   
   // Function to sync user data to Supabase
   const syncUserToSupabase = async () => {
@@ -102,21 +57,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
       
-      // Try to get a token, but proceed even if we can't get one
-      let token = null;
-      try {
-        token = await getSupabaseToken();
-      } catch (tokenError) {
-        console.error('Auth Context - Error getting token for sync:', tokenError);
-        // Continue without token
-      }
-      
       // Call our API to sync the user to Supabase
       const response = await fetch('/api/auth/sync-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
         },
         body: JSON.stringify({
           name,
@@ -130,19 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Auth Context - Error syncing user to Supabase:', errorData);
         
-        // If we get a 401, the user might not be authenticated
-        if (response.status === 401) {
-          console.log('Auth Context - Authentication required, using Clerk user data as fallback');
-          setAuthError('Authentication required');
-          return {
-            id: user.id,
-            name,
-            email,
-            clerk_id: user.id,
-          };
-        }
-        
-        // For other errors, still use Clerk data as fallback
+        // For errors, use Clerk data as fallback
         console.log('Auth Context - Using Clerk user data as fallback due to sync error');
         setAuthError(`Error syncing user: ${errorData.error || 'Unknown error'}`);
         return {
@@ -194,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth Context - User is signed out, clearing Supabase user');
         setSupabaseUser(null);
         setSyncAttempted(false);
+        setAuthError(null);
       }
     }
   }, [isLoaded, isSignedIn, user, syncAttempted]);
@@ -207,7 +141,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isSignedIn,
         supabaseUser,
         authError,
-        getSupabaseToken,
       }}
     >
       {children}

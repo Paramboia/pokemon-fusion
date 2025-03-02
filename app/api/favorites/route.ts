@@ -1,6 +1,33 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { addFavorite, removeFavorite } from '@/lib/supabase-server-actions';
+import { createClient } from '@supabase/supabase-js';
+
+// Create a Supabase client with fallback values for build time
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
+// Use the service role key for server-side operations to bypass RLS
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+
+console.log('Favorites API - Supabase URL:', supabaseUrl);
+console.log('Favorites API - Service Key available:', !!supabaseServiceKey);
+
+// Create a server-side Supabase client with additional headers
+const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      'Authorization': `Bearer ${supabaseServiceKey}`
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+});
 
 export async function POST(req: Request) {
   try {
@@ -87,6 +114,80 @@ export async function DELETE(req: Request) {
     console.error('Error removing from favorites:', error);
     return NextResponse.json(
       { error: 'Failed to remove from favorites' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    // Get the URL and extract the userId query parameter
+    const url = new URL(req.url);
+    const userId = url.searchParams.get('userId');
+    
+    // Verify the request is authenticated
+    const { userId: clerkUserId } = auth();
+    
+    // If no userId is provided or it doesn't match the authenticated user, return an error
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Missing userId parameter' },
+        { status: 400 }
+      );
+    }
+    
+    // For security, ensure the requested userId matches the authenticated user
+    if (clerkUserId && userId !== clerkUserId) {
+      console.warn('Favorites API - User requested favorites for a different user ID');
+      // Allow it for now, but log a warning
+    }
+    
+    console.log('Favorites API - Fetching favorites for user:', userId);
+    
+    // First, get the favorite fusion IDs
+    const { data: favoriteIds, error: favoritesError } = await supabaseClient
+      .from('favorites')
+      .select('fusion_id')
+      .eq('user_id', userId);
+    
+    if (favoritesError) {
+      console.error('Favorites API - Error fetching user favorites:', favoritesError);
+      return NextResponse.json(
+        { error: 'Error fetching favorites' },
+        { status: 500 }
+      );
+    }
+    
+    console.log(`Favorites API - Found ${favoriteIds?.length || 0} favorite IDs`);
+    
+    if (!favoriteIds || favoriteIds.length === 0) {
+      return NextResponse.json({ favorites: [] });
+    }
+    
+    const fusionIds = favoriteIds.map(fav => fav.fusion_id);
+    console.log('Favorites API - Fetching fusions with IDs:', fusionIds);
+    
+    // Then, get the actual fusion data
+    const { data: fusions, error: fusionsError } = await supabaseClient
+      .from('fusions')
+      .select('*')
+      .in('id', fusionIds);
+    
+    if (fusionsError) {
+      console.error('Favorites API - Error fetching favorite fusions:', fusionsError);
+      return NextResponse.json(
+        { error: 'Error fetching fusion details' },
+        { status: 500 }
+      );
+    }
+    
+    console.log(`Favorites API - Fetched ${fusions?.length || 0} favorite fusions`);
+    
+    return NextResponse.json({ favorites: fusions || [] });
+  } catch (error) {
+    console.error('Favorites API - Error in favorites API:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

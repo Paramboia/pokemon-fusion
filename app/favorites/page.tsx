@@ -15,7 +15,7 @@ export default function FavoritesPage() {
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<FusionDB[]>([]);
   const { user, isLoaded } = useUser();
-  const { getSupabaseToken } = useAuthContext();
+  const { authError } = useAuthContext();
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -33,28 +33,22 @@ export default function FavoritesPage() {
           return;
         }
         
-        // Get the Supabase JWT token from Clerk
-        let token = null;
-        try {
-          token = await getSupabaseToken();
-        } catch (tokenError) {
-          console.error('Error getting token for favorites:', tokenError);
-          setError('Authentication token error. Please try signing out and back in.');
-          setIsLoading(false);
-          return;
-        }
-        
-        if (!token) {
-          console.error('No Supabase token available from Clerk');
-          setError('Authentication token not available. Please try signing out and back in.');
-          setIsLoading(false);
-          return;
-        }
-        
         console.log('Fetching favorites for user:', userId);
-        const userFavorites = await dbService.getUserFavorites(userId, token);
-        console.log('Fetched favorites:', userFavorites);
-        setFavorites(userFavorites);
+        
+        // Call the API endpoint to get favorites
+        const response = await fetch(`/api/favorites?userId=${userId}`);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Error fetching favorites:', errorData);
+          setError('Failed to load favorites. Please try again later.');
+          setIsLoading(false);
+          return;
+        }
+        
+        const data = await response.json();
+        console.log('Fetched favorites:', data.favorites);
+        setFavorites(data.favorites || []);
       } catch (error) {
         console.error('Error fetching favorites:', error);
         setError('Failed to load favorites. Please try again later.');
@@ -65,7 +59,7 @@ export default function FavoritesPage() {
     };
 
     fetchFavorites();
-  }, [user?.id, isLoaded, getSupabaseToken]);
+  }, [user?.id, isLoaded]);
 
   const handleRemove = async (id: string) => {
     try {
@@ -76,22 +70,25 @@ export default function FavoritesPage() {
         return;
       }
       
-      // Get the Supabase JWT token from Clerk
-      let token = null;
-      try {
-        token = await getSupabaseToken();
-      } catch (tokenError) {
-        console.error('Error getting token for removing favorite:', tokenError);
-        toast.error('Authentication error. Please try signing out and back in.');
+      // Call the API endpoint to remove a favorite
+      const response = await fetch(`/api/favorites/remove`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          fusionId: id
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error removing favorite:', errorData);
+        toast.error('Failed to remove from favorites');
         return;
       }
       
-      if (!token) {
-        toast.error('Authentication token not available');
-        return;
-      }
-      
-      await dbService.removeFavorite(userId, id, token);
       setFavorites(favorites.filter(fusion => fusion.id !== id));
       toast.success('Removed from favorites');
     } catch (error) {

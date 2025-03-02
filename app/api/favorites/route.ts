@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { addFavorite, removeFavorite } from '@/lib/supabase-server-actions';
 import { createClient } from '@supabase/supabase-js';
-import { currentUser } from '@clerk/nextjs';
 
 // Create a Supabase client with fallback values for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
@@ -30,15 +29,56 @@ const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   },
 });
 
+// Helper function to get the Supabase user ID from Clerk ID
+async function getSupabaseUserId(clerkId: string): Promise<string | null> {
+  try {
+    console.log('Favorites API - Looking up Supabase user for Clerk ID:', clerkId);
+    
+    // First, try to find the user by email
+    const user = await currentUser();
+    const email = user?.emailAddresses[0]?.emailAddress;
+    
+    if (email) {
+      console.log('Favorites API - Looking up Supabase user by email:', email);
+      const { data: userByEmail, error: emailError } = await supabaseClient
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+      
+      if (emailError) {
+        console.log('Favorites API - Error finding user by email:', emailError.message);
+      } else if (userByEmail) {
+        console.log('Favorites API - Found Supabase user by email:', userByEmail.id);
+        return userByEmail.id;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Favorites API - Error in getSupabaseUserId:', error);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Get the current user ID from Clerk
-    const session = await auth();
-    const userId = session?.userId;
+    const { userId: clerkUserId } = auth();
     
-    if (!userId) {
+    if (!clerkUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserId(clerkUserId);
+    
+    if (!supabaseUserId) {
+      return NextResponse.json(
+        { error: 'User not found in database' },
         { status: 401 }
       );
     }
@@ -56,7 +96,7 @@ export async function POST(req: Request) {
     }
 
     // Add the fusion to favorites
-    const success = await addFavorite(userId, fusionId);
+    const success = await addFavorite(supabaseUserId, fusionId);
 
     if (!success) {
       return NextResponse.json(
@@ -78,12 +118,21 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     // Get the current user ID from Clerk
-    const session = await auth();
-    const userId = session?.userId;
+    const { userId: clerkUserId } = auth();
     
-    if (!userId) {
+    if (!clerkUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserId(clerkUserId);
+    
+    if (!supabaseUserId) {
+      return NextResponse.json(
+        { error: 'User not found in database' },
         { status: 401 }
       );
     }
@@ -101,7 +150,7 @@ export async function DELETE(req: Request) {
     }
 
     // Remove the fusion from favorites
-    const success = await removeFavorite(userId, fusionId);
+    const success = await removeFavorite(supabaseUserId, fusionId);
 
     if (!success) {
       return NextResponse.json(
@@ -124,13 +173,13 @@ export async function GET(req: Request) {
   try {
     // Get the URL and extract the userId query parameter
     const url = new URL(req.url);
-    const userId = url.searchParams.get('userId');
+    const clerkUserId = url.searchParams.get('userId');
     
     // Verify the request is authenticated
-    const { userId: clerkUserId } = auth();
+    const { userId: authClerkUserId } = auth();
     
     // If no userId is provided or it doesn't match the authenticated user, return an error
-    if (!userId) {
+    if (!clerkUserId) {
       return NextResponse.json(
         { error: 'Missing userId parameter' },
         { status: 400 }
@@ -138,7 +187,7 @@ export async function GET(req: Request) {
     }
     
     // For security, ensure the requested userId matches the authenticated user
-    if (clerkUserId && userId !== clerkUserId) {
+    if (authClerkUserId && clerkUserId !== authClerkUserId) {
       console.warn('Favorites API - User requested favorites for a different user ID');
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -146,83 +195,54 @@ export async function GET(req: Request) {
       );
     }
     
-    console.log('Favorites API - Fetching favorites for user:', userId);
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserId(clerkUserId);
     
-    // Get the user's email from Clerk
-    const user = await currentUser();
-    if (!user || !user.emailAddresses || user.emailAddresses.length === 0) {
-      console.error('Favorites API - No email found for user');
-      return NextResponse.json(
-        { error: 'User email not found' },
-        { status: 404 }
-      );
-    }
-    
-    const email = user.emailAddresses[0].emailAddress;
-    console.log('Favorites API - User email:', email);
-    
-    // Find the Supabase user ID from the email
-    const { data: supabaseUser, error: userError } = await supabaseClient
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single();
-    
-    if (userError) {
-      console.error('Favorites API - Error finding user in Supabase:', userError);
+    if (!supabaseUserId) {
       return NextResponse.json(
         { error: 'User not found in database' },
         { status: 404 }
       );
     }
     
-    const supabaseUserId = supabaseUser.id;
-    console.log('Favorites API - Found Supabase user ID:', supabaseUserId);
+    console.log('Favorites API - Fetching favorites for user:', supabaseUserId);
     
-    // Get the favorite fusion IDs
-    const { data: favoriteIds, error: favoritesError } = await supabaseClient
+    // Query the favorites table for this user
+    const { data, error } = await supabaseClient
       .from('favorites')
-      .select('fusion_id')
+      .select(`
+        fusion_id,
+        fusions (
+          id,
+          pokemon_1_id,
+          pokemon_2_id,
+          fusion_name,
+          fusion_image,
+          likes,
+          created_at
+        )
+      `)
       .eq('user_id', supabaseUserId);
     
-    if (favoritesError) {
-      console.error('Favorites API - Error fetching user favorites:', favoritesError);
+    if (error) {
+      console.error('Favorites API - Error fetching favorites:', error);
       return NextResponse.json(
-        { error: 'Error fetching favorites' },
+        { error: 'Failed to fetch favorites' },
         { status: 500 }
       );
     }
     
-    console.log(`Favorites API - Found ${favoriteIds?.length || 0} favorite IDs`);
+    // Transform the data to a more convenient format
+    const favorites = data.map(item => ({
+      id: item.fusion_id,
+      ...item.fusions
+    }));
     
-    if (!favoriteIds || favoriteIds.length === 0) {
-      return NextResponse.json({ favorites: [] });
-    }
-    
-    const fusionIds = favoriteIds.map(fav => fav.fusion_id);
-    console.log('Favorites API - Fetching fusions with IDs:', fusionIds);
-    
-    // Then, get the actual fusion data
-    const { data: fusions, error: fusionsError } = await supabaseClient
-      .from('fusions')
-      .select('*')
-      .in('id', fusionIds);
-    
-    if (fusionsError) {
-      console.error('Favorites API - Error fetching favorite fusions:', fusionsError);
-      return NextResponse.json(
-        { error: 'Error fetching fusion details' },
-        { status: 500 }
-      );
-    }
-    
-    console.log(`Favorites API - Fetched ${fusions?.length || 0} favorite fusions`);
-    
-    return NextResponse.json({ favorites: fusions || [] });
+    return NextResponse.json({ favorites });
   } catch (error) {
-    console.error('Favorites API - Error in favorites API:', error);
+    console.error('Favorites API - Error in GET handler:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch favorites' },
       { status: 500 }
     );
   }

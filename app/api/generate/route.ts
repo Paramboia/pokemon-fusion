@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Replicate from 'replicate';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { savePokemon, saveFusion } from '@/lib/supabase-server-actions';
 import { v4 as uuidv4 } from 'uuid';
 import { createClient } from '@supabase/supabase-js';
@@ -50,50 +50,57 @@ const generateLocalFusion = (pokemon1Url: string, pokemon2Url: string, name1: st
 // Helper function to get the Supabase user ID from Clerk ID
 async function getSupabaseUserId(clerkId: string): Promise<string | null> {
   try {
-    console.log('Generate API - Looking up Supabase user ID for Clerk ID:', clerkId);
+    console.log('Generate API - Looking up Supabase user for Clerk ID:', clerkId);
     
-    // Check if user exists by Clerk ID
-    const { data: user, error } = await supabaseClient
-      .from('users')
-      .select('id')
-      .eq('clerk_id', clerkId)
-      .single();
+    // First, try to find the user by email
+    const user = await currentUser();
+    const email = user?.emailAddresses[0]?.emailAddress;
     
-    if (error) {
-      console.error('Generate API - Error finding user by Clerk ID:', error);
+    if (email) {
+      console.log('Generate API - Looking up Supabase user by email:', email);
+      const { data: userByEmail, error: emailError } = await supabaseClient
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
       
-      // Try a direct SQL query as a fallback
-      try {
-        const query = `
-          SELECT id FROM users WHERE clerk_id = '${clerkId}'
-        `;
+      if (emailError) {
+        console.log('Generate API - Error finding user by email:', emailError.message);
+      } else if (userByEmail) {
+        console.log('Generate API - Found Supabase user by email:', userByEmail.id);
+        return userByEmail.id;
+      }
+    }
+    
+    // If we couldn't find by email, create a new user
+    if (user) {
+      console.log('Generate API - Creating new Supabase user for Clerk user');
+      
+      const name = user.firstName && user.lastName 
+        ? `${user.firstName} ${user.lastName}` 
+        : user.firstName || user.lastName || 'Anonymous User';
+      
+      if (email) {
+        // Insert the user into Supabase
+        const { data: newUser, error: insertError } = await supabaseClient
+          .from('users')
+          .insert({
+            name,
+            email
+          })
+          .select('id')
+          .single();
         
-        const { data: sqlResult, error: sqlError } = await supabaseClient.rpc('exec_sql', { 
-          query: query 
-        });
-        
-        if (sqlError || !sqlResult || sqlResult.length === 0) {
-          console.error('Generate API - Error with SQL query:', sqlError);
+        if (insertError) {
+          console.log('Generate API - Error creating Supabase user:', insertError.message);
           return null;
         }
         
-        if (sqlResult[0] && sqlResult[0].id) {
-          console.log('Generate API - Found Supabase user ID via SQL:', sqlResult[0].id);
-          return sqlResult[0].id;
-        }
-      } catch (sqlError) {
-        console.error('Generate API - Error with SQL fallback:', sqlError);
+        console.log('Generate API - Created new Supabase user:', newUser.id);
+        return newUser.id;
       }
-      
-      return null;
     }
     
-    if (user && user.id) {
-      console.log('Generate API - Found Supabase user ID:', user.id);
-      return user.id;
-    }
-    
-    console.log('Generate API - No Supabase user found for Clerk ID:', clerkId);
     return null;
   } catch (error) {
     console.error('Generate API - Error in getSupabaseUserId:', error);
@@ -191,55 +198,19 @@ export async function POST(req: Request) {
     const supabaseUserId = await getSupabaseUserId(clerkUserId);
     
     if (!supabaseUserId) {
-      console.log('Generate API - No Supabase user found for Clerk ID, attempting to create user');
-      
-      // Try to create the user directly
-      try {
-        const name = 'Anonymous User'; // Default name
-        const email = `${clerkUserId}@example.com`; // Default email based on Clerk ID
-        
-        const insertUserQuery = `
-          INSERT INTO users (name, email, clerk_id)
-          VALUES ('${name}', '${email}', '${clerkUserId}')
-          RETURNING id;
-        `;
-        
-        const { data: sqlResult, error: sqlError } = await supabaseClient.rpc('exec_sql', { 
-          query: insertUserQuery 
-        });
-        
-        if (sqlError || !sqlResult || sqlResult.length === 0) {
-          console.error('Generate API - Error creating user via SQL:', sqlError);
-          console.log('Generate API - Using Clerk ID as fallback');
-          // We'll use the Clerk ID as a fallback
-        } else if (sqlResult[0] && sqlResult[0].id) {
-          console.log('Generate API - Created and using new Supabase user ID:', sqlResult[0].id);
-          // Use the newly created user ID
-          const userId = sqlResult[0].id;
-          
-          // Continue with fusion generation using the new user ID
-          return await handleFusionGeneration(req, userId);
-        }
-      } catch (createError) {
-        console.error('Generate API - Error creating user:', createError);
-        console.log('Generate API - Using Clerk ID as fallback');
-      }
-    } else {
-      console.log('Generate API - Using existing Supabase user ID:', supabaseUserId);
-      // Continue with fusion generation using the existing user ID
-      return await handleFusionGeneration(req, supabaseUserId);
+      console.log('Generate API - No Supabase user found for Clerk ID, returning 401');
+      return NextResponse.json(
+        { error: 'User not found in database' },
+        { status: 401 }
+      );
     }
     
-    // If we get here, we couldn't create or find a Supabase user, so use Clerk ID as fallback
-    console.log('Generate API - Using Clerk ID as fallback for user ID');
-    return await handleFusionGeneration(req, clerkUserId);
+    // Process the fusion generation
+    return handleFusionGeneration(req, supabaseUserId);
   } catch (error) {
-    // Log the error
-    console.error('Generate API - Error generating fusion:', error instanceof Error ? error.message : 'Unknown error', error);
-    
-    // Return an error response
+    console.error('Generate API - Error in POST handler:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate fusion' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

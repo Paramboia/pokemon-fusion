@@ -106,11 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // Effect to sync user data to Supabase when the user signs in
   useEffect(() => {
+    console.log('Auth Context - useEffect triggered with isLoaded:', isLoaded, 'isSignedIn:', isSignedIn, 'syncAttempted:', syncAttempted);
+    
     if (isLoaded) {
       if (isSignedIn && user && !syncAttempted) {
+        console.log('Auth Context - User is signed in, attempting to sync. User:', user.id);
         // Sync user data to Supabase
         setSyncAttempted(true);
         syncUserToSupabase().then((syncedUser) => {
+          console.log('Auth Context - syncUserToSupabase completed, result:', syncedUser);
           setSupabaseUser(syncedUser);
           if (syncedUser) {
             console.log('Auth Context - User synced successfully');
@@ -118,6 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('Auth Context - Failed to sync user');
             toast.error('Failed to sync user data');
           }
+        }).catch(error => {
+          console.error('Auth Context - Exception in syncUserToSupabase promise:', error);
+          toast.error('Error syncing user data');
         });
       } else if (!isSignedIn) {
         // Clear Supabase user when signed out

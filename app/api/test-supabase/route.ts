@@ -24,80 +24,84 @@ const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   },
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    console.log('Test endpoint - Supabase URL:', supabaseUrl);
-    console.log('Test endpoint - Service Key available:', !!supabaseServiceKey);
+    console.log('Test Supabase API - GET request received');
+    console.log('Test Supabase API - Supabase URL:', supabaseUrl);
+    console.log('Test Supabase API - Service Key available:', !!supabaseServiceKey);
     
-    // Try to create the users table if it doesn't exist
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS users (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name TEXT,
-        email TEXT UNIQUE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `;
+    // Test if we can connect to Supabase
+    console.log('Test Supabase API - Testing connection to Supabase');
     
-    console.log('Test endpoint - Attempting to create users table if it doesn\'t exist');
-    const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+    // Try to list all tables
+    const { data: tables, error: tablesError } = await supabaseClient.rpc('get_tables');
     
-    if (createTableError) {
-      console.error('Test endpoint - Error creating users table:', createTableError);
+    if (tablesError) {
+      console.error('Test Supabase API - Error listing tables:', tablesError);
       
-      // Try a simple query instead
-      console.log('Test endpoint - Attempting to query users table');
-      const { data: users, error: queryError } = await supabaseClient
+      // Try a different approach
+      console.log('Test Supabase API - Trying to query users table directly');
+      const { data: users, error: usersError } = await supabaseClient
         .from('users')
         .select('*')
-        .limit(5);
+        .limit(1);
+        
+      console.log('Test Supabase API - Users query result:', { 
+        users, 
+        usersError: usersError ? { code: usersError.code, message: usersError.message } : null 
+      });
       
-      if (queryError) {
-        console.error('Test endpoint - Error querying users table:', queryError);
-        return NextResponse.json({ 
-          success: false, 
-          error: queryError,
-          message: 'Error querying users table'
-        }, { status: 500 });
+      if (usersError) {
+        // Try to create a test user
+        console.log('Test Supabase API - Trying to create a test user');
+        const { data: newUser, error: insertError } = await supabaseClient
+          .from('users')
+          .insert({
+            name: 'Test User',
+            email: 'test-' + Date.now() + '@example.com'
+          })
+          .select();
+          
+        console.log('Test Supabase API - Insert result:', { 
+          newUser, 
+          insertError: insertError ? { code: insertError.code, message: insertError.message } : null 
+        });
+        
+        if (insertError) {
+          return NextResponse.json({
+            success: false,
+            message: 'Failed to connect to Supabase',
+            tablesError,
+            usersError,
+            insertError
+          });
+        }
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Successfully created a test user',
+          newUser
+        });
       }
       
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         message: 'Successfully queried users table',
         users
       });
     }
     
-    // Try to insert a test user
-    console.log('Test endpoint - Attempting to insert a test user');
-    const { data: newUser, error: insertError } = await supabaseClient
-      .from('users')
-      .insert({
-        name: 'Test User',
-        email: `test-${Date.now()}@example.com`
-      })
-      .select();
-    
-    if (insertError) {
-      console.error('Test endpoint - Error inserting test user:', insertError);
-      return NextResponse.json({ 
-        success: false, 
-        error: insertError,
-        message: 'Error inserting test user'
-      }, { status: 500 });
-    }
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Successfully created users table and inserted test user',
-      user: newUser
+    return NextResponse.json({
+      success: true,
+      message: 'Successfully connected to Supabase',
+      tables
     });
   } catch (error) {
-    console.error('Test endpoint - Unexpected error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error,
-      message: 'Unexpected error'
-    }, { status: 500 });
+    console.error('Test Supabase API - Error:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Error connecting to Supabase',
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 } 

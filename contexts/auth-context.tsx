@@ -2,30 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/nextjs';
-import { createClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
-
-// Create a Supabase client with the public URL and anonymous key
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-// Log Supabase configuration for debugging
-console.log('Auth Context - Supabase URL available:', !!supabaseUrl);
-console.log('Auth Context - Supabase Anon Key available:', !!supabaseAnonKey);
-
-// Create a client-side Supabase client
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false, // We're using Clerk, not Supabase Auth
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  },
-});
 
 // Define the shape of our auth context
 type AuthContextType = {
@@ -34,6 +11,7 @@ type AuthContextType = {
   isSignedIn: boolean;
   supabaseUser: any;
   authError: string | null;
+  getSupabaseToken: () => Promise<string | null>;
 };
 
 // Create the context with default values
@@ -43,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   isSignedIn: false,
   supabaseUser: null,
   authError: null,
+  getSupabaseToken: async () => null,
 });
 
 // Custom hook to use the auth context
@@ -60,6 +39,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<any>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [syncAttempted, setSyncAttempted] = useState(false);
+  
+  // Function to get a Supabase token from Clerk
+  const getSupabaseToken = async (): Promise<string | null> => {
+    if (!isSignedIn || !user) {
+      console.log('Auth Context - User not signed in, cannot get token');
+      return null;
+    }
+    
+    try {
+      const token = await getToken({ template: 'supabase' });
+      if (!token) {
+        console.log('Auth Context - No token available from Clerk');
+        setAuthError('No authentication token available');
+        return null;
+      }
+      return token;
+    } catch (error) {
+      console.error('Auth Context - Error getting Supabase token:', error);
+      setAuthError(`Error getting authentication token: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return null;
+    }
+  };
   
   // Function to sync user data to Supabase
   const syncUserToSupabase = async () => {
@@ -81,11 +82,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
       
+      // Get a token for the API request
+      const token = await getSupabaseToken();
+      
       // Call our API to sync the user to Supabase
       const response = await fetch('/api/auth/sync-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
         },
         body: JSON.stringify({
           name,
@@ -167,48 +172,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, isSignedIn, user, syncAttempted]);
   
-  // Effect to set up Supabase client with user ID for RLS
-  useEffect(() => {
-    const setupSupabaseAuth = async () => {
-      if (isSignedIn && user) {
-        try {
-          // Get JWT token from Clerk
-          const token = await getToken({ template: 'supabase' });
-          
-          if (token) {
-            console.log('Auth Context - Setting Supabase auth with Clerk JWT');
-            
-            // Create custom headers with the authorization token
-            const customHeaders = {
-              'Authorization': `Bearer ${token}`,
-              'x-clerk-user-id': user.id
-            };
-            
-            // Set the headers on the Supabase client
-            Object.entries(customHeaders).forEach(([key, value]) => {
-              supabase.rest.headers.set(key, value);
-            });
-            
-            console.log('Auth Context - Supabase auth headers set successfully');
-          } else {
-            console.log('Auth Context - No token available from Clerk');
-            setAuthError('No authentication token available');
-          }
-        } catch (error) {
-          console.error('Auth Context - Error setting up Supabase auth:', error);
-          setAuthError(`Error setting up authentication: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      } else if (supabase) {
-        // Clear headers when signed out
-        console.log('Auth Context - Clearing Supabase auth headers');
-        supabase.rest.headers.remove('Authorization');
-        supabase.rest.headers.remove('x-clerk-user-id');
-      }
-    };
-    
-    setupSupabaseAuth();
-  }, [isSignedIn, user, getToken]);
-  
   // Provide the auth context to the app
   return (
     <AuthContext.Provider
@@ -218,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isSignedIn,
         supabaseUser,
         authError,
+        getSupabaseToken,
       }}
     >
       {children}

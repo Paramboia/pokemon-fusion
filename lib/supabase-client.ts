@@ -9,46 +9,33 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholde
 console.log('Supabase Client - Initializing with URL:', supabaseUrl);
 console.log('Supabase Client - Anon Key available:', !!supabaseAnonKey);
 
-// Create a Supabase client with additional headers for authentication
+// Create a Supabase client with minimal configuration
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false, // We're using Clerk for auth, not Supabase Auth
   },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-    },
-  },
-  db: {
-    schema: 'public',
-  },
 });
 
 // Log when the client is created
 console.log('Supabase Client - Client created successfully');
 
-// Function to set up the client with a user ID
-export const setupSupabaseWithUser = async (userId: string, token: string) => {
-  if (!userId) {
-    console.warn('Supabase Client - No user ID provided for setup');
-    return;
-  }
-  
-  console.log('Supabase Client - Setting up with user ID:', userId);
-  
-  try {
-    // Set the authorization header with the token
-    supabase.rest.headers.set('Authorization', `Bearer ${token}`);
-    // Set a custom header with the user ID
-    supabase.rest.headers.set('x-clerk-user-id', userId);
-    
-    console.log('Supabase Client - Headers set successfully');
-  } catch (error) {
-    console.error('Supabase Client - Error in setupSupabaseWithUser:', error);
-  }
+// Function to create an authenticated Supabase client for a single request
+const createAuthenticatedClient = (token: string, userId: string) => {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'x-clerk-user-id': userId,
+      },
+    },
+  });
 };
 
 export default supabase;
@@ -149,10 +136,14 @@ export const dbService = {
     }
   },
   
-  async getUserFusions(userId: string): Promise<FusionDB[]> {
+  async getUserFusions(userId: string, token?: string): Promise<FusionDB[]> {
     try {
       console.log('Supabase Client - Fetching fusions for user:', userId);
-      const { data, error } = await supabase
+      
+      // Use authenticated client if token is provided
+      const client = token ? createAuthenticatedClient(token, userId) : supabase;
+      
+      const { data, error } = await client
         .from('fusions')
         .select('*')
         .eq('user_id', userId)
@@ -191,12 +182,15 @@ export const dbService = {
     }
   },
   
-  async addFavorite(userId: string, fusionId: string): Promise<boolean> {
+  async addFavorite(userId: string, fusionId: string, token?: string): Promise<boolean> {
     try {
       console.log('Supabase Client - Adding favorite for user:', userId, 'fusion:', fusionId);
       
+      // Use authenticated client if token is provided
+      const client = token ? createAuthenticatedClient(token, userId) : supabase;
+      
       // First check if the favorite already exists
-      const { data: existingFavorite, error: checkError } = await supabase
+      const { data: existingFavorite, error: checkError } = await client
         .from('favorites')
         .select('*')
         .eq('user_id', userId)
@@ -212,7 +206,7 @@ export const dbService = {
         return true;
       }
       
-      const { error } = await supabase
+      const { error } = await client
         .from('favorites')
         .insert({
           user_id: userId,
@@ -232,10 +226,14 @@ export const dbService = {
     }
   },
   
-  async removeFavorite(userId: string, fusionId: string): Promise<boolean> {
+  async removeFavorite(userId: string, fusionId: string, token?: string): Promise<boolean> {
     try {
       console.log('Supabase Client - Removing favorite for user:', userId, 'fusion:', fusionId);
-      const { error } = await supabase
+      
+      // Use authenticated client if token is provided
+      const client = token ? createAuthenticatedClient(token, userId) : supabase;
+      
+      const { error } = await client
         .from('favorites')
         .delete()
         .eq('user_id', userId)
@@ -254,12 +252,15 @@ export const dbService = {
     }
   },
   
-  async getUserFavorites(userId: string): Promise<FusionDB[]> {
+  async getUserFavorites(userId: string, token?: string): Promise<FusionDB[]> {
     try {
       console.log('Supabase Client - Fetching favorites for user:', userId);
       
+      // Use authenticated client if token is provided
+      const client = token ? createAuthenticatedClient(token, userId) : supabase;
+      
       // First, get the favorite fusion IDs
-      const { data: favoriteIds, error: favoritesError } = await supabase
+      const { data: favoriteIds, error: favoritesError } = await client
         .from('favorites')
         .select('fusion_id')
         .eq('user_id', userId);
@@ -279,7 +280,7 @@ export const dbService = {
       console.log('Supabase Client - Fetching fusions with IDs:', fusionIds);
       
       // Then, get the actual fusion data
-      const { data: fusions, error: fusionsError } = await supabase
+      const { data: fusions, error: fusionsError } = await client
         .from('fusions')
         .select('*')
         .in('id', fusionIds);
@@ -297,10 +298,14 @@ export const dbService = {
     }
   },
   
-  async isFavorite(userId: string, fusionId: string): Promise<boolean> {
+  async isFavorite(userId: string, fusionId: string, token?: string): Promise<boolean> {
     try {
       console.log('Supabase Client - Checking if fusion is favorite for user:', userId, 'fusion:', fusionId);
-      const { data, error } = await supabase
+      
+      // Use authenticated client if token is provided
+      const client = token ? createAuthenticatedClient(token, userId) : supabase;
+      
+      const { data, error } = await client
         .from('favorites')
         .select('*')
         .eq('user_id', userId)

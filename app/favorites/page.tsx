@@ -6,15 +6,16 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FusionCard } from "@/components/fusion-card";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
-import { dbService, FusionDB, setupSupabaseWithUser } from "@/lib/supabase-client";
-import { useUser, useAuth } from "@clerk/nextjs";
+import { dbService, FusionDB } from "@/lib/supabase-client";
+import { useUser } from "@clerk/nextjs";
+import { useAuthContext } from "@/contexts/auth-context";
 
 export default function FavoritesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<FusionDB[]>([]);
   const { user, isLoaded } = useUser();
-  const { getToken } = useAuth();
+  const { getSupabaseToken, authError } = useAuthContext();
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -33,7 +34,7 @@ export default function FavoritesPage() {
         }
         
         // Get the Supabase JWT token from Clerk
-        const token = await getToken({ template: 'supabase' });
+        const token = await getSupabaseToken();
         
         if (!token) {
           console.error('No Supabase token available from Clerk');
@@ -42,11 +43,8 @@ export default function FavoritesPage() {
           return;
         }
         
-        // Set up Supabase with the user ID and token
-        await setupSupabaseWithUser(userId, token);
-        
         console.log('Fetching favorites for user:', userId);
-        const userFavorites = await dbService.getUserFavorites(userId);
+        const userFavorites = await dbService.getUserFavorites(userId, token);
         console.log('Fetched favorites:', userFavorites);
         setFavorites(userFavorites);
       } catch (error) {
@@ -59,7 +57,7 @@ export default function FavoritesPage() {
     };
 
     fetchFavorites();
-  }, [user?.id, isLoaded, getToken]);
+  }, [user?.id, isLoaded, getSupabaseToken]);
 
   const handleRemove = async (id: string) => {
     try {
@@ -71,17 +69,14 @@ export default function FavoritesPage() {
       }
       
       // Get the Supabase JWT token from Clerk
-      const token = await getToken({ template: 'supabase' });
+      const token = await getSupabaseToken();
       
       if (!token) {
         toast.error('Authentication token not available');
         return;
       }
       
-      // Set up Supabase with the user ID and token
-      await setupSupabaseWithUser(userId, token);
-      
-      await dbService.removeFavorite(userId, id);
+      await dbService.removeFavorite(userId, id, token);
       setFavorites(favorites.filter(fusion => fusion.id !== id));
       toast.success('Removed from favorites');
     } catch (error) {
@@ -89,6 +84,28 @@ export default function FavoritesPage() {
       toast.error('Failed to remove from favorites');
     }
   };
+
+  // If there's an auth error from the context, show it
+  if (authError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center">
+        <div className="p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-md w-full">
+          <div className="flex items-center justify-center mb-4">
+            <AlertCircle className="h-10 w-10 text-amber-500" />
+          </div>
+          <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
+            Authentication Issue
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
+            {authError}
+          </p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            Please try signing out and signing back in.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

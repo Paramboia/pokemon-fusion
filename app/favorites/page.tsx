@@ -1,7 +1,7 @@
 "use client";
 
 import { SparklesText } from "@/components/ui";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FusionCard } from "@/components/fusion-card";
@@ -11,23 +11,33 @@ import { useUser } from "@clerk/nextjs";
 
 export default function FavoritesPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<FusionDB[]>([]);
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
 
   useEffect(() => {
     const fetchFavorites = async () => {
+      if (!isLoaded) return;
+      
       try {
         setIsLoading(true);
+        setError(null);
+        
         const userId = user?.id;
         
         if (!userId) {
+          console.log('User not authenticated, skipping favorites fetch');
+          setIsLoading(false);
           return;
         }
         
+        console.log('Fetching favorites for user:', userId);
         const userFavorites = await dbService.getUserFavorites(userId);
+        console.log('Fetched favorites:', userFavorites);
         setFavorites(userFavorites);
       } catch (error) {
         console.error('Error fetching favorites:', error);
+        setError('Failed to load favorites. Please try again later.');
         toast.error('Failed to load favorites');
       } finally {
         setIsLoading(false);
@@ -35,7 +45,7 @@ export default function FavoritesPage() {
     };
 
     fetchFavorites();
-  }, [user?.id]);
+  }, [user?.id, isLoaded]);
 
   const handleRemove = async (id: string) => {
     try {
@@ -59,6 +69,24 @@ export default function FavoritesPage() {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center">
+        <div className="p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-md w-full">
+          <div className="flex items-center justify-center mb-4">
+            <AlertCircle className="h-10 w-10 text-red-500" />
+          </div>
+          <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
+            Error Loading Favorites
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
+            {error}
+          </p>
+        </div>
       </div>
     );
   }

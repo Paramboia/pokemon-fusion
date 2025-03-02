@@ -94,152 +94,244 @@ export interface FavoriteDB {
 export const dbService = {
   // Pokemon functions
   async getPokemon(id: number): Promise<PokemonDB | null> {
-    const { data, error } = await supabase
-      .from('pokemon')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching pokemon:', error);
+    try {
+      console.log('Supabase Client - Fetching pokemon with ID:', id);
+      const { data, error } = await supabase
+        .from('pokemon')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        console.error('Supabase Client - Error fetching pokemon:', error);
+        return null;
+      }
+      
+      console.log('Supabase Client - Pokemon fetched successfully');
+      return data;
+    } catch (error) {
+      console.error('Supabase Client - Exception in getPokemon:', error);
       return null;
     }
-    
-    return data;
   },
   
   // Fusion functions
   async getFusion(id: string): Promise<FusionDB | null> {
-    const { data, error } = await supabase
-      .from('fusions')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching fusion:', error);
+    try {
+      console.log('Supabase Client - Fetching fusion with ID:', id);
+      const { data, error } = await supabase
+        .from('fusions')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        console.error('Supabase Client - Error fetching fusion:', error);
+        return null;
+      }
+      
+      console.log('Supabase Client - Fusion fetched successfully');
+      return data;
+    } catch (error) {
+      console.error('Supabase Client - Exception in getFusion:', error);
       return null;
     }
-    
-    return data;
   },
   
   async getPopularFusions(limit = 10): Promise<FusionDB[]> {
-    const { data, error } = await supabase
-      .from('fusions')
-      .select('*')
-      .order('likes', { ascending: false })
-      .limit(limit);
-    
-    if (error) {
-      console.error('Error fetching popular fusions:', error);
+    try {
+      console.log('Supabase Client - Fetching popular fusions with limit:', limit);
+      const { data, error } = await supabase
+        .from('fusions')
+        .select('*')
+        .order('likes', { ascending: false })
+        .limit(limit);
+      
+      if (error) {
+        console.error('Supabase Client - Error fetching popular fusions:', error);
+        return [];
+      }
+      
+      console.log(`Supabase Client - Fetched ${data?.length || 0} popular fusions`);
+      return data || [];
+    } catch (error) {
+      console.error('Supabase Client - Exception in getPopularFusions:', error);
       return [];
     }
-    
-    return data || [];
   },
   
   async getUserFusions(userId: string): Promise<FusionDB[]> {
-    const { data, error } = await supabase
-      .from('fusions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching user fusions:', error);
+    try {
+      console.log('Supabase Client - Fetching fusions for user:', userId);
+      const { data, error } = await supabase
+        .from('fusions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Supabase Client - Error fetching user fusions:', error);
+        return [];
+      }
+      
+      console.log(`Supabase Client - Fetched ${data?.length || 0} fusions for user`);
+      return data || [];
+    } catch (error) {
+      console.error('Supabase Client - Exception in getUserFusions:', error);
       return [];
     }
-    
-    return data || [];
   },
   
   async likeFusion(fusionId: string): Promise<boolean> {
-    const { error } = await supabase.rpc('increment_fusion_likes', {
-      fusion_id: fusionId
-    });
-    
-    if (error) {
-      console.error('Error liking fusion:', error);
+    try {
+      console.log('Supabase Client - Liking fusion with ID:', fusionId);
+      const { error } = await supabase.rpc('increment_fusion_likes', {
+        fusion_id: fusionId
+      });
+      
+      if (error) {
+        console.error('Supabase Client - Error liking fusion:', error);
+        return false;
+      }
+      
+      console.log('Supabase Client - Fusion liked successfully');
+      return true;
+    } catch (error) {
+      console.error('Supabase Client - Exception in likeFusion:', error);
       return false;
     }
-    
-    return true;
   },
   
   async addFavorite(userId: string, fusionId: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('favorites')
-      .insert({
-        user_id: userId,
-        fusion_id: fusionId
-      });
-    
-    if (error) {
-      console.error('Error adding favorite:', error);
+    try {
+      console.log('Supabase Client - Adding favorite for user:', userId, 'fusion:', fusionId);
+      
+      // First check if the favorite already exists
+      const { data: existingFavorite, error: checkError } = await supabase
+        .from('favorites')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('fusion_id', fusionId)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "No rows returned" which is expected
+        console.error('Supabase Client - Error checking existing favorite:', checkError);
+      }
+      
+      if (existingFavorite) {
+        console.log('Supabase Client - Favorite already exists');
+        return true;
+      }
+      
+      const { error } = await supabase
+        .from('favorites')
+        .insert({
+          user_id: userId,
+          fusion_id: fusionId
+        });
+      
+      if (error) {
+        console.error('Supabase Client - Error adding favorite:', error);
+        return false;
+      }
+      
+      console.log('Supabase Client - Favorite added successfully');
+      return true;
+    } catch (error) {
+      console.error('Supabase Client - Exception in addFavorite:', error);
       return false;
     }
-    
-    return true;
   },
   
   async removeFavorite(userId: string, fusionId: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('favorites')
-      .delete()
-      .eq('user_id', userId)
-      .eq('fusion_id', fusionId);
-    
-    if (error) {
-      console.error('Error removing favorite:', error);
+    try {
+      console.log('Supabase Client - Removing favorite for user:', userId, 'fusion:', fusionId);
+      const { error } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', userId)
+        .eq('fusion_id', fusionId);
+      
+      if (error) {
+        console.error('Supabase Client - Error removing favorite:', error);
+        return false;
+      }
+      
+      console.log('Supabase Client - Favorite removed successfully');
+      return true;
+    } catch (error) {
+      console.error('Supabase Client - Exception in removeFavorite:', error);
       return false;
     }
-    
-    return true;
   },
   
   async getUserFavorites(userId: string): Promise<FusionDB[]> {
-    const { data, error } = await supabase
-      .from('favorites')
-      .select('fusion_id')
-      .eq('user_id', userId);
-    
-    if (error) {
-      console.error('Error fetching user favorites:', error);
+    try {
+      console.log('Supabase Client - Fetching favorites for user:', userId);
+      
+      // First, get the favorite fusion IDs
+      const { data: favoriteIds, error: favoritesError } = await supabase
+        .from('favorites')
+        .select('fusion_id')
+        .eq('user_id', userId);
+      
+      if (favoritesError) {
+        console.error('Supabase Client - Error fetching user favorites:', favoritesError);
+        return [];
+      }
+      
+      console.log(`Supabase Client - Found ${favoriteIds?.length || 0} favorite IDs`);
+      
+      if (!favoriteIds || favoriteIds.length === 0) {
+        return [];
+      }
+      
+      const fusionIds = favoriteIds.map(fav => fav.fusion_id);
+      console.log('Supabase Client - Fetching fusions with IDs:', fusionIds);
+      
+      // Then, get the actual fusion data
+      const { data: fusions, error: fusionsError } = await supabase
+        .from('fusions')
+        .select('*')
+        .in('id', fusionIds);
+      
+      if (fusionsError) {
+        console.error('Supabase Client - Error fetching favorite fusions:', fusionsError);
+        return [];
+      }
+      
+      console.log(`Supabase Client - Fetched ${fusions?.length || 0} favorite fusions`);
+      return fusions || [];
+    } catch (error) {
+      console.error('Supabase Client - Exception in getUserFavorites:', error);
       return [];
     }
-    
-    if (!data || data.length === 0) {
-      return [];
-    }
-    
-    const fusionIds = data.map(fav => fav.fusion_id);
-    
-    const { data: fusions, error: fusionsError } = await supabase
-      .from('fusions')
-      .select('*')
-      .in('id', fusionIds);
-    
-    if (fusionsError) {
-      console.error('Error fetching favorite fusions:', fusionsError);
-      return [];
-    }
-    
-    return fusions || [];
   },
   
   async isFavorite(userId: string, fusionId: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('favorites')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('fusion_id', fusionId)
-      .single();
-    
-    if (error) {
+    try {
+      console.log('Supabase Client - Checking if fusion is favorite for user:', userId, 'fusion:', fusionId);
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('fusion_id', fusionId)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') { // No rows returned
+          console.log('Supabase Client - Fusion is not a favorite');
+        } else {
+          console.error('Supabase Client - Error checking favorite status:', error);
+        }
+        return false;
+      }
+      
+      console.log('Supabase Client - Fusion is a favorite');
+      return !!data;
+    } catch (error) {
+      console.error('Supabase Client - Exception in isFavorite:', error);
       return false;
     }
-    
-    return !!data;
   }
 }; 

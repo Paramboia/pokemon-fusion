@@ -3,10 +3,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
 // Create a Supabase client with the public URL and anonymous key
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Log Supabase configuration for debugging
+console.log('Auth Context - Supabase URL available:', !!supabaseUrl);
+console.log('Auth Context - Supabase Anon Key available:', !!supabaseAnonKey);
 
 // Create a client-side Supabase client
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -28,6 +33,7 @@ type AuthContextType = {
   isLoaded: boolean;
   isSignedIn: boolean;
   supabaseUser: any;
+  authError: string | null;
 };
 
 // Create the context with default values
@@ -36,6 +42,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoaded: false,
   isSignedIn: false,
   supabaseUser: null,
+  authError: null,
 });
 
 // Custom hook to use the auth context
@@ -49,8 +56,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoaded, isSignedIn } = useUser();
   const { getToken } = useAuth();
   
-  // State to store the Supabase user
+  // State to store the Supabase user and any auth errors
   const [supabaseUser, setSupabaseUser] = useState<any>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [syncAttempted, setSyncAttempted] = useState(false);
   
   // Function to sync user data to Supabase
   const syncUserToSupabase = async () => {
@@ -68,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (!email) {
         console.error('Auth Context - No email found for user');
+        setAuthError('No email found for user');
         return null;
       }
       
@@ -80,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           name,
           email,
+          clerk_id: user.id,
         }),
       });
       
@@ -91,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // If we get a 401, the user might not be authenticated
         if (response.status === 401) {
           console.log('Auth Context - Authentication required, using Clerk user data as fallback');
+          setAuthError('Authentication required');
           return {
             id: user.id,
             name,
@@ -101,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // For other errors, still use Clerk data as fallback
         console.log('Auth Context - Using Clerk user data as fallback due to sync error');
+        setAuthError(`Error syncing user: ${errorData.error || 'Unknown error'}`);
         return {
           id: user.id,
           name,
@@ -112,10 +125,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Parse the response
       const data = await response.json();
       console.log('Auth Context - User synced to Supabase:', data.user);
+      setAuthError(null);
       
       return data.user;
     } catch (error) {
       console.error('Auth Context - Error in syncUserToSupabase:', error);
+      setAuthError(`Error syncing user: ${error instanceof Error ? error.message : 'Unknown error'}`);
       
       // Use Clerk data as fallback
       console.log('Auth Context - Using Clerk user data as fallback due to exception');
@@ -131,18 +146,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Effect to sync user data to Supabase when the user signs in
   useEffect(() => {
     if (isLoaded) {
-      if (isSignedIn && user) {
+      if (isSignedIn && user && !syncAttempted) {
         // Sync user data to Supabase
+        setSyncAttempted(true);
         syncUserToSupabase().then((syncedUser) => {
           setSupabaseUser(syncedUser);
+          if (syncedUser) {
+            console.log('Auth Context - User synced successfully');
+          } else {
+            console.error('Auth Context - Failed to sync user');
+            toast.error('Failed to sync user data');
+          }
         });
-      } else {
+      } else if (!isSignedIn) {
         // Clear Supabase user when signed out
         console.log('Auth Context - User is signed out, clearing Supabase user');
         setSupabaseUser(null);
+        setSyncAttempted(false);
       }
     }
-  }, [isLoaded, isSignedIn, user]);
+  }, [isLoaded, isSignedIn, user, syncAttempted]);
   
   // Effect to set up Supabase client with user ID for RLS
   useEffect(() => {
@@ -167,9 +190,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('Auth Context - Supabase auth set successfully');
           } else {
             console.log('Auth Context - No token available from Clerk');
+            setAuthError('No authentication token available');
           }
         } catch (error) {
           console.error('Auth Context - Error setting up Supabase auth:', error);
+          setAuthError(`Error setting up authentication: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } else if (supabase) {
         // Clear session when signed out
@@ -189,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoaded,
         isSignedIn,
         supabaseUser,
+        authError,
       }}
     >
       {children}

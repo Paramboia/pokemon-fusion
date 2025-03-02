@@ -6,14 +6,15 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { FusionCard } from "@/components/fusion-card";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
-import { dbService, FusionDB } from "@/lib/supabase-client";
-import { useUser } from "@clerk/nextjs";
+import { dbService, FusionDB, setupSupabaseWithUser } from "@/lib/supabase-client";
+import { useUser, useAuth } from "@clerk/nextjs";
 
 export default function FavoritesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<FusionDB[]>([]);
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -31,6 +32,19 @@ export default function FavoritesPage() {
           return;
         }
         
+        // Get the Supabase JWT token from Clerk
+        const token = await getToken({ template: 'supabase' });
+        
+        if (!token) {
+          console.error('No Supabase token available from Clerk');
+          setError('Authentication token not available. Please try signing out and back in.');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Set up Supabase with the user ID and token
+        await setupSupabaseWithUser(userId, token);
+        
         console.log('Fetching favorites for user:', userId);
         const userFavorites = await dbService.getUserFavorites(userId);
         console.log('Fetched favorites:', userFavorites);
@@ -45,7 +59,7 @@ export default function FavoritesPage() {
     };
 
     fetchFavorites();
-  }, [user?.id, isLoaded]);
+  }, [user?.id, isLoaded, getToken]);
 
   const handleRemove = async (id: string) => {
     try {
@@ -55,6 +69,17 @@ export default function FavoritesPage() {
         toast.error('Please sign in to manage favorites');
         return;
       }
+      
+      // Get the Supabase JWT token from Clerk
+      const token = await getToken({ template: 'supabase' });
+      
+      if (!token) {
+        toast.error('Authentication token not available');
+        return;
+      }
+      
+      // Set up Supabase with the user ID and token
+      await setupSupabaseWithUser(userId, token);
       
       await dbService.removeFavorite(userId, id);
       setFavorites(favorites.filter(fusion => fusion.id !== id));

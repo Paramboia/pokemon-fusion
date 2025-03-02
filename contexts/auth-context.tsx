@@ -178,16 +178,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (token) {
             console.log('Auth Context - Setting Supabase auth with Clerk JWT');
             
-            // Set custom auth header for Supabase
-            supabase.auth.setSession({
-              access_token: token as string,
-              refresh_token: '',
+            // Create custom headers with the authorization token
+            const customHeaders = {
+              'Authorization': `Bearer ${token}`,
+              'x-clerk-user-id': user.id
+            };
+            
+            // Set the headers on the Supabase client
+            Object.entries(customHeaders).forEach(([key, value]) => {
+              supabase.rest.headers.set(key, value);
             });
             
-            // Also set a custom header with the user ID
-            supabase.rest.headers.append('x-clerk-user-id', user.id);
-            
-            console.log('Auth Context - Supabase auth set successfully');
+            console.log('Auth Context - Supabase auth headers set successfully');
           } else {
             console.log('Auth Context - No token available from Clerk');
             setAuthError('No authentication token available');
@@ -197,9 +199,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAuthError(`Error setting up authentication: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } else if (supabase) {
-        // Clear session when signed out
-        console.log('Auth Context - Clearing Supabase session');
-        supabase.auth.signOut();
+        // Clear headers when signed out
+        console.log('Auth Context - Clearing Supabase auth headers');
+        supabase.rest.headers.remove('Authorization');
+        supabase.rest.headers.remove('x-clerk-user-id');
       }
     };
     

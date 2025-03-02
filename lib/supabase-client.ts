@@ -12,8 +12,8 @@ console.log('Supabase Client - Anon Key available:', !!supabaseAnonKey);
 // Create a Supabase client with additional headers for authentication
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession: false,
+    autoRefreshToken: false,
     detectSessionInUrl: false, // We're using Clerk for auth, not Supabase Auth
   },
   global: {
@@ -31,7 +31,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 console.log('Supabase Client - Client created successfully');
 
 // Function to set up the client with a user ID
-export const setupSupabaseWithUser = async (userId: string) => {
+export const setupSupabaseWithUser = async (userId: string, token: string) => {
   if (!userId) {
     console.warn('Supabase Client - No user ID provided for setup');
     return;
@@ -40,23 +40,12 @@ export const setupSupabaseWithUser = async (userId: string) => {
   console.log('Supabase Client - Setting up with user ID:', userId);
   
   try {
-    // Create a custom JWT token with the user ID
-    const fakeJwt = btoa(JSON.stringify({
-      sub: userId,
-      exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-      iat: Math.floor(Date.now() / 1000),
-    }));
+    // Set the authorization header with the token
+    supabase.rest.headers.set('Authorization', `Bearer ${token}`);
+    // Set a custom header with the user ID
+    supabase.rest.headers.set('x-clerk-user-id', userId);
     
-    const { data, error } = await supabase.auth.setSession({
-      access_token: fakeJwt,
-      refresh_token: '',
-    });
-    
-    if (error) {
-      console.error('Supabase Client - Error setting session:', error);
-    } else {
-      console.log('Supabase Client - Session set successfully:', data);
-    }
+    console.log('Supabase Client - Headers set successfully');
   } catch (error) {
     console.error('Supabase Client - Error in setupSupabaseWithUser:', error);
   }

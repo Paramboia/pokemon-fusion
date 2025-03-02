@@ -5,10 +5,8 @@ import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Fusion } from "@/types";
 import FusionCard from "@/components/fusion-card";
-import { EmptyPlaceholder } from "@/components/empty-placeholder";
-import { PageHeader } from "@/components/page-header";
-import { PageHeaderDescription, PageHeaderHeading } from "@/components/page-header";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SparklesText } from "@/components/ui";
+import { Loader2, AlertCircle } from "lucide-react";
 
 export default function FavoritesPage() {
   const { userId, isLoaded, isSignedIn, getToken } = useAuth();
@@ -101,43 +99,53 @@ export default function FavoritesPage() {
     fetchFavorites();
   }, [userId, isLoaded, isSignedIn, getToken]);
 
-  return (
-    <div className="container py-8">
-      <PageHeader className="pb-8">
-        <PageHeaderHeading>Your Favorites</PageHeaderHeading>
-        <PageHeaderDescription>
-          View and manage your favorite Pokémon fusions.
-        </PageHeaderDescription>
-      </PageHeader>
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
-      {loading ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex flex-col space-y-3">
-              <Skeleton className="h-[250px] w-full rounded-xl" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-          ))}
-        </div>
-      ) : error ? (
-        <EmptyPlaceholder className="border-none">
-          <EmptyPlaceholder.Icon name="warning" />
-          <EmptyPlaceholder.Title>Error</EmptyPlaceholder.Title>
-          <EmptyPlaceholder.Description>
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center">
+        <div className="p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-md w-full">
+          <div className="flex items-center justify-center mb-4">
+            <AlertCircle className="h-10 w-10 text-red-500" />
+          </div>
+          <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
+            Error Loading Favorites
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
             {error}
-          </EmptyPlaceholder.Description>
-        </EmptyPlaceholder>
-      ) : favorites.length === 0 ? (
-        <EmptyPlaceholder className="border-none">
-          <EmptyPlaceholder.Icon name="heart" />
-          <EmptyPlaceholder.Title>No favorites yet</EmptyPlaceholder.Title>
-          <EmptyPlaceholder.Description>
-            Generate some fusions and add them to your favorites!
-          </EmptyPlaceholder.Description>
-        </EmptyPlaceholder>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="text-center mb-10">
+        <SparklesText
+          text="Your Favorites"
+          className="text-4xl md:text-5xl font-bold mb-4"
+        />
+        <p className="text-xl text-gray-600 dark:text-gray-300">
+          Your collection of favorite Pokémon fusions
+        </p>
+      </div>
+
+      {favorites.length === 0 ? (
+        <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
+          <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">You don't have any favorites yet</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Start creating fusions and add them to your favorites!
+          </p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {favorites.map((fusion) => (
             <FusionCard key={fusion.id} fusion={fusion} />
           ))}

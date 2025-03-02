@@ -3,6 +3,30 @@ import Replicate from 'replicate';
 import { auth } from '@clerk/nextjs/server';
 import { savePokemon, saveFusion } from '@/lib/supabase-server-actions';
 import { v4 as uuidv4 } from 'uuid';
+import { createClient } from '@supabase/supabase-js';
+
+// Create a Supabase client with fallback values for build time
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
+// Use the service role key for server-side operations to bypass RLS
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+
+// Create a server-side Supabase client with additional headers
+const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      'Authorization': `Bearer ${supabaseServiceKey}`
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+});
 
 // Initialize Replicate with the API token
 // Prefer the server-side environment variable

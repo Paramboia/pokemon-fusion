@@ -15,7 +15,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
     headers: {
       'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
+      'Prefer': 'return=representation',
+      // Note: We don't need to add Authorization header here as the Supabase client
+      // will automatically handle this when using the auth session
     },
   },
   db: {

@@ -39,135 +39,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Anonymous User';
-
-    // Generate a UUID v4 for Supabase instead of using Clerk's ID directly
-    // This resolves the "invalid input syntax for type uuid" error
-    const userId = crypto.randomUUID();
     
-    console.log("Syncing user to Supabase with generated UUID:", userId);
+    console.log("Syncing user to Supabase");
 
     try {
-      // First check if user exists - using email as the identifier instead of ID
-      const { data: existingUser, error: fetchError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .single();
-
-      // Handle the case where the user doesn't exist yet (PGRST116 is "no rows returned" error)
-      // This is an expected error when a user signs in for the first time
-      if (fetchError) {
-        if (fetchError.code !== 'PGRST116') {
-          // Only log actual errors, not the "no rows returned" which is expected for new users
-          console.warn("Warning fetching user data:", fetchError.message || "Unknown error");
-        }
+      // Call the API endpoint to sync the user with Supabase using the service role key
+      const response = await fetch('/api/auth/sync-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.warn("Error syncing user to Supabase:", errorData.error);
         
-        // If the error is that the table doesn't exist, try to create it
-        if (fetchError.message && fetchError.message.includes("relation \"users\" does not exist")) {
-          console.warn("Users table does not exist. Attempting to create it...");
-          
-          try {
-            // Try to create the users table according to the schema
-            const { error: createTableError } = await supabase.rpc('exec_sql', {
-              sql: `
-                CREATE TABLE IF NOT EXISTS users (
-                  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                  name TEXT NOT NULL,
-                  email TEXT UNIQUE NOT NULL,
-                  created_at TIMESTAMP DEFAULT NOW()
-                );
-              `
-            });
-            
-            if (createTableError) {
-              console.error("Error creating users table:", createTableError.message);
-            } else {
-              console.log("Successfully created users table");
-            }
-          } catch (createError) {
-            console.error("Error creating users table:", createError);
-          }
-        }
-      }
-
-      if (existingUser) {
-        // Update existing user
-        const { error: updateError } = await supabase
-          .from("users")
-          .update({
-            name,
-            email
-          })
-          .eq("id", existingUser.id);
-
-        if (updateError) {
-          console.warn("Warning updating user:", updateError.message || "Unknown error");
-          // Still set the user with the data we have
-        } else {
-          console.log("Successfully updated user in Supabase");
-        }
-        
-        // Use the existing ID from the database
+        // Still set the user with the data we have from Clerk as a fallback
         setUser({
-          id: existingUser.id,
+          id: clerkUser.id, // Fallback to Clerk ID
           name,
           email
         });
-      } else {
-        // Insert new user with the generated UUID
-        // Note: We're not setting the ID field as it has a DEFAULT uuid_generate_v4() in the schema
-        const { error: insertError } = await supabase
-          .from("users")
-          .insert({
-            name,
-            email
-          });
-
-        if (insertError) {
-          console.warn("Warning inserting user:", insertError.message || "Unknown error");
-          
-          // If the error is about duplicate key, try to fetch the user again
-          if (insertError.message && insertError.message.includes("duplicate key")) {
-            console.log("User already exists, trying to fetch again...");
-            const { data: refetchedUser, error: refetchError } = await supabase
-              .from("users")
-              .select("*")
-              .eq("email", email)
-              .single();
-              
-            if (!refetchError && refetchedUser) {
-              console.log("Successfully fetched existing user");
-              setUser({
-                id: refetchedUser.id,
-                name: refetchedUser.name,
-                email: refetchedUser.email
-              });
-              return;
-            }
-          }
-        } else {
-          console.log("Successfully inserted new user in Supabase");
-          
-          // Fetch the newly created user to get the generated ID
-          const { data: newUser, error: fetchNewError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("email", email)
-            .single();
-            
-          if (!fetchNewError && newUser) {
-            setUser({
-              id: newUser.id,
-              name: newUser.name,
-              email: newUser.email
-            });
-            return;
-          }
-        }
-        
-        // Fallback: Set the user with the Clerk data
+        return;
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.user) {
+        // Set the user with the data from Supabase
         setUser({
-          id: clerkUser.id, // Fallback to Clerk ID
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email
+        });
+        console.log("Successfully synced user to Supabase");
+      } else {
+        // Fallback to Clerk data
+        setUser({
+          id: clerkUser.id,
           name,
           email
         });
@@ -183,65 +97,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Effect to sync user data from Clerk to Supabase and set up RLS
   useEffect(() => {
-    if (isSignedIn && clerkUser) {
-      // Try to sync the user to Supabase
+    if (isLoaded && isSignedIn && clerkUser) {
       syncUserToSupabase(clerkUser);
-      
-      // Also fetch user data from Supabase - using email as identifier
-      const fetchUserData = async () => {
-        try {
-          const email = clerkUser.primaryEmailAddress?.emailAddress;
-          if (!email) {
-            console.warn("No primary email found for user");
-            return;
-          }
-          
-          const { data, error } = await supabase
-            .from("users")
-            .select("*")
-            .eq("email", email)
-            .single();
-
-          // Handle the case where the user doesn't exist yet
-          if (error) {
-            if (error.code === 'PGRST116') {
-              // This is expected for new users, not an actual error
-              // The syncUserToSupabase function will create the user
-              return;
-            }
-            console.warn("Warning fetching user data:", error.message || "Unknown error");
-            return;
-          }
-
-          if (data) {
-            setUser({
-              id: data.id,
-              name: data.name,
-              email: data.email,
-            });
-          }
-        } catch (error) {
-          console.warn("Warning in fetchUserData:", error instanceof Error ? error.message : "Unknown error");
-          // Use Clerk data as fallback
-          const email = clerkUser.primaryEmailAddress?.emailAddress;
-          const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Anonymous User';
-          
-          if (email) {
-            setUser({
-              id: clerkUser.id,
-              name,
-              email
-            });
-          }
-        }
-      };
-
-      fetchUserData();
-    } else {
+    } else if (isLoaded && !isSignedIn) {
+      // Clear user data when signed out
       setUser(null);
     }
-  }, [isSignedIn, clerkUser]);
+  }, [isLoaded, isSignedIn, clerkUser]);
+  
+  // Effect to set up Supabase client with user ID for RLS
+  useEffect(() => {
+    if (user) {
+      // Set the user ID in the Supabase client for RLS
+      supabase.auth.setSession({
+        access_token: user.id,
+        refresh_token: '',
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: 'bearer',
+        user: {
+          id: user.id,
+          email: user.email,
+          app_metadata: {},
+          user_metadata: {},
+          aud: 'authenticated',
+          role: 'authenticated',
+        },
+      });
+      
+      console.log('Set Supabase session with user ID:', user.id);
+    }
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ 

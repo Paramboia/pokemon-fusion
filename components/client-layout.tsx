@@ -41,7 +41,8 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
   return (
     <div className="flex flex-col min-h-screen w-full dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200">
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Background container */}
+      <div className="fixed inset-0 overflow-hidden z-0">
         {/* Simple gradient background as fallback */}
         <div className={`absolute inset-0 ${
           isDarkMode 
@@ -69,11 +70,15 @@ export function ClientLayout({ children }: ClientLayoutProps) {
             : 'from-white to-transparent'
         } to-80%`} />
       </div>
-      <Header />
-      <main className="flex-grow relative z-10">
-        {children}
-      </main>
-      <Footer />
+      
+      {/* Content container */}
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-grow">
+          {children}
+        </main>
+        <Footer />
+      </div>
     </div>
   );
 } 

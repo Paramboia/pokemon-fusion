@@ -10,7 +10,7 @@ export function Footer() {
   console.log("Footer component rendering");
   
   return (
-    <footer className="bg-white dark:bg-black text-gray-800 dark:text-white py-6 w-full border-t border-gray-200 dark:border-gray-800">
+    <footer className="bg-white dark:bg-black text-gray-800 dark:text-white py-6 w-full border-t border-gray-200 dark:border-gray-800 relative z-30">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
         <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">

@@ -56,10 +56,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Handle the case where the user doesn't exist yet (PGRST116 is "no rows returned" error)
       // This is an expected error when a user signs in for the first time
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // Only log actual errors, not the "no rows returned" which is expected for new users
-        console.warn("Warning fetching user data:", fetchError.message || "Unknown error");
-        // Continue execution to create the user
+      if (fetchError) {
+        if (fetchError.code !== 'PGRST116') {
+          // Only log actual errors, not the "no rows returned" which is expected for new users
+          console.warn("Warning fetching user data:", fetchError.message || "Unknown error");
+        }
+        
+        // If the error is that the table doesn't exist, try to create it
+        if (fetchError.message && fetchError.message.includes("relation \"users\" does not exist")) {
+          console.warn("Users table does not exist. Attempting to create it...");
+          
+          try {
+            // Try to create the users table according to the schema
+            const { error: createTableError } = await supabase.rpc('exec_sql', {
+              sql: `
+                CREATE TABLE IF NOT EXISTS users (
+                  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                  name TEXT NOT NULL,
+                  email TEXT UNIQUE NOT NULL,
+                  created_at TIMESTAMP DEFAULT NOW()
+                );
+              `
+            });
+            
+            if (createTableError) {
+              console.error("Error creating users table:", createTableError.message);
+            } else {
+              console.log("Successfully created users table");
+            }
+          } catch (createError) {
+            console.error("Error creating users table:", createError);
+          }
+        }
       }
 
       if (existingUser) {
@@ -87,25 +115,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       } else {
         // Insert new user with the generated UUID
+        // Note: We're not setting the ID field as it has a DEFAULT uuid_generate_v4() in the schema
         const { error: insertError } = await supabase
           .from("users")
           .insert({
-            id: userId,
             name,
-            email,
-            clerk_id: clerkUser.id // Store the original Clerk ID as a reference
+            email
           });
 
         if (insertError) {
           console.warn("Warning inserting user:", insertError.message || "Unknown error");
-          // Continue with what we have
+          
+          // If the error is about duplicate key, try to fetch the user again
+          if (insertError.message && insertError.message.includes("duplicate key")) {
+            console.log("User already exists, trying to fetch again...");
+            const { data: refetchedUser, error: refetchError } = await supabase
+              .from("users")
+              .select("*")
+              .eq("email", email)
+              .single();
+              
+            if (!refetchError && refetchedUser) {
+              console.log("Successfully fetched existing user");
+              setUser({
+                id: refetchedUser.id,
+                name: refetchedUser.name,
+                email: refetchedUser.email
+              });
+              return;
+            }
+          }
         } else {
           console.log("Successfully inserted new user in Supabase");
+          
+          // Fetch the newly created user to get the generated ID
+          const { data: newUser, error: fetchNewError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("email", email)
+            .single();
+            
+          if (!fetchNewError && newUser) {
+            setUser({
+              id: newUser.id,
+              name: newUser.name,
+              email: newUser.email
+            });
+            return;
+          }
         }
         
-        // Set the user with the new UUID
+        // Fallback: Set the user with the Clerk data
         setUser({
-          id: userId,
+          id: clerkUser.id, // Fallback to Clerk ID
           name,
           email
         });

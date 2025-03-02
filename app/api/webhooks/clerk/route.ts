@@ -8,8 +8,22 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
-// Create a server-side Supabase client
-const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+// Create a server-side Supabase client with additional headers
+const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+});
 
 export async function POST(req: Request) {
   // Get the headers
@@ -85,8 +99,7 @@ export async function POST(req: Request) {
           .from('users')
           .update({
             name,
-            email,
-            clerk_id: id // Store the Clerk ID for reference
+            email
           })
           .eq('id', existingUser.id);
           
@@ -99,17 +112,12 @@ export async function POST(req: Request) {
         
         console.log('Successfully updated user in Supabase');
       } else {
-        // Generate a UUID for the new user
-        const userId = crypto.randomUUID();
-        
-        // Insert new user with generated UUID
+        // Insert new user - let Supabase generate the UUID
         const { error: insertError } = await supabaseClient
           .from('users')
           .insert({
-            id: userId,
             name,
-            email,
-            clerk_id: id // Store the Clerk ID for reference
+            email
           });
           
         if (insertError) {
@@ -119,7 +127,7 @@ export async function POST(req: Request) {
           });
         }
         
-        console.log('Successfully inserted new user in Supabase with UUID:', userId);
+        console.log('Successfully inserted new user in Supabase');
       }
 
       return new Response(JSON.stringify({ success: true }), {

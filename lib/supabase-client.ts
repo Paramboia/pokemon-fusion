@@ -6,7 +6,22 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create a Supabase client with additional headers for authentication
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+});
 
 export default supabase;
 

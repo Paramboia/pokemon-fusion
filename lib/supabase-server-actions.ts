@@ -6,8 +6,22 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
 
-// Create a server-side Supabase client
-const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+// Create a server-side Supabase client with additional headers
+const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+});
 
 // Instead of exporting the client directly, create a function to get it
 async function getSupabaseClient() {
@@ -171,8 +185,7 @@ export async function syncUserToSupabase(
         .from('users')
         .update({
           name,
-          email,
-          clerk_id: clerkId // Store the Clerk ID for reference
+          email
         })
         .eq('id', existingUser.id);
         
@@ -183,17 +196,12 @@ export async function syncUserToSupabase(
       
       console.log('Successfully updated user in Supabase');
     } else {
-      // Generate a UUID for the new user
-      const userId = crypto.randomUUID();
-      
-      // Insert new user with generated UUID
+      // Insert new user - let Supabase generate the UUID
       const { error } = await client
         .from('users')
         .insert({
-          id: userId,
           name,
-          email,
-          clerk_id: clerkId // Store the Clerk ID for reference
+          email
         });
         
       if (error) {
@@ -201,7 +209,7 @@ export async function syncUserToSupabase(
         return false;
       }
       
-      console.log('Successfully inserted new user in Supabase with UUID:', userId);
+      console.log('Successfully inserted new user in Supabase');
     }
     
     return true;

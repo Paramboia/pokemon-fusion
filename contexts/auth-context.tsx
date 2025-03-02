@@ -40,6 +40,8 @@ const AuthContext = createContext<AuthContextType>({
 
 // Custom hook to use the auth context
 export const useAuthContext = () => useContext(AuthContext);
+// Alias for backward compatibility
+export const useAuth = useAuthContext;
 
 // Provider component that wraps the app and makes auth object available
 export function AuthProvider({ children }: { children: React.ReactNode }) {

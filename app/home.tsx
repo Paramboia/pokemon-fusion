@@ -9,14 +9,14 @@ import { SparklesText } from "@/components/ui";
 import type { Pokemon } from "@/types";
 import { toast } from "sonner";
 import Image from "next/image";
-import { useAuth } from "@/contexts";
+import { useAuthContext } from "@/contexts/auth-context";
 import { AuthCtaButton } from "@/components/auth-cta-button";
 import { FusionAuthGate } from "@/components/fusion-auth-gate";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
   const { generating, fusionImage, error, isPaymentRequired, isLocalFallback, generateFusion } = useFusion();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useAuthContext();
   const [selectedPokemon, setSelectedPokemon] = useState<{
     pokemon1: Pokemon | null;
     pokemon2: Pokemon | null;

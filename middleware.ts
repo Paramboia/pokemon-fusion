@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { authMiddleware } from "@clerk/nextjs";
+import { clerkMiddleware } from "@clerk/nextjs";
 import { clerkClient } from "@clerk/nextjs";
 
 // Create a middleware that combines Clerk auth with our custom logic
-const combinedMiddleware = authMiddleware({
+const combinedMiddleware = clerkMiddleware({
   // Public routes that don't require authentication
   publicRoutes: [
     '/',

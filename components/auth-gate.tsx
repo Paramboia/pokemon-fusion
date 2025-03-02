@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthContext } from "@/contexts/auth-context";
 import { SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +17,7 @@ export function AuthGate({
   title = "Authentication Required",
   message = "Sign in to see amazing Pokémon fusions!"
 }: AuthGateProps) {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded } = useAuthContext();
 
   if (!isLoaded) {
     return (

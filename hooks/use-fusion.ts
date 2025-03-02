@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useAuth } from '@clerk/nextjs'
 
 export function useFusion() {
+  const { getToken } = useAuth()
   const [generating, setGenerating] = useState(false)
   const [fusionImage, setFusionImage] = useState<string | null>(null)
   const [fusionId, setFusionId] = useState<string | null>(null)
@@ -24,11 +26,15 @@ export function useFusion() {
       
       console.log('Generating fusion for:', { name1, name2 })
       
+      // Get the Clerk session token
+      const token = await getToken()
+      
       // Call the API endpoint to generate the fusion
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           pokemon1: image1Url,
@@ -70,6 +76,9 @@ export function useFusion() {
       setFusionImage(data.url)
       setFusionId(data.id)
       setFusionName(data.name)
+      
+      // Show success message
+      toast.success('Fusion generated successfully!')
       
       return true
     } catch (error) {

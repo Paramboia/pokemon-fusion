@@ -4,6 +4,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { savePokemon, saveFusion } from '@/lib/supabase-server-actions';
 import { v4 as uuidv4 } from 'uuid';
 import { createClient } from '@supabase/supabase-js';
+import { clerkClient } from '@clerk/nextjs';
 
 // Create a Supabase client with fallback values for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
@@ -186,8 +187,44 @@ export async function POST(req: Request) {
     
     console.log('Generate API - Clerk userId:', clerkUserId);
     
+    // Check for authorization header as fallback
     if (!clerkUserId) {
-      console.log('Generate API - No Clerk userId found, returning 401');
+      console.log('Generate API - No Clerk userId found, checking Authorization header');
+      
+      // Get the authorization header
+      const authHeader = req.headers.get('Authorization');
+      
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log('Generate API - No valid Authorization header found, returning 401');
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      
+      // Extract the token
+      const token = authHeader.split(' ')[1];
+      
+      try {
+        // Verify the token with Clerk
+        const verifiedToken = await clerkClient.verifyToken(token);
+        
+        if (verifiedToken && verifiedToken.sub) {
+          console.log('Generate API - Verified token, userId:', verifiedToken.sub);
+          
+          // Get the corresponding Supabase user ID
+          const supabaseUserId = await getSupabaseUserId(verifiedToken.sub);
+          
+          if (supabaseUserId) {
+            console.log('Generate API - Found Supabase user ID from token:', supabaseUserId);
+            return handleFusionGeneration(req, supabaseUserId);
+          }
+        }
+      } catch (tokenError) {
+        console.error('Generate API - Error verifying token:', tokenError);
+      }
+      
+      console.log('Generate API - Invalid or expired token, returning 401');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }

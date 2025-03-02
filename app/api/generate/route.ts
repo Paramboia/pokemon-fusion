@@ -47,20 +47,62 @@ const generateLocalFusion = (pokemon1Url: string, pokemon2Url: string, name1: st
   return pokemon1Url;
 };
 
+// Helper function to get the Supabase user ID from Clerk ID
+async function getSupabaseUserId(clerkId: string): Promise<string | null> {
+  try {
+    console.log('Generate API - Looking up Supabase user ID for Clerk ID:', clerkId);
+    
+    // Check if user exists by Clerk ID
+    const { data: user, error } = await supabaseClient
+      .from('users')
+      .select('id')
+      .eq('clerk_id', clerkId)
+      .single();
+    
+    if (error) {
+      console.error('Generate API - Error finding user by Clerk ID:', error);
+      return null;
+    }
+    
+    if (user && user.id) {
+      console.log('Generate API - Found Supabase user ID:', user.id);
+      return user.id;
+    }
+    
+    console.log('Generate API - No Supabase user found for Clerk ID:', clerkId);
+    return null;
+  } catch (error) {
+    console.error('Generate API - Error in getSupabaseUserId:', error);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Get the current user ID from Clerk
-    const { userId } = auth();
+    const { userId: clerkUserId } = auth();
     
-    console.log('Generate API - Clerk userId:', userId);
+    console.log('Generate API - Clerk userId:', clerkUserId);
     
-    if (!userId) {
-      console.log('Generate API - No userId found, returning 401');
+    if (!clerkUserId) {
+      console.log('Generate API - No Clerk userId found, returning 401');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserId(clerkUserId);
+    
+    if (!supabaseUserId) {
+      console.log('Generate API - No Supabase user found for Clerk ID, using Clerk ID as fallback');
+      // We'll use the Clerk ID as a fallback
+    }
+    
+    // Use the Supabase user ID if available, otherwise fall back to Clerk ID
+    const userId = supabaseUserId || clerkUserId;
+    console.log('Generate API - Using user ID for fusion:', userId);
 
     // Check if the API token is defined
     const isReplicateConfigured = !!(process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN);
@@ -186,6 +228,51 @@ export async function POST(req: Request) {
     
     // Save the fusion to Supabase
     console.log('Generate API - Saving fusion to Supabase with user ID:', userId);
+    
+    // First, ensure the fusions table exists
+    try {
+      console.log('Generate API - Ensuring fusions table exists');
+      // Check if the fusions table exists
+      const { data: tableExists, error: tableCheckError } = await supabaseClient
+        .from('fusions')
+        .select('count(*)')
+        .limit(1);
+      
+      if (tableCheckError) {
+        console.log('Generate API - Error checking fusions table, attempting to create it');
+        
+        // Try to create the table
+        const createTableQuery = `
+          CREATE TABLE IF NOT EXISTS fusions (
+            id UUID PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            pokemon_1_id INTEGER NOT NULL,
+            pokemon_2_id INTEGER NOT NULL,
+            fusion_name TEXT NOT NULL,
+            fusion_image TEXT NOT NULL,
+            likes INTEGER DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `;
+        
+        try {
+          const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+          if (createTableError) {
+            console.log('Generate API - Error creating fusions table:', createTableError);
+          } else {
+            console.log('Generate API - Fusions table created successfully');
+          }
+        } catch (tableError) {
+          console.log('Generate API - Error in table creation:', tableError);
+        }
+      } else {
+        console.log('Generate API - Fusions table exists');
+      }
+    } catch (tableError) {
+      console.log('Generate API - Error checking/creating fusions table:', tableError);
+    }
+    
+    // Now save the fusion
     const fusion = await saveFusion({
       id: fusionId,
       user_id: userId,

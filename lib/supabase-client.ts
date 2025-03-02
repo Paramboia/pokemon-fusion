@@ -20,8 +20,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     headers: {
       'Content-Type': 'application/json',
       'Prefer': 'return=representation',
-      // Note: We don't need to add Authorization header here as the Supabase client
-      // will automatically handle this when using the auth session
     },
   },
   db: {
@@ -31,6 +29,38 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Log when the client is created
 console.log('Supabase Client - Client created successfully');
+
+// Function to set up the client with a user ID
+export const setupSupabaseWithUser = async (userId: string) => {
+  if (!userId) {
+    console.warn('Supabase Client - No user ID provided for setup');
+    return;
+  }
+  
+  console.log('Supabase Client - Setting up with user ID:', userId);
+  
+  try {
+    // Create a custom JWT token with the user ID
+    const fakeJwt = btoa(JSON.stringify({
+      sub: userId,
+      exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+      iat: Math.floor(Date.now() / 1000),
+    }));
+    
+    const { data, error } = await supabase.auth.setSession({
+      access_token: fakeJwt,
+      refresh_token: '',
+    });
+    
+    if (error) {
+      console.error('Supabase Client - Error setting session:', error);
+    } else {
+      console.log('Supabase Client - Session set successfully:', data);
+    }
+  } catch (error) {
+    console.error('Supabase Client - Error in setupSupabaseWithUser:', error);
+  }
+};
 
 export default supabase;
 

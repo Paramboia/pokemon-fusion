@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { supabase } from "@/lib/supabase-client";
+import { supabase, setupSupabaseWithUser } from "@/lib/supabase-client";
 
 type User = {
   id: string;
@@ -80,31 +80,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (data.success && data.user) {
         // Set the user with the data from Supabase
-        setUser({
+        const userData = {
           id: data.user.id,
           name: data.user.name,
           email: data.user.email
-        });
+        };
+        setUser(userData);
         console.log("Auth Context - Successfully synced user to Supabase with ID:", data.user.id);
+        
+        // Set up Supabase with the user ID
+        await setupSupabaseWithUser(data.user.id);
       } else {
         // Fallback to Clerk data
-        setUser({
+        const userData = {
           id: clerkUser.id,
           name,
           email
-        });
+        };
+        setUser(userData);
         console.log("Auth Context - Using Clerk user data as fallback (no user data in response):", clerkUser.id);
+        
+        // Set up Supabase with the Clerk user ID
+        await setupSupabaseWithUser(clerkUser.id);
       }
     } catch (error) {
       console.warn("Auth Context - Warning syncing user to Supabase:", error instanceof Error ? error.message : "Unknown error");
       console.error("Auth Context - Error details:", error);
       // Still set the user with the data we have from Clerk
-      setUser({
+      const userData = {
         id: clerkUser.id, // Fallback to Clerk ID
         name,
         email
-      });
+      };
+      setUser(userData);
       console.log("Auth Context - Using Clerk user data as fallback (error):", clerkUser.id);
+      
+      // Set up Supabase with the Clerk user ID
+      await setupSupabaseWithUser(clerkUser.id);
     }
   };
 
@@ -124,34 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("Auth Context - Cleared Supabase session");
     }
   }, [isLoaded, isSignedIn, clerkUser]);
-  
-  // Effect to set up Supabase client with user ID for RLS
-  useEffect(() => {
-    if (user) {
-      console.log("Auth Context - Setting up Supabase client with user ID:", user.id);
-      
-      // Set the user ID in the Supabase client for RLS
-      // This is a workaround to use Clerk auth with Supabase RLS
-      const setupSupabaseAuth = async () => {
-        try {
-          const { data, error } = await supabase.auth.setSession({
-            access_token: user.id, // Use the user ID as the access token
-            refresh_token: '',
-          });
-          
-          if (error) {
-            console.error("Auth Context - Error setting Supabase session:", error);
-          } else {
-            console.log("Auth Context - Successfully set Supabase session:", data);
-          }
-        } catch (error) {
-          console.error("Auth Context - Error in setupSupabaseAuth:", error);
-        }
-      };
-      
-      setupSupabaseAuth();
-    }
-  }, [user]);
 
   return (
     <AuthContext.Provider value={{ 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 
 // Create a Supabase client with fallback values for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
@@ -59,44 +60,61 @@ export async function POST(req: Request) {
     try {
       // First, ensure the users table exists
       console.log('Sync-user API - Ensuring users table exists');
-      const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS users (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          name TEXT,
-          email TEXT UNIQUE,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-      `;
-      
       try {
-        const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
-        if (createTableError) {
-          console.log('Sync-user API - Error creating users table (may already exist):', createTableError);
+        // Check if the users table exists
+        const { data: tableExists, error: tableCheckError } = await supabaseClient
+          .from('users')
+          .select('count(*)')
+          .limit(1);
+        
+        if (tableCheckError) {
+          console.log('Sync-user API - Error checking users table, attempting to create it');
+          
+          // Try to create the table
+          const createTableQuery = `
+            CREATE TABLE IF NOT EXISTS users (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              clerk_id TEXT UNIQUE,
+              name TEXT,
+              email TEXT UNIQUE,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+          `;
+          
+          try {
+            const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+            if (createTableError) {
+              console.log('Sync-user API - Error creating users table:', createTableError);
+            } else {
+              console.log('Sync-user API - Users table created successfully');
+            }
+          } catch (tableError) {
+            console.log('Sync-user API - Error in table creation:', tableError);
+          }
         } else {
-          console.log('Sync-user API - Users table created or already exists');
+          console.log('Sync-user API - Users table exists');
         }
       } catch (tableError) {
-        console.log('Sync-user API - Error in table creation (may not have permission):', tableError);
-        // Continue anyway, as the table might already exist
+        console.log('Sync-user API - Error checking/creating users table:', tableError);
       }
 
       // Check if user already exists by email
       console.log('Sync-user API - Checking if user exists with email:', email);
-      const { data: existingUser, error: fetchError } = await supabaseClient
+      const { data: existingUserByEmail, error: fetchEmailError } = await supabaseClient
         .from('users')
         .select('*')
         .eq('email', email)
         .single();
 
-      if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          console.log('Sync-user API - User not found with email:', email);
-        } else {
-          console.error('Sync-user API - Error fetching user:', fetchError);
-        }
-      } else {
-        console.log('Sync-user API - Found existing user:', existingUser);
-      }
+      // Also check if user exists by Clerk ID
+      console.log('Sync-user API - Checking if user exists with Clerk ID:', userId);
+      const { data: existingUserByClerkId, error: fetchClerkIdError } = await supabaseClient
+        .from('users')
+        .select('*')
+        .eq('clerk_id', userId)
+        .single();
+
+      const existingUser = existingUserByEmail || existingUserByClerkId;
 
       if (existingUser) {
         console.log('Sync-user API - Updating existing user with ID:', existingUser.id);
@@ -105,7 +123,8 @@ export async function POST(req: Request) {
           .from('users')
           .update({
             name,
-            email
+            email,
+            clerk_id: userId // Ensure Clerk ID is set
           })
           .eq('id', existingUser.id)
           .select();
@@ -126,10 +145,16 @@ export async function POST(req: Request) {
         });
       } else {
         console.log('Sync-user API - Creating new user with name:', name, 'and email:', email);
-        // Insert new user - let Supabase generate the UUID
+        
+        // Generate a UUID for the new user
+        const userId = uuidv4();
+        
+        // Insert new user with explicit UUID
         const { data: newUser, error: insertError } = await supabaseClient
           .from('users')
           .insert({
+            id: userId,
+            clerk_id: userId,
             name,
             email
           })
@@ -138,10 +163,32 @@ export async function POST(req: Request) {
         if (insertError) {
           console.error('Sync-user API - Error inserting user:', insertError);
           console.error('Sync-user API - Error details:', JSON.stringify(insertError));
-          return NextResponse.json(
-            { error: 'Error inserting user to Supabase' },
-            { status: 500 }
-          );
+          
+          // Try again without specifying the ID (let Supabase generate it)
+          console.log('Sync-user API - Retrying user creation without explicit ID');
+          const { data: retryUser, error: retryError } = await supabaseClient
+            .from('users')
+            .insert({
+              clerk_id: userId,
+              name,
+              email
+            })
+            .select();
+            
+          if (retryError) {
+            console.error('Sync-user API - Error on retry insert:', retryError);
+            return NextResponse.json(
+              { error: 'Error inserting user to Supabase' },
+              { status: 500 }
+            );
+          }
+          
+          console.log('Sync-user API - Successfully inserted new user on retry:', retryUser);
+          
+          return NextResponse.json({ 
+            success: true,
+            user: retryUser?.[0] || null
+          });
         }
         
         console.log('Sync-user API - Successfully inserted new user in Supabase:', newUser);

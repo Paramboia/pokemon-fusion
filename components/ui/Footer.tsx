@@ -8,7 +8,10 @@ export function Footer() {
   console.log("Footer component rendering");
   
   return (
-    <footer className="bg-transparent dark:bg-transparent text-gray-800 dark:text-white py-10 w-full relative z-20">
+    <footer 
+      className="bg-transparent dark:bg-transparent text-gray-800 dark:text-white py-10 w-full relative z-20"
+      style={{ background: 'transparent !important' }}
+    >
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
         <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-6">

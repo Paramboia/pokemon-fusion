@@ -79,11 +79,11 @@ export default function Home() {
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex flex-col items-center justify-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
-          <div className="text-gray-800 dark:text-white">
+          <div className="text-gray-800 dark:!text-white" style={{ color: 'inherit' }}>
             <SparklesText text="Pokémon Fusion" />
           </div>
         </h1>
-        <p className="text-lg text-center text-gray-600 dark:text-white max-w-2xl">
+        <p className="text-lg text-center text-gray-600 dark:!text-white max-w-2xl">
           Create unique Pokémon combinations with our fusion generator
         </p>
       </div>
@@ -91,7 +91,7 @@ export default function Home() {
       <div className="grid grid-cols-1 gap-8">
         {/* Pokémon Selection Section */}
         <div className="flex flex-col items-center">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Select Your Pokémon</h2>
+          <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white">Select Your Pokémon</h2>
           
           <PokemonSelector
             pokemonList={pokemonList}
@@ -132,7 +132,7 @@ export default function Home() {
         {/* Fusion Result Section */}
         {fusionImage && (
           <div className="mt-12 flex flex-col items-center">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Your Pokémon Fusion</h2>
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white">Your Pokémon Fusion</h2>
             
             <Card className="w-full max-w-md overflow-hidden">
               <div className="p-4 flex flex-col items-center">
@@ -145,7 +145,7 @@ export default function Home() {
                   />
                 </div>
                 
-                <h3 className="text-xl font-bold mt-4 capitalize text-gray-800 dark:text-white">
+                <h3 className="text-xl font-bold mt-4 capitalize text-gray-800 dark:!text-white">
                   {fusionName || "Unnamed Fusion"}
                 </h3>
                 

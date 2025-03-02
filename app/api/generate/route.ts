@@ -61,6 +61,30 @@ async function getSupabaseUserId(clerkId: string): Promise<string | null> {
     
     if (error) {
       console.error('Generate API - Error finding user by Clerk ID:', error);
+      
+      // Try a direct SQL query as a fallback
+      try {
+        const query = `
+          SELECT id FROM users WHERE clerk_id = '${clerkId}'
+        `;
+        
+        const { data: sqlResult, error: sqlError } = await supabaseClient.rpc('exec_sql', { 
+          query: query 
+        });
+        
+        if (sqlError || !sqlResult || sqlResult.length === 0) {
+          console.error('Generate API - Error with SQL query:', sqlError);
+          return null;
+        }
+        
+        if (sqlResult[0] && sqlResult[0].id) {
+          console.log('Generate API - Found Supabase user ID via SQL:', sqlResult[0].id);
+          return sqlResult[0].id;
+        }
+      } catch (sqlError) {
+        console.error('Generate API - Error with SQL fallback:', sqlError);
+      }
+      
       return null;
     }
     
@@ -74,6 +98,77 @@ async function getSupabaseUserId(clerkId: string): Promise<string | null> {
   } catch (error) {
     console.error('Generate API - Error in getSupabaseUserId:', error);
     return null;
+  }
+}
+
+// First, ensure the fusions table exists
+async function ensureFusionsTableExists() {
+  try {
+    console.log('Generate API - Ensuring fusions table exists');
+    
+    // Try to create the UUID extension if it doesn't exist
+    const createExtensionQuery = `
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    `;
+    
+    try {
+      const { error: extensionError } = await supabaseClient.rpc('exec_sql', { query: createExtensionQuery });
+      if (extensionError) {
+        console.log('Generate API - Error creating UUID extension (may already exist):', extensionError);
+      } else {
+        console.log('Generate API - UUID extension created or already exists');
+      }
+    } catch (extensionError) {
+      console.log('Generate API - Error creating UUID extension:', extensionError);
+    }
+    
+    // Create the fusions table with the correct schema
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS fusions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        pokemon_1_id INT REFERENCES pokemon(id) ON DELETE CASCADE,
+        pokemon_2_id INT REFERENCES pokemon(id) ON DELETE CASCADE,
+        fusion_name TEXT NOT NULL,
+        fusion_image TEXT NOT NULL,
+        likes INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT now()
+      );
+    `;
+    
+    try {
+      const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
+      if (createTableError) {
+        console.log('Generate API - Error creating fusions table:', createTableError);
+        
+        // If the error is due to foreign key constraints, try creating a simpler version
+        const simplifiedTableQuery = `
+          CREATE TABLE IF NOT EXISTS fusions (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            user_id TEXT NOT NULL,
+            pokemon_1_id INTEGER NOT NULL,
+            pokemon_2_id INTEGER NOT NULL,
+            fusion_name TEXT NOT NULL,
+            fusion_image TEXT NOT NULL,
+            likes INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+          );
+        `;
+        
+        const { error: simplifiedError } = await supabaseClient.rpc('exec_sql', { query: simplifiedTableQuery });
+        if (simplifiedError) {
+          console.log('Generate API - Error creating simplified fusions table:', simplifiedError);
+        } else {
+          console.log('Generate API - Simplified fusions table created successfully');
+        }
+      } else {
+        console.log('Generate API - Fusions table created successfully');
+      }
+    } catch (tableError) {
+      console.log('Generate API - Error in table creation:', tableError);
+    }
+  } catch (error) {
+    console.log('Generate API - Error ensuring fusions table exists:', error);
   }
 }
 
@@ -96,14 +191,63 @@ export async function POST(req: Request) {
     const supabaseUserId = await getSupabaseUserId(clerkUserId);
     
     if (!supabaseUserId) {
-      console.log('Generate API - No Supabase user found for Clerk ID, using Clerk ID as fallback');
-      // We'll use the Clerk ID as a fallback
+      console.log('Generate API - No Supabase user found for Clerk ID, attempting to create user');
+      
+      // Try to create the user directly
+      try {
+        const name = 'Anonymous User'; // Default name
+        const email = `${clerkUserId}@example.com`; // Default email based on Clerk ID
+        
+        const insertUserQuery = `
+          INSERT INTO users (name, email, clerk_id)
+          VALUES ('${name}', '${email}', '${clerkUserId}')
+          RETURNING id;
+        `;
+        
+        const { data: sqlResult, error: sqlError } = await supabaseClient.rpc('exec_sql', { 
+          query: insertUserQuery 
+        });
+        
+        if (sqlError || !sqlResult || sqlResult.length === 0) {
+          console.error('Generate API - Error creating user via SQL:', sqlError);
+          console.log('Generate API - Using Clerk ID as fallback');
+          // We'll use the Clerk ID as a fallback
+        } else if (sqlResult[0] && sqlResult[0].id) {
+          console.log('Generate API - Created and using new Supabase user ID:', sqlResult[0].id);
+          // Use the newly created user ID
+          const userId = sqlResult[0].id;
+          
+          // Continue with fusion generation using the new user ID
+          return await handleFusionGeneration(req, userId);
+        }
+      } catch (createError) {
+        console.error('Generate API - Error creating user:', createError);
+        console.log('Generate API - Using Clerk ID as fallback');
+      }
+    } else {
+      console.log('Generate API - Using existing Supabase user ID:', supabaseUserId);
+      // Continue with fusion generation using the existing user ID
+      return await handleFusionGeneration(req, supabaseUserId);
     }
     
-    // Use the Supabase user ID if available, otherwise fall back to Clerk ID
-    const userId = supabaseUserId || clerkUserId;
-    console.log('Generate API - Using user ID for fusion:', userId);
+    // If we get here, we couldn't create or find a Supabase user, so use Clerk ID as fallback
+    console.log('Generate API - Using Clerk ID as fallback for user ID');
+    return await handleFusionGeneration(req, clerkUserId);
+  } catch (error) {
+    // Log the error
+    console.error('Generate API - Error generating fusion:', error instanceof Error ? error.message : 'Unknown error', error);
+    
+    // Return an error response
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to generate fusion' },
+      { status: 500 }
+    );
+  }
+}
 
+// Helper function to handle the fusion generation process
+async function handleFusionGeneration(req: Request, userId: string) {
+  try {
     // Check if the API token is defined
     const isReplicateConfigured = !!(process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN);
     
@@ -230,47 +374,7 @@ export async function POST(req: Request) {
     console.log('Generate API - Saving fusion to Supabase with user ID:', userId);
     
     // First, ensure the fusions table exists
-    try {
-      console.log('Generate API - Ensuring fusions table exists');
-      // Check if the fusions table exists
-      const { data: tableExists, error: tableCheckError } = await supabaseClient
-        .from('fusions')
-        .select('count(*)')
-        .limit(1);
-      
-      if (tableCheckError) {
-        console.log('Generate API - Error checking fusions table, attempting to create it');
-        
-        // Try to create the table
-        const createTableQuery = `
-          CREATE TABLE IF NOT EXISTS fusions (
-            id UUID PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            pokemon_1_id INTEGER NOT NULL,
-            pokemon_2_id INTEGER NOT NULL,
-            fusion_name TEXT NOT NULL,
-            fusion_image TEXT NOT NULL,
-            likes INTEGER DEFAULT 0,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-          );
-        `;
-        
-        try {
-          const { error: createTableError } = await supabaseClient.rpc('exec_sql', { query: createTableQuery });
-          if (createTableError) {
-            console.log('Generate API - Error creating fusions table:', createTableError);
-          } else {
-            console.log('Generate API - Fusions table created successfully');
-          }
-        } catch (tableError) {
-          console.log('Generate API - Error in table creation:', tableError);
-        }
-      } else {
-        console.log('Generate API - Fusions table exists');
-      }
-    } catch (tableError) {
-      console.log('Generate API - Error checking/creating fusions table:', tableError);
-    }
+    await ensureFusionsTableExists();
     
     // Now save the fusion
     const fusion = await saveFusion({
@@ -302,7 +406,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     // Log the error
-    console.error('Generate API - Error generating fusion:', error instanceof Error ? error.message : 'Unknown error', error);
+    console.error('Generate API - Error in handleFusionGeneration:', error instanceof Error ? error.message : 'Unknown error', error);
     
     // Return an error response
     return NextResponse.json(

@@ -129,7 +129,7 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
       {/* Pokemon cards with swap button in the middle */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="h-full w-full">
-          <Card className="relative group overflow-hidden h-full flex flex-col">
+          <Card className="relative group overflow-hidden h-full flex flex-col bg-white dark:bg-gray-800">
             {/* Search bar inside first card */}
             <div className="p-4 mb-auto">
               <div className="relative mb-4 flex items-center dropdown-container-1">
@@ -207,7 +207,7 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
             
             <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
               {selectedPokemon.pokemon1 && (
-                <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-gray-200">
+                <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-white">
                   {selectedPokemon.pokemon1.name}
                 </h3>
               )}
@@ -228,7 +228,7 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
         </Button>
 
         <div className="h-full w-full">
-          <Card className="relative group overflow-hidden h-full flex flex-col">
+          <Card className="relative group overflow-hidden h-full flex flex-col bg-white dark:bg-gray-800">
             {/* Search bar inside second card */}
             <div className="p-4 mb-auto">
               <div className="relative mb-4 flex items-center dropdown-container-2">
@@ -306,7 +306,7 @@ export function PokemonSelector({ pokemonList, onSelect, selectedPokemon }: Poke
             
             <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
               {selectedPokemon.pokemon2 && (
-                <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-gray-200">
+                <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-white">
                   {selectedPokemon.pokemon2.name}
                 </h3>
               )}

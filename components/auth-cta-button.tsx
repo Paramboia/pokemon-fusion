@@ -20,7 +20,7 @@ export function AuthCtaButton({
   return (
     <SignInButton mode="modal">
       <Button 
-        className={className} 
+        className={`${className} text-white dark:text-white`} 
         variant={variant}
         size={size}
         {...props}

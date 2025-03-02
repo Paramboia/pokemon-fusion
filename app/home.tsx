@@ -78,10 +78,10 @@ export default function Home() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex flex-col items-center justify-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
+        <h1 className="text-4xl md:text-5xl font-bold text-center mb-4 text-gray-800 dark:text-white">
           <SparklesText text="Pokémon Fusion" />
         </h1>
-        <p className="text-lg text-center text-gray-600 dark:text-gray-400 max-w-2xl">
+        <p className="text-lg text-center text-gray-600 dark:text-gray-200 max-w-2xl">
           Create unique Pokémon combinations with our fusion generator
         </p>
       </div>

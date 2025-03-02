@@ -66,7 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           name,
           email,
-          clerk_id: user.id,
         }),
       });
       
@@ -82,7 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: user.id,
           name,
           email,
-          clerk_id: user.id,
         };
       }
       
@@ -102,7 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: user.id,
         name: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Anonymous User',
         email: user.primaryEmailAddress?.emailAddress || '',
-        clerk_id: user.id,
       };
     }
   };

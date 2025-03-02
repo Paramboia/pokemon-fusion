@@ -3,6 +3,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
+import { ClientLayout } from "@/components/client-layout";
 import Script from "next/script";
 
 export const metadata: Metadata = {
@@ -49,7 +50,9 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <AuthProvider>
-              {children}
+              <ClientLayout>
+                {children}
+              </ClientLayout>
             </AuthProvider>
           </ThemeProvider>
         </body>

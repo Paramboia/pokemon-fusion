@@ -29,7 +29,7 @@ export function Header() {
   console.log("Header component rendering");
 
   return (
-    <header className="bg-transparent dark:bg-transparent text-gray-800 dark:text-gray-200 w-full py-4 z-20 relative">
+    <header className="bg-white dark:bg-black text-gray-800 dark:text-gray-200 w-full py-4 z-20 relative border-b border-gray-200 dark:border-gray-800">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
         <nav className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
@@ -102,7 +102,7 @@ export function Header() {
         </nav>
         
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 px-2 space-y-3 bg-white dark:bg-gray-800 bg-opacity-90 dark:bg-opacity-90 backdrop-blur-sm rounded-lg mt-2 shadow-md">
+          <div className="md:hidden py-4 px-2 space-y-3 bg-white dark:bg-black bg-opacity-100 dark:bg-opacity-100 rounded-lg mt-2 shadow-md">
             <Link
               href="/"
               className={cn(

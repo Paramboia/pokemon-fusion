@@ -84,10 +84,10 @@ export function Header() {
               aria-label="Toggle theme"
             >
               {mounted && (
-                theme === 'light' ? (
-                  <SunIcon className="h-5 w-5 text-gray-600" />
-                ) : (
+                theme === 'dark' ? (
                   <MoonIcon className="h-5 w-5 text-gray-200" />
+                ) : (
+                  <SunIcon className="h-5 w-5 text-gray-600" />
                 )
               )}
             </button>

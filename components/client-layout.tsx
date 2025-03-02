@@ -56,8 +56,8 @@ export function ClientLayout({ children }: ClientLayoutProps) {
             className={isDarkMode ? "fill-gray-800 stroke-gray-700" : "fill-gray-200 stroke-gray-300"}
             width={80}
             height={80}
-            numSquares={8}
-            maxOpacity={0.3}
+            numSquares={12}
+            maxOpacity={0.5}
             strokeDasharray="1 2"
             duration={4}
           />

@@ -378,23 +378,70 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
           auth: replicateToken,
         });
         
-        // Call the Replicate API to generate the fusion image
-        // Note: According to the documentation, we need to pass the input as a separate object
-        const output = await replicateInstance.run(
-          "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867", 
-          { 
-            input: {
-              image_1: pokemon1Image,
-              image_2: pokemon2Image,
-              merge_mode: "left_right",
-              upscale_2x: true,
-              prompt: "a pokemon, digital art, sharp, solid color, thick outline",
-              negative_prompt: "garish, soft, ugly, broken, distorted"
-            }
+        // Verify the images are accessible
+        try {
+          const response1 = await fetch(pokemon1Image);
+          const response2 = await fetch(pokemon2Image);
+          
+          if (!response1.ok || !response2.ok) {
+            console.error("Generate API - One or more Pokemon images are not accessible");
+            console.log("Generate API - Pokemon 1 image status:", response1.status);
+            console.log("Generate API - Pokemon 2 image status:", response2.status);
+            return pokemon1Image; // Fallback to first Pokemon image
           }
-        );
+        } catch (fetchError) {
+          console.error("Generate API - Error fetching Pokemon images:", fetchError);
+          return pokemon1Image; // Fallback to first Pokemon image
+        }
         
-        console.log("Generate API - Replicate API response received:", output);
+        // Call the Replicate API to generate the fusion image
+        console.log("Generate API - Calling Replicate with model: fofr/image-merger");
+        
+        const modelVersion = "db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867";
+        
+        // Create a prediction
+        const prediction = await replicateInstance.predictions.create({
+          version: modelVersion,
+          input: {
+            image_1: pokemon1Image,
+            image_2: pokemon2Image,
+            merge_mode: "left_right",
+            upscale_2x: true,
+            prompt: "a pokemon, digital art, sharp, solid color, thick outline",
+            negative_prompt: "garish, soft, ugly, broken, distorted"
+          },
+        });
+        
+        console.log("Generate API - Prediction created:", prediction.id);
+        
+        // Wait for the prediction to complete
+        let completedPrediction = await replicateInstance.predictions.get(prediction.id);
+        
+        // Poll until the prediction is complete
+        while (
+          completedPrediction.status !== "succeeded" && 
+          completedPrediction.status !== "failed" &&
+          completedPrediction.status !== "canceled"
+        ) {
+          console.log("Generate API - Waiting for prediction to complete. Current status:", completedPrediction.status);
+          
+          // Wait for 1 second before checking again
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Get the updated prediction
+          completedPrediction = await replicateInstance.predictions.get(prediction.id);
+        }
+        
+        console.log("Generate API - Prediction completed with status:", completedPrediction.status);
+        
+        if (completedPrediction.status !== "succeeded") {
+          console.error("Generate API - Prediction failed:", completedPrediction.error);
+          return pokemon1Image; // Fallback to first Pokemon image
+        }
+        
+        // Get the output from the prediction
+        const output = completedPrediction.output;
+        console.log("Generate API - Prediction output:", output);
         
         // Get the generated image URL - the output could be an array or a string
         let fusionImageUrl;
@@ -414,6 +461,8 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
           console.error("Generate API - No image URL in Replicate response:", output);
           return pokemon1Image; // Fallback to first Pokemon image
         }
+        
+        console.log("Generate API - Fusion image URL:", fusionImageUrl);
         
         // Generate a unique filename for the fusion image
         const fusionId = uuidv4();

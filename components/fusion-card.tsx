@@ -44,6 +44,9 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
   const { user } = useUser();
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
 
+  // Add state to force hover visibility for testing
+  const [forceShowActions, setForceShowActions] = useState(false);
+
   useEffect(() => {
     const checkFavoriteStatus = async () => {
       const userId = user?.id;
@@ -179,9 +182,17 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
     }
   };
 
+  // Function to toggle force show actions (for testing)
+  const toggleForceShowActions = () => {
+    setForceShowActions(!forceShowActions);
+  };
+
   return (
     <div className="h-full">
-      <Card className="relative group overflow-hidden h-full flex flex-col">
+      <Card 
+        className="relative group overflow-hidden h-full flex flex-col"
+        onDoubleClick={toggleForceShowActions}
+      >
         <div className="flex-grow flex items-center justify-center p-4">
           <div className="w-full h-64 relative">
             <Image
@@ -197,8 +208,53 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
           <h3 className="font-bold text-lg">{fusion.fusion_name}</h3>
         </div>
         
+        {/* Fixed action buttons that are always visible for mobile */}
+        <div className="md:hidden flex justify-center gap-2 p-2 bg-muted border-t">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleFavorite}
+            className="h-8 w-8"
+          >
+            <Heart className={`h-4 w-4 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
+            className="h-8 w-8"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowShare(!showShare)}
+            className="h-8 w-8"
+          >
+            <Share2 className="h-4 w-4" />
+          </Button>
+
+          {onDelete && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onDelete(fusion.id)}
+              className="h-8 w-8"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        
         {showActions && (
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center">
+          <div 
+            className={`absolute inset-0 bg-black/70 hidden md:flex flex-col justify-center items-center
+              ${forceShowActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} 
+              transition-opacity duration-200`}
+          >
             <div className="flex justify-center gap-4 mb-4">
               <Button
                 variant="secondary"

@@ -4,19 +4,13 @@ import { useState } from "react";
 import { usePokemon, useFusion } from "@/hooks";
 import { PokemonSelector } from "@/components/pokemon-selector";
 import { Button, Card } from "@/components/ui";
-import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info, Share, Twitter, Facebook, Copy, Link } from "lucide-react";
+import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info, Share } from "lucide-react";
 import { SparklesText } from "@/components/ui";
 import type { Pokemon } from "@/types";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/auth-context";
 import { FusionAuthGate } from "@/components/fusion-auth-gate";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
@@ -148,7 +142,28 @@ export default function Home() {
                 </h3>
                 
                 <div className="flex mt-4 gap-2">
-                  <Button variant="outline" onClick={() => window.open(fusionImage, '_blank')}>
+                  <Button variant="outline" onClick={async () => {
+                    try {
+                      // Fetch the image
+                      const response = await fetch(fusionImage);
+                      const blob = await response.blob();
+                      
+                      // Create a download link
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${fusionName || 'pokemon-fusion'}.png`;
+                      document.body.appendChild(a);
+                      a.click();
+                      
+                      // Clean up
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    } catch (error) {
+                      console.error('Download failed:', error);
+                      toast.error('Failed to download image');
+                    }
+                  }}>
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
@@ -163,44 +178,54 @@ export default function Home() {
                     </Button>
                   </FusionAuthGate>
                   
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline">
-                        <Share className="mr-2 h-4 w-4" />
-                        Share
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => {
-                        const shareUrl = window.location.origin;
-                        const text = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
-                        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
-                      }}>
-                        <Twitter className="mr-2 h-4 w-4" />
-                        Twitter
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        const shareUrl = window.location.origin;
-                        const text = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
-                        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(text)}`, '_blank');
-                      }}>
-                        <Facebook className="mr-2 h-4 w-4" />
-                        Facebook
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        const shareUrl = window.location.origin;
-                        const text = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
-                        navigator.clipboard.writeText(`${text}\n${shareUrl}`).then(() => {
-                          toast.success("Share link copied to clipboard!");
-                        }).catch(() => {
-                          toast.error("Failed to copy link");
+                  <Button variant="outline" onClick={async () => {
+                    const shareText = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
+                    const shareUrl = window.location.origin;
+                    
+                    // Check if Web Share API is supported
+                    if (navigator.share) {
+                      try {
+                        // Try to share with image if possible
+                        const response = await fetch(fusionImage);
+                        const blob = await response.blob();
+                        const file = new File([blob], `${fusionName}.png`, { type: blob.type });
+                        
+                        await navigator.share({
+                          title: 'Pokémon Fusion',
+                          text: shareText,
+                          url: shareUrl,
+                          files: [file]
+                        }).catch(error => {
+                          // If sharing with file fails, try without file
+                          if (error.name !== 'AbortError') {
+                            return navigator.share({
+                              title: 'Pokémon Fusion',
+                              text: shareText,
+                              url: shareUrl
+                            });
+                          }
+                          throw error;
                         });
-                      }}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy Link
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        
+                        toast.success('Shared successfully!');
+                      } catch (error) {
+                        if (error.name !== 'AbortError') {
+                          console.error('Error sharing:', error);
+                          toast.error('Failed to share');
+                        }
+                      }
+                    } else {
+                      // Fallback for browsers that don't support Web Share API
+                      navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
+                        toast.success('Share link copied to clipboard!');
+                      }).catch(() => {
+                        toast.error('Failed to copy link');
+                      });
+                    }
+                  }}>
+                    <Share className="mr-2 h-4 w-4" />
+                    Share
+                  </Button>
                 </div>
               </div>
             </Card>

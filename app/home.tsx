@@ -256,6 +256,17 @@ export default function Home() {
                   {fusionName || "Unnamed Fusion"}
                 </h3>
                 
+                {/* Display fallback message if using local fallback */}
+                {isLocalFallback && (
+                  <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md text-sm text-blue-700 dark:text-blue-300">
+                    <div className="flex items-center">
+                      <Info className="h-4 w-4 mr-2 flex-shrink-0" />
+                      <p>Using Simple Fusion</p>
+                    </div>
+                    <p className="mt-1 text-xs">The AI fusion service is currently unavailable. We're using a simplified fusion method instead.</p>
+                  </div>
+                )}
+                
                 {/* Action buttons - always visible on mobile, hidden on desktop */}
                 {isMobile && (
                   <div className="flex mt-4 gap-2">
@@ -379,23 +390,6 @@ export default function Home() {
                   <Button className="mt-3" size="sm">
                     Upgrade Now
                   </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Local Fallback Message */}
-        {isLocalFallback && (
-          <div className="mt-6 flex justify-center">
-            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 p-4 max-w-md w-full">
-              <div className="flex items-start">
-                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-blue-600 dark:text-blue-400">Using Simple Fusion</h3>
-                  <p className="text-sm text-blue-600/90 dark:text-blue-400/90 mt-1">
-                    The AI fusion service is currently unavailable. We're using a simplified fusion method instead.
-                  </p>
                 </div>
               </div>
             </Card>

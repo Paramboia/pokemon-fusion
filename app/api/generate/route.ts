@@ -164,40 +164,14 @@ async function ensureFusionsTableExists() {
 }
 
 export async function POST(req: Request) {
-  console.log("Generate API - POST request received");
-  
   try {
-    // Check for authentication using Clerk's auth() function
-    const { userId: authUserId } = auth();
-    console.log("Generate API - Auth userId from auth():", authUserId);
+    console.log("Generate API - POST request received");
     
-    // Check for authorization header as fallback
-    let finalUserId = authUserId;
+    // Get the authenticated user
+    const { userId: clerkUserId } = auth();
+    const finalUserId = clerkUserId;
     
-    if (!finalUserId) {
-      console.log("Generate API - No userId from auth(), checking Authorization header");
-      const authHeader = req.headers.get("Authorization");
-      console.log("Generate API - Authorization header present:", authHeader ? "Yes" : "No");
-      
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        // Extract the token
-        const token = authHeader.split(" ")[1];
-        console.log("Generate API - Extracted token (first 10 chars):", token.substring(0, 10) + "...");
-        
-        try {
-          // Verify the token with Clerk
-          const verifiedToken = await clerkClient.verifyToken(token);
-          console.log("Generate API - Token verification result:", verifiedToken ? "Success" : "Failed");
-          
-          if (verifiedToken && verifiedToken.sub) {
-            console.log("Generate API - Verified token, userId:", verifiedToken.sub);
-            finalUserId = verifiedToken.sub;
-          }
-        } catch (tokenError) {
-          console.error("Generate API - Error verifying token:", tokenError);
-        }
-      }
-    }
+    console.log("Generate API - Auth check result:", finalUserId ? "Authenticated" : "Not authenticated");
     
     // If no userId is found, return an error
     if (!finalUserId) {
@@ -222,369 +196,168 @@ export async function POST(req: Request) {
     
     // Parse the request body
     const body = await req.json();
-    console.log("Generate API - Request body:", body);
+    console.log("Generate API - Request body received");
     
-    // Extract the pokemon IDs from the request
-    const { pokemon1Id, pokemon2Id } = body;
+    // Extract the pokemon data from the request
+    const { 
+      pokemon1, 
+      pokemon2, 
+      name1, 
+      name2, 
+      pokemon1Id, 
+      pokemon2Id 
+    } = body;
     
     // Validate the request
-    if (!pokemon1Id || !pokemon2Id) {
-      console.log("Generate API - Missing pokemon IDs in request");
+    if (!pokemon1Id || !pokemon2Id || !pokemon1 || !pokemon2 || !name1 || !name2) {
+      console.log("Generate API - Missing required data in request");
       return NextResponse.json(
-        { error: "Missing pokemon IDs" },
+        { error: "Missing required Pokemon data" },
         { status: 400 }
       );
     }
     
-    // Generate the fusion
-    const result = await handleFusionGeneration(
-      pokemon1Id,
-      pokemon2Id,
-      supabaseUserId
-    );
+    console.log("Generate API - Generating fusion for:", { name1, name2 });
     
-    console.log("Generate API - Fusion generation result:", result ? "Success" : "Failed");
-    
-    if (!result) {
-      return NextResponse.json(
-        { error: "Failed to generate fusion" },
-        { status: 500 }
-      );
+    try {
+      // Generate a fusion name
+      const fusionName = `${name1.substring(0, Math.floor(name1.length / 2))}${name2.substring(Math.floor(name2.length / 2))}`;
+      const capitalizedFusionName = fusionName.charAt(0).toUpperCase() + fusionName.slice(1);
+      
+      console.log("Generate API - Generated fusion name:", capitalizedFusionName);
+      
+      // Check if Replicate API token is available
+      const replicateToken = process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN;
+      console.log("Generate API - Replicate token available:", !!replicateToken);
+      
+      let fusionImageUrl = null;
+      let isLocalFallback = false;
+      
+      // Try to generate the fusion image with Replicate if token is available
+      if (replicateToken) {
+        try {
+          console.log("Generate API - Attempting to use Replicate for fusion generation");
+          
+          // Initialize Replicate with the token
+          const replicateInstance = new Replicate({
+            auth: replicateToken,
+          });
+          
+          // Try SDXL model first
+          try {
+            console.log("Generate API - Trying SDXL model");
+            
+            const output = await replicateInstance.run(
+              "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+              {
+                input: {
+                  prompt: `a fusion of two pokemon, one is ${name1} and the other is ${name2}, digital art, sharp, solid color, thick outline, game art style, official pokemon art style`,
+                  negative_prompt: "garish, soft, ugly, broken, distorted, deformed, low quality, blurry",
+                  width: 768,
+                  height: 768,
+                  refine: "expert_ensemble_refiner",
+                  scheduler: "K_EULER",
+                  lora_scale: 0.6,
+                  num_outputs: 1,
+                  guidance_scale: 7.5,
+                  apply_watermark: false,
+                  high_noise_frac: 0.8,
+                  prompt_strength: 0.8,
+                  num_inference_steps: 30
+                }
+              }
+            );
+            
+            console.log("Generate API - SDXL output received:", !!output);
+            
+            if (Array.isArray(output) && output.length > 0) {
+              fusionImageUrl = output[0];
+            } else if (typeof output === 'string') {
+              fusionImageUrl = output;
+            }
+          } catch (sdxlError) {
+            console.error("Generate API - SDXL model error:", sdxlError);
+          }
+          
+          // If SDXL failed, try the image-merger model
+          if (!fusionImageUrl) {
+            console.log("Generate API - SDXL failed, trying image-merger model");
+            
+            try {
+              const output = await replicateInstance.run(
+                "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+                {
+                  input: {
+                    image_1: pokemon1,
+                    image_2: pokemon2,
+                    merge_mode: "left_right",
+                    upscale_2x: true,
+                    prompt: "a pokemon, digital art, sharp, solid color, thick outline",
+                    negative_prompt: "garish, soft, ugly, broken, distorted"
+                  }
+                }
+              );
+              
+              console.log("Generate API - Image-merger output received:", !!output);
+              
+              if (Array.isArray(output) && output.length > 0) {
+                fusionImageUrl = output[0];
+              } else if (typeof output === 'string') {
+                fusionImageUrl = output;
+              }
+            } catch (mergerError) {
+              console.error("Generate API - Image-merger model error:", mergerError);
+            }
+          }
+        } catch (replicateError) {
+          console.error("Generate API - Replicate API error:", replicateError);
+        }
+      }
+      
+      // If Replicate failed or is not available, use local fallback
+      if (!fusionImageUrl) {
+        console.log("Generate API - Using fallback fusion approach");
+        fusionImageUrl = pokemon1; // Use the first Pokemon image as a fallback
+        isLocalFallback = true;
+      }
+      
+      // Generate a unique ID for the fusion
+      const fusionId = uuidv4();
+      
+      // Return the fusion data
+      return NextResponse.json({
+        id: fusionId,
+        pokemon1Id,
+        pokemon2Id,
+        fusionName: capitalizedFusionName,
+        fusionImage: fusionImageUrl,
+        isLocalFallback,
+        createdAt: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error("Generate API - Error in fusion generation:", error);
+      
+      // Create a fallback response
+      const fallbackName = `${name1.substring(0, Math.floor(name1.length / 2))}${name2.substring(Math.floor(name2.length / 2))}`;
+      const capitalizedFallbackName = fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1);
+      
+      return NextResponse.json({
+        id: uuidv4(),
+        pokemon1Id,
+        pokemon2Id,
+        fusionName: capitalizedFallbackName,
+        fusionImage: pokemon1, // Use the first Pokemon image as a fallback
+        isLocalFallback: true,
+        createdAt: new Date().toISOString()
+      });
     }
     
-    return NextResponse.json(result);
   } catch (error) {
     console.error("Generate API - Error in POST handler:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
-  }
-}
-
-// Helper function to handle the fusion generation process
-async function handleFusionGeneration(
-  pokemon1Id: number,
-  pokemon2Id: number,
-  userId: string
-) {
-  console.log("Generate API - handleFusionGeneration called with:", {
-    pokemon1Id,
-    pokemon2Id,
-    userId
-  });
-
-  try {
-    // Ensure the fusions table exists
-    await ensureFusionsTableExists();
-
-    // Generate a fusion name
-    const fusionName = await generateFusionName(pokemon1Id, pokemon2Id);
-    console.log("Generate API - Generated fusion name:", fusionName);
-
-    // Generate a fusion image
-    const fusionImageUrl = await generateFusionImage(pokemon1Id, pokemon2Id);
-    console.log("Generate API - Generated fusion image URL:", fusionImageUrl ? "Success" : "Failed");
-
-    if (!fusionImageUrl) {
-      console.error("Generate API - Failed to generate fusion image");
-      return null;
-    }
-
-    // Save the fusion to the database
-    const fusionId = await saveFusionToDatabase(
-      pokemon1Id,
-      pokemon2Id,
-      fusionName,
-      fusionImageUrl,
-      userId
-    );
-    console.log("Generate API - Saved fusion to database with ID:", fusionId);
-
-    if (!fusionId) {
-      console.error("Generate API - Failed to save fusion to database");
-      return null;
-    }
-
-    // Return the fusion data
-    return {
-      id: fusionId,
-      pokemon1Id,
-      pokemon2Id,
-      fusionName,
-      fusionImage: fusionImageUrl,
-      createdAt: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error("Generate API - Error in handleFusionGeneration:", error);
-    return null;
-  }
-}
-
-// Helper function to generate a fusion name
-async function generateFusionName(pokemon1Id: number, pokemon2Id: number): Promise<string> {
-  try {
-    // Get the Pokemon names from the database or API
-    const pokemon1Data = await getPokemonData(pokemon1Id);
-    const pokemon2Data = await getPokemonData(pokemon2Id);
-    
-    if (!pokemon1Data || !pokemon2Data) {
-      console.error("Generate API - Failed to get Pokemon data for name generation");
-      return `Fusion-${pokemon1Id}-${pokemon2Id}`;
-    }
-    
-    const name1 = pokemon1Data.name;
-    const name2 = pokemon2Data.name;
-    
-    // Generate the fusion name by combining the first half of name1 with the second half of name2
-    const fusionName = `${name1.substring(0, Math.floor(name1.length / 2))}${name2.substring(Math.floor(name2.length / 2))}`;
-    return fusionName.charAt(0).toUpperCase() + fusionName.slice(1);
-  } catch (error) {
-    console.error("Generate API - Error generating fusion name:", error);
-    return `Fusion-${pokemon1Id}-${pokemon2Id}`;
-  }
-}
-
-// Helper function to generate a fusion image
-async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Promise<string | null> {
-  try {
-    // Get the Pokemon images from the database or API
-    const pokemon1Data = await getPokemonData(pokemon1Id);
-    const pokemon2Data = await getPokemonData(pokemon2Id);
-    
-    if (!pokemon1Data || !pokemon2Data) {
-      console.error("Generate API - Failed to get Pokemon data for image generation");
-      return null;
-    }
-    
-    const pokemon1Image = pokemon1Data.image_url;
-    const pokemon2Image = pokemon2Data.image_url;
-    
-    // Check if we should use the Replicate API or local fallback
-    const replicateToken = process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN;
-    const isReplicateConfigured = !!replicateToken;
-    
-    console.log("Generate API - Replicate token available:", !!replicateToken);
-    
-    if (isReplicateConfigured) {
-      try {
-        console.log("Generate API - Using Replicate API for fusion generation");
-        console.log("Generate API - Pokemon 1 image URL:", pokemon1Image);
-        console.log("Generate API - Pokemon 2 image URL:", pokemon2Image);
-        
-        // Initialize Replicate with the token
-        const replicateInstance = new Replicate({
-          auth: replicateToken,
-        });
-        
-        // Verify the images are accessible
-        try {
-          const response1 = await fetch(pokemon1Image);
-          const response2 = await fetch(pokemon2Image);
-          
-          if (!response1.ok || !response2.ok) {
-            console.error("Generate API - One or more Pokemon images are not accessible");
-            console.log("Generate API - Pokemon 1 image status:", response1.status);
-            console.log("Generate API - Pokemon 2 image status:", response2.status);
-            return pokemon1Image; // Fallback to first Pokemon image
-          }
-        } catch (fetchError) {
-          console.error("Generate API - Error fetching Pokemon images:", fetchError);
-          return pokemon1Image; // Fallback to first Pokemon image
-        }
-        
-        // Call the Replicate API to generate the fusion image
-        console.log("Generate API - Calling Replicate with model: stability-ai/sdxl");
-        
-        // Use SDXL model for better quality
-        const output = await replicateInstance.run(
-          "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-          {
-            input: {
-              prompt: `a fusion of two pokemon, one is ${pokemon1Data.name} and the other is ${pokemon2Data.name}, digital art, sharp, solid color, thick outline, game art style, official pokemon art style`,
-              negative_prompt: "garish, soft, ugly, broken, distorted, deformed, low quality, blurry",
-              width: 768,
-              height: 768,
-              refine: "expert_ensemble_refiner",
-              scheduler: "K_EULER",
-              lora_scale: 0.6,
-              num_outputs: 1,
-              guidance_scale: 7.5,
-              apply_watermark: false,
-              high_noise_frac: 0.8,
-              prompt_strength: 0.8,
-              num_inference_steps: 30
-            }
-          }
-        );
-        
-        console.log("Generate API - SDXL output:", output);
-        
-        // Get the generated image URL
-        let fusionImageUrl;
-        if (Array.isArray(output)) {
-          fusionImageUrl = output[0];
-        } else if (typeof output === 'string') {
-          fusionImageUrl = output;
-        } else if (output && typeof output === 'object') {
-          // If it's an object, try to find a URL property
-          const possibleUrls = Object.values(output).filter(val => 
-            typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://'))
-          );
-          fusionImageUrl = possibleUrls.length > 0 ? possibleUrls[0] : null;
-        }
-        
-        if (!fusionImageUrl) {
-          console.error("Generate API - No image URL in Replicate response:", output);
-          
-          // Try fallback to image-merger model if SDXL fails
-          console.log("Generate API - Trying fallback to image-merger model");
-          
-          const fallbackOutput = await replicateInstance.run(
-            "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-            {
-              input: {
-                image_1: pokemon1Image,
-                image_2: pokemon2Image,
-                merge_mode: "left_right",
-                upscale_2x: true,
-                prompt: "a pokemon, digital art, sharp, solid color, thick outline",
-                negative_prompt: "garish, soft, ugly, broken, distorted"
-              }
-            }
-          );
-          
-          console.log("Generate API - Fallback model output:", fallbackOutput);
-          
-          if (Array.isArray(fallbackOutput)) {
-            fusionImageUrl = fallbackOutput[0];
-          } else if (typeof fallbackOutput === 'string') {
-            fusionImageUrl = fallbackOutput;
-          } else {
-            return pokemon1Image; // Fallback to first Pokemon image if both models fail
-          }
-        }
-        
-        console.log("Generate API - Fusion image URL:", fusionImageUrl);
-        
-        // Generate a unique filename for the fusion image
-        const fusionId = uuidv4();
-        const filename = `fusion_${pokemon1Id}_${pokemon2Id}_${fusionId}.png`;
-        
-        // Upload the image to Supabase Storage
-        const storedImageUrl = await uploadImageFromUrl(
-          fusionImageUrl,
-          'fusions',
-          filename
-        );
-        
-        console.log("Generate API - Stored image URL:", storedImageUrl);
-        
-        // Return the stored image URL or fall back to the original URL
-        return storedImageUrl || fusionImageUrl;
-      } catch (error) {
-        console.error("Generate API - Error calling Replicate API:", error);
-        console.log("Generate API - Falling back to local fusion generation");
-        return pokemon1Image; // Use the first Pokemon image as a fallback
-      }
-    } else {
-      console.log("Generate API - Replicate API not configured, using local fallback");
-      return pokemon1Image; // Use the first Pokemon image as a fallback
-    }
-  } catch (error) {
-    console.error("Generate API - Error generating fusion image:", error);
-    return null;
-  }
-}
-
-// Helper function to save a fusion to the database
-async function saveFusionToDatabase(
-  pokemon1Id: number,
-  pokemon2Id: number,
-  fusionName: string,
-  fusionImage: string,
-  userId: string
-): Promise<string | null> {
-  try {
-    // Generate a unique ID for the fusion
-    const fusionId = uuidv4();
-    
-    // Save the fusion to Supabase
-    console.log("Generate API - Saving fusion to database with user ID:", userId);
-    
-    const { data: fusion, error } = await supabaseClient
-      .from("fusions")
-      .insert({
-        id: fusionId,
-        user_id: userId,
-        pokemon_1_id: pokemon1Id,
-        pokemon_2_id: pokemon2Id,
-        fusion_name: fusionName,
-        fusion_image: fusionImage,
-        likes: 0
-      })
-      .select()
-      .single();
-    
-    if (error) {
-      console.error("Generate API - Error saving fusion to database:", error);
-      return null;
-    }
-    
-    console.log("Generate API - Fusion saved successfully with ID:", fusionId);
-    return fusionId;
-  } catch (error) {
-    console.error("Generate API - Error saving fusion to database:", error);
-    return null;
-  }
-}
-
-// Helper function to get Pokemon data
-async function getPokemonData(pokemonId: number): Promise<any | null> {
-  try {
-    // First, try to get the Pokemon from the database
-    const { data: pokemon, error } = await supabaseClient
-      .from("pokemon")
-      .select("*")
-      .eq("id", pokemonId)
-      .single();
-    
-    if (error || !pokemon) {
-      console.log(`Generate API - Pokemon ${pokemonId} not found in database, fetching from API`);
-      
-      // If not in the database, fetch from the PokeAPI
-      const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}`);
-      
-      if (!response.ok) {
-        console.error(`Generate API - Failed to fetch Pokemon ${pokemonId} from API:`, response.statusText);
-        return null;
-      }
-      
-      const pokemonData = await response.json();
-      
-      // Extract the relevant data
-      const newPokemon = {
-        id: pokemonId,
-        name: pokemonData.name,
-        image_url: pokemonData.sprites.other["official-artwork"].front_default,
-        type: pokemonData.types.map((t: any) => t.type.name)
-      };
-      
-      // Save the Pokemon to the database for future use
-      const { error: saveError } = await supabaseClient
-        .from("pokemon")
-        .insert(newPokemon);
-      
-      if (saveError) {
-        console.error(`Generate API - Error saving Pokemon ${pokemonId} to database:`, saveError);
-      }
-      
-      return newPokemon;
-    }
-    
-    return pokemon;
-  } catch (error) {
-    console.error(`Generate API - Error getting Pokemon ${pokemonId} data:`, error);
-    return null;
   }
 } 

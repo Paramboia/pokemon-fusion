@@ -4,13 +4,19 @@ import { useState } from "react";
 import { usePokemon, useFusion } from "@/hooks";
 import { PokemonSelector } from "@/components/pokemon-selector";
 import { Button, Card } from "@/components/ui";
-import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info } from "lucide-react";
+import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info, Share, Twitter, Facebook, Copy, Link } from "lucide-react";
 import { SparklesText } from "@/components/ui";
 import type { Pokemon } from "@/types";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/auth-context";
 import { FusionAuthGate } from "@/components/fusion-auth-gate";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
@@ -156,6 +162,45 @@ export default function Home() {
                       {isLiked ? "Liked" : "Like"}
                     </Button>
                   </FusionAuthGate>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        <Share className="mr-2 h-4 w-4" />
+                        Share
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        const shareUrl = window.location.origin;
+                        const text = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
+                        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+                      }}>
+                        <Twitter className="mr-2 h-4 w-4" />
+                        Twitter
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        const shareUrl = window.location.origin;
+                        const text = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
+                        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(text)}`, '_blank');
+                      }}>
+                        <Facebook className="mr-2 h-4 w-4" />
+                        Facebook
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        const shareUrl = window.location.origin;
+                        const text = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
+                        navigator.clipboard.writeText(`${text}\n${shareUrl}`).then(() => {
+                          toast.success("Share link copied to clipboard!");
+                        }).catch(() => {
+                          toast.error("Failed to copy link");
+                        });
+                      }}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Link
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </Card>

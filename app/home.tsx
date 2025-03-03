@@ -100,7 +100,7 @@ export default function Home() {
           />
           
           <div className="mt-8 w-full flex justify-center">
-            {isSignedIn ? (
+            <FusionAuthGate>
               <Button
                 onClick={handleGenerateFusion}
                 disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
@@ -118,14 +118,7 @@ export default function Home() {
                   </>
                 )}
               </Button>
-            ) : (
-              <AuthCtaButton 
-                className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white"
-                ctaText="Sign in to generate"
-              >
-                Sign in to generate
-              </AuthCtaButton>
-            )}
+            </FusionAuthGate>
           </div>
         </div>
 
@@ -155,7 +148,7 @@ export default function Home() {
                     Download
                   </Button>
                   
-                  {isSignedIn ? (
+                  <FusionAuthGate>
                     <Button
                       variant={isLiked ? "default" : "outline"}
                       onClick={() => setIsLiked(!isLiked)}
@@ -163,15 +156,7 @@ export default function Home() {
                       <Heart className={`mr-2 h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
                       {isLiked ? "Liked" : "Like"}
                     </Button>
-                  ) : (
-                    <AuthCtaButton 
-                      variant="outline"
-                      ctaText="Sign in to like"
-                    >
-                      <Heart className="mr-2 h-4 w-4" />
-                      Like
-                    </AuthCtaButton>
-                  )}
+                  </FusionAuthGate>
                 </div>
               </div>
             </Card>

@@ -1,103 +1,26 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { createClient } from '@supabase/supabase-js';
+import Replicate from 'replicate';
 
-// Create a Supabase client with fallback values for build time
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
-// Use the service role key for server-side operations to bypass RLS
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+// Check if Replicate API key is available
+const replicateApiKey = process.env.REPLICATE_API_KEY || '';
+console.log('Generate API - Replicate API key available:', !!replicateApiKey);
+console.log('Generate API - Replicate API key length:', replicateApiKey ? replicateApiKey.length : 0);
+console.log('Generate API - Replicate API key first 4 chars:', replicateApiKey ? replicateApiKey.substring(0, 4) : 'none');
 
-console.log('Generate API - Supabase URL:', supabaseUrl);
-console.log('Generate API - Service Key available:', !!supabaseServiceKey);
-
-// Check if Replicate API token is available
-const replicateToken = process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN || '';
-console.log('Generate API - Replicate token available:', !!replicateToken);
-console.log('Generate API - Replicate token length:', replicateToken ? replicateToken.length : 0);
-console.log('Generate API - Replicate token first 4 chars:', replicateToken ? replicateToken.substring(0, 4) : 'none');
-
-// Direct API call to Replicate
-async function callReplicateAPI(model: string, input: any) {
-  if (!replicateToken) {
-    console.log("Generate API - No Replicate token available");
-    return null;
-  }
-
-  try {
-    console.log(`Generate API - Calling Replicate API for model: ${model}`);
-    
-    // Create prediction
-    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${replicateToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        version: model,
-        input: input
-      })
+// Initialize Replicate client
+let replicate = null;
+try {
+  if (replicateApiKey) {
+    replicate = new Replicate({
+      auth: replicateApiKey,
     });
-
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text();
-      console.error(`Generate API - Error creating prediction: ${createResponse.status} ${errorText}`);
-      return null;
-    }
-
-    const prediction = await createResponse.json();
-    console.log(`Generate API - Prediction created with ID: ${prediction.id}`);
-
-    // Poll for completion
-    let completed = false;
-    let result = null;
-    let attempts = 0;
-    const maxAttempts = 30; // 30 attempts with 2 second delay = 60 seconds max
-
-    while (!completed && attempts < maxAttempts) {
-      attempts++;
-      
-      // Wait 2 seconds between polling attempts
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Get prediction status
-      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Token ${replicateToken}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (!statusResponse.ok) {
-        const errorText = await statusResponse.text();
-        console.error(`Generate API - Error checking prediction status: ${statusResponse.status} ${errorText}`);
-        break;
-      }
-
-      const status = await statusResponse.json();
-      console.log(`Generate API - Prediction status: ${status.status}, attempt ${attempts}/${maxAttempts}`);
-
-      if (status.status === "succeeded") {
-        completed = true;
-        result = status.output;
-        console.log("Generate API - Prediction completed successfully");
-      } else if (status.status === "failed" || status.status === "canceled") {
-        console.error(`Generate API - Prediction ${status.status}: ${status.error || "Unknown error"}`);
-        break;
-      }
-    }
-
-    if (!completed) {
-      console.log("Generate API - Prediction timed out or failed");
-      return null;
-    }
-
-    return result;
-  } catch (error) {
-    console.error("Generate API - Error calling Replicate API:", error);
-    return null;
+    console.log('Generate API - Replicate client initialized successfully');
+  } else {
+    console.log('Generate API - No Replicate API key available, client not initialized');
   }
+} catch (error) {
+  console.error('Generate API - Error initializing Replicate client:', error);
 }
 
 export async function POST(req: Request) {
@@ -149,68 +72,44 @@ export async function POST(req: Request) {
       let fusionImageUrl = null;
       let isLocalFallback = false;
       
-      // Try to generate the fusion image with Replicate if token is available
-      if (replicateToken) {
+      // Try to generate the fusion image with Replicate if client is available
+      if (replicate) {
         try {
           console.log("Generate API - Attempting to use Replicate for fusion generation");
           
-          // Try SDXL model first
-          const sdxlModel = "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b";
-          const sdxlInput = {
-            prompt: `a fusion of two pokemon, one is ${name1} and the other is ${name2}, digital art, sharp, solid color, thick outline, game art style, official pokemon art style`,
-            negative_prompt: "garish, soft, ugly, broken, distorted, deformed, low quality, blurry",
-            width: 768,
-            height: 768,
-            refine: "expert_ensemble_refiner",
-            scheduler: "K_EULER",
-            lora_scale: 0.6,
-            num_outputs: 1,
-            guidance_scale: 7.5,
-            apply_watermark: false,
-            high_noise_frac: 0.8,
-            prompt_strength: 0.8,
-            num_inference_steps: 30
-          };
+          // Use the image-merger model
+          console.log("Generate API - Using image-merger model");
           
-          const sdxlOutput = await callReplicateAPI(sdxlModel, sdxlInput);
-          
-          if (sdxlOutput) {
-            if (Array.isArray(sdxlOutput) && sdxlOutput.length > 0) {
-              fusionImageUrl = sdxlOutput[0];
-            } else if (typeof sdxlOutput === 'string') {
-              fusionImageUrl = sdxlOutput;
-            }
-          }
-          
-          // If SDXL failed, try the image-merger model
-          if (!fusionImageUrl) {
-            console.log("Generate API - SDXL failed, trying image-merger model");
-            
-            const mergerModel = "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867";
-            const mergerInput = {
-              image_1: pokemon1,
-              image_2: pokemon2,
-              merge_mode: "left_right",
-              upscale_2x: true,
-              prompt: "a pokemon, digital art, sharp, solid color, thick outline",
-              negative_prompt: "garish, soft, ugly, broken, distorted"
-            };
-            
-            const mergerOutput = await callReplicateAPI(mergerModel, mergerInput);
-            
-            if (mergerOutput) {
-              if (Array.isArray(mergerOutput) && mergerOutput.length > 0) {
-                fusionImageUrl = mergerOutput[0];
-              } else if (typeof mergerOutput === 'string') {
-                fusionImageUrl = mergerOutput;
+          const output = await replicate.run(
+            "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+            {
+              input: {
+                image_1: pokemon1,
+                image_2: pokemon2,
+                prompt: `a fusion of ${name1} and ${name2}, pokemon style, digital art`,
+                merge_mode: "left_right",
+                upscale_2x: true,
+                negative_prompt: "ugly, deformed, noisy, blurry, distorted",
               }
             }
+          );
+          
+          console.log("Generate API - Replicate output received:", output);
+          
+          if (Array.isArray(output) && output.length > 0) {
+            fusionImageUrl = output[0];
+            console.log("Generate API - Fusion image URL:", fusionImageUrl);
+          } else if (typeof output === 'string') {
+            fusionImageUrl = output;
+            console.log("Generate API - Fusion image URL (string):", fusionImageUrl);
+          } else {
+            console.log("Generate API - Unexpected output format:", output);
           }
         } catch (replicateError) {
           console.error("Generate API - Replicate API error:", replicateError);
         }
       } else {
-        console.log("Generate API - Replicate token not available, using fallback");
+        console.log("Generate API - Replicate client not available, using fallback");
       }
       
       // If Replicate failed or is not available, use local fallback

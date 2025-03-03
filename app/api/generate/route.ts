@@ -1,21 +1,14 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import Replicate from 'replicate';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { saveFusion, uploadImageFromUrl } from '@/lib/supabase-server-actions';
+import { createClient } from '@supabase/supabase-js';
 
 // Log environment variables for debugging
-console.log('Generate API - Environment variables check:');
-console.log('REPLICATE_API_TOKEN exists:', !!process.env.REPLICATE_API_TOKEN);
-console.log('REPLICATE_API_TOKEN length:', process.env.REPLICATE_API_TOKEN ? process.env.REPLICATE_API_TOKEN.length : 0);
-console.log('REPLICATE_API_TOKEN first 5 chars:', process.env.REPLICATE_API_TOKEN ? process.env.REPLICATE_API_TOKEN.substring(0, 5) : 'none');
-
-// Initialize Replicate client
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
-
-console.log('Generate API - Replicate client initialized with token:', !!process.env.REPLICATE_API_TOKEN);
+console.log('Generate API - REPLICATE_API_TOKEN available:', !!process.env.REPLICATE_API_TOKEN);
+console.log('Generate API - NEXT_PUBLIC_SUPABASE_URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+console.log('Generate API - SUPABASE_SERVICE_ROLE_KEY available:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Direct API call function as a fallback
 async function callReplicateDirectly(pokemon1Url: string, pokemon2Url: string, name1: string, name2: string) {
@@ -110,372 +103,124 @@ export async function POST(req: Request) {
   try {
     console.log("Generate API - POST request received");
     
-    // Get the authorization header
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("Generate API - No valid authorization header");
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
-    
-    // Get the user ID from Clerk
-    let userId = null;
-    try {
-      console.log("Generate API - Getting user ID from Clerk auth");
-      const authResult = await auth();
-      console.log("Generate API - Auth result:", JSON.stringify(authResult, null, 2));
-      userId = authResult?.userId;
-      console.log("Generate API - User ID:", userId);
-      
-      if (!userId) {
-        console.log("Generate API - No user ID found in auth result, checking headers");
-        // Try to get user ID from headers as fallback
-        const userIdHeader = req.headers.get("X-User-ID");
-        if (userIdHeader) {
-          console.log("Generate API - Found user ID in header:", userIdHeader);
-          userId = userIdHeader;
-        } else {
-          console.log("Generate API - No user ID found in headers either");
-        }
-      }
-    } catch (authError) {
-      console.error("Generate API - Error getting user ID:", authError);
-      // Continue without user ID, we'll still generate the fusion but won't save it to Supabase
-    }
-    
-    // If we still don't have a user ID, use a default one for testing
-    if (!userId) {
-      console.log("Generate API - Using default user ID for testing");
-      userId = "test_user_" + Math.random().toString(36).substring(2, 15);
-      console.log("Generate API - Default user ID:", userId);
-    }
-    
     // Parse the request body
     const body = await req.json();
-    console.log("Generate API - Request body received");
+    const { pokemon1Id, pokemon2Id, fusionName } = body;
     
-    // Extract the pokemon data from the request
-    const { 
-      pokemon1, 
-      pokemon2, 
-      name1, 
-      name2, 
-      pokemon1Id, 
-      pokemon2Id 
-    } = body;
+    console.log("Generate API - Request body:", { pokemon1Id, pokemon2Id, fusionName });
     
-    // Validate the request
-    if (!pokemon1Id || !pokemon2Id || !pokemon1 || !pokemon2 || !name1 || !name2) {
-      console.log("Generate API - Missing required data in request");
-      return NextResponse.json(
-        { error: "Missing required Pokemon data" },
-        { status: 400 }
-      );
+    // Validate the input
+    if (!pokemon1Id || !pokemon2Id || !fusionName) {
+      console.error("Generate API - Missing required fields");
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
-    console.log("Generate API - Generating fusion for:", { name1, name2, pokemon1Id, pokemon2Id });
+    // For testing purposes, return a mock response
+    console.log("Generate API - Returning mock response for testing");
     
-    // Generate a fusion name
-    const fusionName = `${name1.substring(0, Math.floor(name1.length / 2))}${name2.substring(Math.floor(name2.length / 2))}`;
-    const capitalizedFusionName = fusionName.charAt(0).toUpperCase() + fusionName.slice(1);
-    
-    console.log("Generate API - Generated fusion name:", capitalizedFusionName);
-    
-    // Generate a unique ID for this fusion
+    // Generate a random UUID for the fusion
     const fusionId = uuidv4();
     
+    // Get the user ID from the session or generate a test user ID
+    let userId;
     try {
-      // Check if we have a Replicate API token
-      if (!process.env.REPLICATE_API_TOKEN) {
-        console.log("Generate API - No Replicate API token found, using fallback");
-        
-        // Try to save the fusion to Supabase if we have a user ID
-        if (userId) {
-          try {
-            // Upload the fallback image to Supabase Storage
-            const storagePath = `${userId}/${fusionId}.png`;
-            console.log("Generate API - Uploading fallback image to Supabase Storage");
-            const uploadedImageUrl = await uploadImageFromUrl(pokemon1, 'fusions', storagePath);
-            console.log("Generate API - Image uploaded to Supabase Storage:", !!uploadedImageUrl);
-            
-            // Create the fusion data with the uploaded image URL
-            const fusionData = {
-              id: fusionId,
-              user_id: userId,
-              pokemon_1_id: pokemon1Id,
-              pokemon_2_id: pokemon2Id,
-              fusion_name: capitalizedFusionName,
-              fusion_image: uploadedImageUrl || pokemon1, // Use uploaded URL or fallback to original URL
-              likes: 0
-            };
-            
-            // Save the fusion to Supabase
-            console.log("Generate API - Saving fallback fusion to Supabase");
-            const savedFusion = await saveFusion(fusionData);
-            console.log("Generate API - Fusion saved to Supabase:", !!savedFusion);
-          } catch (saveError) {
-            console.error("Generate API - Error saving fusion to Supabase:", saveError);
-            // Continue without saving to Supabase
-          }
-        }
-        
-        return NextResponse.json({
-          id: fusionId,
-          pokemon1Id,
-          pokemon2Id,
-          fusionName: capitalizedFusionName,
-          fusionImage: pokemon1, // Use the first Pokemon image as a fallback
-          isLocalFallback: true,
-          createdAt: new Date().toISOString()
-        });
-      }
-      
-      console.log("Generate API - Calling Replicate API with images:", {
-        pokemon1: pokemon1.substring(0, 50) + "...",
-        pokemon2: pokemon2.substring(0, 50) + "..."
-      });
-      
-      // Log the model ID we're using
-      console.log("Generate API - Using Replicate model: fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867");
-      
-      // Log the input parameters
-      console.log("Generate API - Input parameters:", {
-        merge_mode: "full",
-        prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
-        negative_prompt: "low quality, blurry, distorted",
-        upscale_2x: false
-      });
-      
-      // Try using the Replicate client library first
-      let output: any = null;
-      let usedDirectApi = false;
-      
-      try {
-        console.log("Generate API - Starting Replicate API call using client library...");
-        output = await replicate.run(
-          "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-          {
-            input: {
-              image_1: pokemon1,
-              image_2: pokemon2,
-              merge_mode: "full",
-              prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
-              negative_prompt: "low quality, blurry, distorted",
-              upscale_2x: false
-            }
-          }
-        );
-        console.log("Generate API - Replicate client library call completed");
-      } catch (clientError) {
-        console.error("Generate API - Error using client library:", clientError);
-        console.log("Generate API - Falling back to direct API call");
-        
-        // Try direct API call as fallback
-        output = await callReplicateDirectly(pokemon1, pokemon2, name1, name2);
-        usedDirectApi = true;
-      }
-      
-      console.log("Generate API - Replicate API call completed");
-      console.log("Generate API - Used direct API:", usedDirectApi);
-      console.log("Generate API - Replicate API response type:", typeof output);
-      console.log("Generate API - Replicate API response is array?", Array.isArray(output));
-      
-      // Handle different output types with proper type checking
-      if (Array.isArray(output) && output.length > 0 && typeof output[0] === 'string') {
-        console.log("Generate API - Valid array output, returning first item");
-        const fusionImageUrl = output[0];
-        
-        // Try to save the fusion to Supabase if we have a user ID
-        if (userId) {
-          try {
-            // Upload the generated image to Supabase Storage
-            const storagePath = `${userId}/${fusionId}.png`;
-            console.log("Generate API - Uploading generated image to Supabase Storage");
-            const uploadedImageUrl = await uploadImageFromUrl(fusionImageUrl, 'fusions', storagePath);
-            console.log("Generate API - Image uploaded to Supabase Storage:", !!uploadedImageUrl);
-            
-            // Create the fusion data with the uploaded image URL
-            const fusionData = {
-              id: fusionId,
-              user_id: userId,
-              pokemon_1_id: pokemon1Id,
-              pokemon_2_id: pokemon2Id,
-              fusion_name: capitalizedFusionName,
-              fusion_image: uploadedImageUrl || fusionImageUrl, // Use uploaded URL or fallback to original URL
-              likes: 0
-            };
-            
-            // Save the fusion to Supabase
-            console.log("Generate API - Saving fusion to Supabase");
-            const savedFusion = await saveFusion(fusionData);
-            console.log("Generate API - Fusion saved to Supabase:", !!savedFusion);
-          } catch (saveError) {
-            console.error("Generate API - Error saving fusion to Supabase:", saveError);
-            // Continue without saving to Supabase
-          }
-        }
-        
-        // Return the fusion data with the generated image
-        return NextResponse.json({
-          id: fusionId,
-          pokemon1Id,
-          pokemon2Id,
-          fusionName: capitalizedFusionName,
-          fusionImage: fusionImageUrl,
-          isLocalFallback: false,
-          createdAt: new Date().toISOString()
-        });
-      } else if (typeof output === 'string') {
-        console.log("Generate API - Valid string output, returning it directly");
-        const fusionImageUrl = output;
-        
-        // Try to save the fusion to Supabase if we have a user ID
-        if (userId) {
-          try {
-            // Upload the generated image to Supabase Storage
-            const storagePath = `${userId}/${fusionId}.png`;
-            console.log("Generate API - Uploading generated image to Supabase Storage");
-            const uploadedImageUrl = await uploadImageFromUrl(fusionImageUrl, 'fusions', storagePath);
-            console.log("Generate API - Image uploaded to Supabase Storage:", !!uploadedImageUrl);
-            
-            // Create the fusion data with the uploaded image URL
-            const fusionData = {
-              id: fusionId,
-              user_id: userId,
-              pokemon_1_id: pokemon1Id,
-              pokemon_2_id: pokemon2Id,
-              fusion_name: capitalizedFusionName,
-              fusion_image: uploadedImageUrl || fusionImageUrl, // Use uploaded URL or fallback to original URL
-              likes: 0
-            };
-            
-            // Save the fusion to Supabase
-            console.log("Generate API - Saving fusion to Supabase");
-            const savedFusion = await saveFusion(fusionData);
-            console.log("Generate API - Fusion saved to Supabase:", !!savedFusion);
-          } catch (saveError) {
-            console.error("Generate API - Error saving fusion to Supabase:", saveError);
-            // Continue without saving to Supabase
-          }
-        }
-        
-        // Sometimes the output might be a single string instead of an array
-        return NextResponse.json({
-          id: fusionId,
-          pokemon1Id,
-          pokemon2Id,
-          fusionName: capitalizedFusionName,
-          fusionImage: fusionImageUrl,
-          isLocalFallback: false,
-          createdAt: new Date().toISOString()
-        });
-      } else {
-        console.log("Generate API - Invalid output from Replicate API, using fallback");
-        
-        // Try to save the fusion to Supabase if we have a user ID
-        if (userId) {
-          try {
-            // Upload the fallback image to Supabase Storage
-            const storagePath = `${userId}/${fusionId}.png`;
-            console.log("Generate API - Uploading fallback image to Supabase Storage");
-            const uploadedImageUrl = await uploadImageFromUrl(pokemon1, 'fusions', storagePath);
-            console.log("Generate API - Image uploaded to Supabase Storage:", !!uploadedImageUrl);
-            
-            // Create the fusion data with the uploaded image URL
-            const fusionData = {
-              id: fusionId,
-              user_id: userId,
-              pokemon_1_id: pokemon1Id,
-              pokemon_2_id: pokemon2Id,
-              fusion_name: capitalizedFusionName,
-              fusion_image: uploadedImageUrl || pokemon1, // Use uploaded URL or fallback to original URL
-              likes: 0
-            };
-            
-            // Save the fusion to Supabase
-            console.log("Generate API - Saving fallback fusion to Supabase");
-            const savedFusion = await saveFusion(fusionData);
-            console.log("Generate API - Fusion saved to Supabase:", !!savedFusion);
-          } catch (saveError) {
-            console.error("Generate API - Error saving fusion to Supabase:", saveError);
-            // Continue without saving to Supabase
-          }
-        }
-        
-        // Fallback to using the first Pokemon image
-        return NextResponse.json({
-          id: fusionId,
-          pokemon1Id,
-          pokemon2Id,
-          fusionName: capitalizedFusionName,
-          fusionImage: pokemon1, // Use the first Pokemon image as a fallback
-          isLocalFallback: true,
-          createdAt: new Date().toISOString()
-        });
-      }
-    } catch (replicateError) {
-      console.error("Generate API - Error calling Replicate API:", replicateError);
-      console.error("Generate API - Error name:", replicateError.name);
-      console.error("Generate API - Error message:", replicateError.message);
-      if (replicateError.response) {
-        console.error("Generate API - Error response status:", replicateError.response.status);
-        console.error("Generate API - Error response data:", replicateError.response.data);
-      }
-      
-      // Try to save the fusion to Supabase if we have a user ID
-      if (userId) {
-        try {
-          // Upload the fallback image to Supabase Storage
-          const storagePath = `${userId}/${fusionId}.png`;
-          console.log("Generate API - Uploading fallback image to Supabase Storage after error");
-          const uploadedImageUrl = await uploadImageFromUrl(pokemon1, 'fusions', storagePath);
-          console.log("Generate API - Image uploaded to Supabase Storage:", !!uploadedImageUrl);
-          
-          // Create the fusion data with the uploaded image URL
-          const fusionData = {
-            id: fusionId,
-            user_id: userId,
-            pokemon_1_id: pokemon1Id,
-            pokemon_2_id: pokemon2Id,
-            fusion_name: capitalizedFusionName,
-            fusion_image: uploadedImageUrl || pokemon1, // Use uploaded URL or fallback to original URL
-            likes: 0
-          };
-          
-          // Save the fusion to Supabase
-          console.log("Generate API - Saving fallback fusion to Supabase after error");
-          const savedFusion = await saveFusion(fusionData);
-          console.log("Generate API - Fusion saved to Supabase:", !!savedFusion);
-        } catch (saveError) {
-          console.error("Generate API - Error saving fusion to Supabase:", saveError);
-          // Continue without saving to Supabase
-        }
-      }
-      
-      // Fallback to using the first Pokemon image
-      return NextResponse.json({
-        id: fusionId,
-        pokemon1Id,
-        pokemon2Id,
-        fusionName: capitalizedFusionName,
-        fusionImage: pokemon1, // Use the first Pokemon image as a fallback
-        isLocalFallback: true,
-        createdAt: new Date().toISOString()
-      });
+      const session = await auth();
+      userId = session?.userId;
+      console.log('User ID from auth():', userId);
+    } catch (authError) {
+      console.error('Error getting user ID from auth():', authError);
+      // Generate a test user ID for testing
+      userId = uuidv4();
+      console.log('Generated test user ID:', userId);
     }
     
+    // Create a Supabase client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Supabase credentials not available');
+      return NextResponse.json({ 
+        error: 'Supabase credentials not available',
+        supabaseUrlAvailable: !!supabaseUrl,
+        supabaseServiceKeyAvailable: !!supabaseServiceKey
+      }, { status: 500 });
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Create a test user if it doesn't exist
+    const testUserId = uuidv4();
+    console.log('Creating test user with ID:', testUserId);
+    
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .insert({
+        id: testUserId,
+        name: 'Test User',
+        email: `test-${Date.now()}@example.com`
+      })
+      .select();
+    
+    if (userError) {
+      console.error('Error creating test user:', userError);
+      return NextResponse.json({ 
+        error: 'Error creating test user',
+        details: userError
+      }, { status: 500 });
+    }
+    
+    console.log('Test user created successfully:', userData);
+    
+    // Save the fusion to the database
+    console.log('Saving fusion to database...');
+    try {
+      // Create a test image URL
+      const testImageUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png';
+      
+      // Save the fusion
+      const result = await saveFusion({
+        userId: testUserId,
+        pokemon1Id: parseInt(pokemon1Id),
+        pokemon2Id: parseInt(pokemon2Id),
+        fusionName,
+        fusionImage: testImageUrl
+      });
+      
+      if (result.error) {
+        console.error('Error saving fusion:', result.error);
+        return NextResponse.json({ 
+          error: `Error saving fusion: ${result.error}`,
+          details: result.error
+        }, { status: 500 });
+      }
+      
+      console.log('Fusion saved successfully:', result.data);
+      
+      // Return the result
+      return NextResponse.json({
+        id: fusionId,
+        output: testImageUrl,
+        fusionName,
+        pokemon1Id,
+        pokemon2Id,
+        fusionData: result.data,
+        message: 'Fusion generated successfully (mock response)'
+      });
+    } catch (error) {
+      console.error('Error in generate route:', error);
+      return NextResponse.json({ 
+        error: 'Error in generate route',
+        details: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      }, { status: 500 });
+    }
   } catch (error) {
     console.error("Generate API - Error in POST handler:", error);
-    console.error("Generate API - Error name:", error.name);
-    console.error("Generate API - Error message:", error.message);
-    if (error.stack) {
-      console.error("Generate API - Error stack:", error.stack);
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 } 

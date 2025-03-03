@@ -4,15 +4,112 @@ import { createClient } from '@supabase/supabase-js';
 import { auth } from '@clerk/nextjs/server';
 import { cookies } from 'next/headers';
 
-// Create a Supabase client with fallback values for build time
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+// Validate environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Create a server-side Supabase client
-const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+// Validate required environment variables
+if (!supabaseUrl) {
+  console.error('NEXT_PUBLIC_SUPABASE_URL is not defined. Please check your environment variables.');
+}
 
-// Export the supabase client for use in other files
-export const supabase = supabaseClient;
+if (!supabaseAnonKey) {
+  console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined. Please check your environment variables.');
+}
+
+if (!supabaseServiceKey) {
+  console.error('SUPABASE_SERVICE_ROLE_KEY is not defined. Please check your environment variables.');
+}
+
+// Create a server-side Supabase client with proper error handling
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder-value-replace-in-vercel.supabase.co',
+  supabaseAnonKey || 'placeholder-value-replace-in-vercel',
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  }
+);
+
+// Create a server-side Supabase admin client with service role key
+export const supabaseAdmin = createClient(
+  supabaseUrl || 'https://placeholder-value-replace-in-vercel.supabase.co',
+  supabaseServiceKey || 'placeholder-value-replace-in-vercel',
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  }
+);
+
+// Function to check if Supabase connection is healthy
+export async function checkSupabaseServerConnection() {
+  try {
+    // Try a simple query to check connection
+    const { data, error } = await supabaseAdmin
+      .from('pokemon')
+      .select('id')
+      .limit(1);
+    
+    if (error) {
+      console.error('Supabase server connection check failed:', error.message);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Unexpected error checking Supabase server connection:', error);
+    return false;
+  }
+}
+
+// Function to get a Supabase client with the current user's session
+export async function getSupabaseClientWithAuth() {
+  try {
+    const { userId } = auth();
+    
+    if (!userId) {
+      console.warn('No authenticated user found, returning admin client');
+      return supabaseAdmin;
+    }
+    
+    // For authenticated requests, we could add the user ID to headers
+    // or use other authentication mechanisms
+    return createClient(
+      supabaseUrl || 'https://placeholder-value-replace-in-vercel.supabase.co',
+      supabaseServiceKey || 'placeholder-value-replace-in-vercel',
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+        global: {
+          headers: {
+            'x-clerk-user-id': userId,
+            'Content-Type': 'application/json',
+          },
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error creating authenticated Supabase client:', error);
+    return supabaseAdmin;
+  }
+}
 
 export async function createServerClient() {
   const cookieStore = cookies();
@@ -61,7 +158,7 @@ export interface FavoriteDB {
 // Database service functions as individual async functions
 export async function getPokemon(id: number): Promise<PokemonDB | null> {
   try {
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('pokemon')
       .select('*')
       .eq('id', id)
@@ -82,7 +179,7 @@ export async function getPokemon(id: number): Promise<PokemonDB | null> {
 export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promise<PokemonDB | null> {
   try {
     // Check if pokemon already exists
-    const { data: existingPokemon } = await supabaseClient
+    const { data: existingPokemon } = await supabase
       .from('pokemon')
       .select('*')
       .eq('id', pokemon.id)
@@ -93,7 +190,7 @@ export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promi
     }
     
     // Insert new pokemon
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('pokemon')
       .insert(pokemon)
       .select()
@@ -113,7 +210,7 @@ export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promi
 
 export async function getFusion(id: string): Promise<FusionDB | null> {
   try {
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('fusions')
       .select('*')
       .eq('id', id)
@@ -133,7 +230,7 @@ export async function getFusion(id: string): Promise<FusionDB | null> {
 
 export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<FusionDB | null> {
   try {
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('fusions')
       .insert(fusion)
       .select()

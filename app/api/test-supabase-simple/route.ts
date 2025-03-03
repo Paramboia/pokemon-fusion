@@ -1,153 +1,52 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { auth, currentUser } from '@clerk/nextjs/server';
 
-export async function GET(req: Request) {
+// Create a Supabase client with fallback values for build time
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
+// Use the service role key for server-side operations to bypass RLS
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+
+export async function GET() {
   try {
-    // Get Supabase credentials from environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log('Simple Test Supabase API - Checking connection');
+    console.log('Simple Test Supabase API - Supabase URL:', supabaseUrl);
+    console.log('Simple Test Supabase API - Supabase Service Key available:', !!supabaseServiceKey);
+    console.log('Simple Test Supabase API - Supabase Service Key length:', supabaseServiceKey ? supabaseServiceKey.length : 0);
     
-    // Get Clerk user info
-    const user = await currentUser();
-    const { userId } = auth();
-    
-    // Log the values (without revealing full keys)
-    console.log('Test Simple API - Supabase URL:', supabaseUrl);
-    console.log('Test Simple API - Anon Key available:', !!supabaseAnonKey);
-    console.log('Test Simple API - Service Key available:', !!supabaseServiceKey);
-    console.log('Test Simple API - Clerk user:', user ? 'Found' : 'Not found');
-    console.log('Test Simple API - Clerk userId from auth():', userId);
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({
-        success: false,
-        message: 'Missing Supabase credentials',
-        url: !!supabaseUrl,
-        serviceKey: !!supabaseServiceKey
-      }, { status: 500 });
-    }
-    
-    // Create a Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    // Create a server-side Supabase client
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
-        // IMPORTANT: We're using Clerk for authentication, NOT Supabase Auth
-        // These settings explicitly disable all Supabase Auth functionality
         persistSession: false,
         autoRefreshToken: false,
-        flowType: 'implicit',  // Most minimal flow type
-        storage: null,  // Don't store anything in local storage
-      },
+      }
     });
     
-    console.log('Test Simple API - Supabase client created with Auth DISABLED - using Clerk for authentication only');
+    // Test listing buckets
+    console.log('Simple Test Supabase API - Listing storage buckets');
+    const { data: buckets, error: bucketsError } = await supabaseClient.storage.listBuckets();
     
-    // Try to connect to Supabase
-    console.log('Test Simple API - Testing connection to Supabase...');
-    
-    // Just try to get the health status
-    const { data, error } = await supabase.from('users').select('*').limit(5);
-    
-    if (error) {
-      console.error('Test Simple API - Error connecting to Supabase:', error);
+    if (bucketsError) {
+      console.error('Simple Test Supabase API - Error listing buckets:', bucketsError);
       return NextResponse.json({
         success: false,
-        message: 'Failed to connect to Supabase',
-        error: {
-          message: error.message,
-          code: error.code,
-          details: error.details
-        },
-        auth: {
-          clerkUser: user ? {
-            id: user.id,
-            email: user.emailAddresses?.[0]?.emailAddress,
-            name: user.firstName
-          } : null,
-          clerkUserId: userId
-        }
+        error: bucketsError.message,
+        step: 'listing buckets'
       }, { status: 500 });
     }
     
-    // Try to create a test user if authenticated
-    let testUserResult = null;
-    if (user && user.emailAddresses?.[0]?.emailAddress) {
-      try {
-        console.log('Test Simple API - Creating test user for authenticated user');
-        const { data: existingUser, error: fetchError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', user.emailAddresses[0].emailAddress)
-          .single();
-          
-        if (fetchError && fetchError.code !== 'PGRST116') {
-          console.error('Test Simple API - Error checking for existing user:', fetchError);
-          testUserResult = {
-            success: false,
-            error: fetchError
-          };
-        } else if (existingUser) {
-          console.log('Test Simple API - User already exists:', existingUser);
-          testUserResult = {
-            success: true,
-            message: 'User already exists',
-            user: existingUser
-          };
-        } else {
-          // Create a new user
-          const { data: newUser, error: insertError } = await supabase
-            .from('users')
-            .insert({
-              name: user.firstName || 'Test User',
-              email: user.emailAddresses[0].emailAddress
-            })
-            .select();
-            
-          if (insertError) {
-            console.error('Test Simple API - Error creating test user:', insertError);
-            testUserResult = {
-              success: false,
-              error: insertError
-            };
-          } else {
-            console.log('Test Simple API - Test user created:', newUser);
-            testUserResult = {
-              success: true,
-              message: 'User created successfully',
-              user: newUser[0]
-            };
-          }
-        }
-      } catch (error) {
-        console.error('Test Simple API - Error in test user creation:', error);
-        testUserResult = {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-    }
+    console.log('Simple Test Supabase API - Buckets found:', buckets?.length || 0);
     
     return NextResponse.json({
       success: true,
-      message: 'Successfully connected to Supabase',
-      data,
-      auth: {
-        clerkUser: user ? {
-          id: user.id,
-          email: user.emailAddresses?.[0]?.emailAddress,
-          name: user.firstName
-        } : null,
-        clerkUserId: userId
-      },
-      testUserResult
+      buckets: buckets,
+      message: 'Supabase connection test successful'
     });
   } catch (error) {
-    console.error('Test Simple API - Unexpected error:', error);
+    console.error('Simple Test Supabase API - Unexpected error:', error);
     return NextResponse.json({
       success: false,
-      message: 'Unexpected error',
-      error: error instanceof Error ? error.message : String(error)
+      error: error.message,
+      step: 'unexpected error'
     }, { status: 500 });
   }
 } 

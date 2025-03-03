@@ -1,36 +1,47 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
+import { supabaseAdmin } from './supabase-server';
 
-// Create a Supabase client with fallback values for build time
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
-// Use the service role key for server-side operations to bypass RLS
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+// Validate environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-console.log('Server Actions - Supabase URL:', supabaseUrl);
-console.log('Server Actions - Service Key available:', !!supabaseServiceKey);
+// Validate required environment variables
+if (!supabaseUrl) {
+  console.error('SERVER ACTIONS - NEXT_PUBLIC_SUPABASE_URL is not defined. Please check your environment variables.');
+}
 
-// Create a server-side Supabase client with additional headers
-const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-      'Authorization': `Bearer ${supabaseServiceKey}`
-    },
-  },
-  db: {
-    schema: 'public',
-  },
-});
+if (!supabaseServiceKey) {
+  console.error('SERVER ACTIONS - SUPABASE_SERVICE_ROLE_KEY is not defined. Please check your environment variables.');
+}
 
-// Instead of exporting the client directly, create a function to get it
+// Instead of creating a new client, use the admin client from supabase-server.ts
 async function getSupabaseClient() {
-  return supabaseClient;
+  return supabaseAdmin;
+}
+
+// Function to check if Supabase connection is healthy
+export async function checkSupabaseActionConnection() {
+  try {
+    const client = await getSupabaseClient();
+    // Try a simple query to check connection
+    const { data, error } = await client
+      .from('pokemon')
+      .select('id')
+      .limit(1);
+    
+    if (error) {
+      console.error('SERVER ACTIONS - Supabase connection check failed:', error.message);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('SERVER ACTIONS - Unexpected error checking Supabase connection:', error);
+    return false;
+  }
 }
 
 export interface FusionDB {
@@ -86,62 +97,163 @@ export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promi
   }
 }
 
-export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<FusionDB | null> {
+export async function saveFusion({
+  userId,
+  pokemon1Id,
+  pokemon2Id,
+  fusionName,
+  fusionImage,
+}: {
+  userId: string;
+  pokemon1Id: number;
+  pokemon2Id: number;
+  fusionName: string;
+  fusionImage: string;
+}) {
+  console.log('saveFusion - Starting with params:', {
+    userId,
+    pokemon1Id,
+    pokemon2Id,
+    fusionName,
+    fusionImageLength: fusionImage ? fusionImage.length : 0,
+  });
+
   try {
-    console.log('Server Actions - Saving fusion with user ID:', fusion.user_id);
-    console.log('Server Actions - Fusion data:', JSON.stringify(fusion, null, 2));
-    console.log('Server Actions - Supabase URL:', supabaseUrl);
-    console.log('Server Actions - Supabase Service Key available:', !!supabaseServiceKey);
-    console.log('Server Actions - Supabase Service Key length:', supabaseServiceKey ? supabaseServiceKey.length : 0);
+    // Validate user ID
+    if (!userId) {
+      console.error('saveFusion - Error: No user ID provided');
+      return { error: 'No user ID provided' };
+    }
+
+    // Validate UUID format for user ID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.log('saveFusion - User ID is not a valid UUID, will be treated as a Clerk ID');
+    }
+
+    // Create Supabase client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    const client = await getSupabaseClient();
+    console.log('saveFusion - Supabase URL:', supabaseUrl);
+    console.log('saveFusion - Supabase Service Key available:', !!supabaseServiceKey);
     
-    // First, ensure the fusions table exists
-    try {
-      console.log('Server Actions - Ensuring fusions table exists');
-      const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS fusions (
-          id UUID PRIMARY KEY,
-          user_id TEXT NOT NULL,
-          pokemon_1_id INTEGER NOT NULL,
-          pokemon_2_id INTEGER NOT NULL,
-          fusion_name TEXT NOT NULL,
-          fusion_image TEXT NOT NULL,
-          likes INTEGER DEFAULT 0,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-      `;
-      
-      console.log('Server Actions - Executing create table query');
-      const { error: createTableError } = await client.rpc('exec_sql', { query: createTableQuery });
-      if (createTableError) {
-        console.log('Server Actions - Error creating fusions table (may already exist):', createTableError);
-      } else {
-        console.log('Server Actions - Fusions table created or already exists');
-      }
-    } catch (tableError) {
-      console.log('Server Actions - Error in table creation (may not have permission):', tableError);
-      // Continue anyway, as the table might already exist
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('saveFusion - Error: Missing Supabase credentials');
+      return { error: 'Missing Supabase credentials' };
     }
     
-    console.log('Server Actions - Inserting fusion into database');
-    const { data, error } = await client
-      .from('fusions')
-      .insert(fusion)
-      .select()
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Upload the image to Supabase Storage
+    console.log('saveFusion - Uploading image to storage');
+    const imageUrl = await uploadImageFromUrl(supabase, fusionImage);
+    
+    if (!imageUrl) {
+      console.error('saveFusion - Error: Failed to upload image');
+      return { error: 'Failed to upload image' };
+    }
+    
+    console.log('saveFusion - Image uploaded successfully:', imageUrl);
+    
+    // Check if the pokemon table exists and if the pokemon IDs exist
+    console.log('saveFusion - Checking pokemon table and IDs');
+    const { data: pokemon1, error: pokemon1Error } = await supabase
+      .from('pokemon')
+      .select('id')
+      .eq('id', pokemon1Id)
       .single();
     
-    if (error) {
-      console.error('Server Actions - Error saving fusion:', error);
-      console.error('Server Actions - Error details:', JSON.stringify(error, null, 2));
-      return null;
+    if (pokemon1Error) {
+      console.log(`saveFusion - Pokemon with ID ${pokemon1Id} not found, attempting to create it`);
+      
+      // Try to insert the pokemon
+      const { error: insertPokemon1Error } = await supabase
+        .from('pokemon')
+        .insert({ 
+          id: pokemon1Id, 
+          name: `Pokemon ${pokemon1Id}`,
+          image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon1Id}.png`
+        });
+      
+      if (insertPokemon1Error) {
+        if (insertPokemon1Error.code === '42P01') {
+          console.error('saveFusion - Pokemon table does not exist, fusion may fail due to foreign key constraint');
+        } else {
+          console.error(`saveFusion - Error inserting pokemon ${pokemon1Id}:`, insertPokemon1Error);
+        }
+        // Continue anyway, as the insert might fail due to foreign key constraints
+      }
     }
     
-    console.log('Server Actions - Fusion saved successfully:', data);
-    return data;
+    const { data: pokemon2, error: pokemon2Error } = await supabase
+      .from('pokemon')
+      .select('id')
+      .eq('id', pokemon2Id)
+      .single();
+    
+    if (pokemon2Error) {
+      console.log(`saveFusion - Pokemon with ID ${pokemon2Id} not found, attempting to create it`);
+      
+      // Try to insert the pokemon
+      const { error: insertPokemon2Error } = await supabase
+        .from('pokemon')
+        .insert({ 
+          id: pokemon2Id, 
+          name: `Pokemon ${pokemon2Id}`,
+          image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon2Id}.png`
+        });
+      
+      if (insertPokemon2Error) {
+        if (insertPokemon2Error.code === '42P01') {
+          console.error('saveFusion - Pokemon table does not exist, fusion may fail due to foreign key constraint');
+        } else {
+          console.error(`saveFusion - Error inserting pokemon ${pokemon2Id}:`, insertPokemon2Error);
+        }
+        // Continue anyway, as the insert might fail due to foreign key constraints
+      }
+    }
+    
+    // Generate a UUID for the fusion
+    const fusionId = uuidv4();
+    
+    // Insert the fusion data
+    console.log('saveFusion - Inserting fusion data with ID:', fusionId);
+    const { data, error } = await supabase
+      .from('fusions')
+      .insert({
+        id: fusionId,
+        user_id: userId,
+        pokemon_1_id: pokemon1Id,
+        pokemon_2_id: pokemon2Id,
+        fusion_name: fusionName,
+        fusion_image: imageUrl,
+        likes: 0
+      })
+      .select();
+    
+    if (error) {
+      console.error('saveFusion - Error inserting fusion:', error);
+      
+      // If the error is related to foreign key constraints, provide more detailed information
+      if (error.code === '23503') {
+        if (error.message.includes('user_id')) {
+          console.error('saveFusion - Error: User ID does not exist in the users table');
+          return { error: 'User ID does not exist in the users table' };
+        } else if (error.message.includes('pokemon_1_id') || error.message.includes('pokemon_2_id')) {
+          console.error('saveFusion - Error: Pokemon ID does not exist in the pokemon table');
+          return { error: 'Pokemon ID does not exist in the pokemon table. The database schema requires the pokemon to exist in the pokemon table before creating a fusion.' };
+        }
+      }
+      
+      return { error: error.message };
+    }
+    
+    console.log('saveFusion - Fusion saved successfully:', data);
+    return { data };
   } catch (error) {
-    console.error('Server Actions - Error in saveFusion:', error);
-    return null;
+    console.error('saveFusion - Unexpected error:', error);
+    return { error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
@@ -320,78 +432,97 @@ export async function syncUserToSupabase(
  * @param path The path within the bucket to store the image
  * @returns The URL of the uploaded image in Supabase Storage
  */
-export async function uploadImageFromUrl(imageUrl: string, bucket: string = 'fusions', path: string): Promise<string | null> {
+export async function uploadImageFromUrl(supabase, imageUrl: string): Promise<string | null> {
   try {
-    console.log(`Server Actions - Uploading image from URL: ${imageUrl.substring(0, 50)}... to ${bucket}/${path}`);
-    console.log(`Server Actions - Supabase URL: ${supabaseUrl}`);
-    console.log(`Server Actions - Supabase Service Key available: ${!!supabaseServiceKey}`);
-    console.log(`Server Actions - Supabase Service Key length: ${supabaseServiceKey ? supabaseServiceKey.length : 0}`);
+    console.log('uploadImageFromUrl - Starting with URL length:', imageUrl.length);
     
-    // Create the bucket if it doesn't exist
-    console.log(`Server Actions - Listing buckets...`);
-    const { data: buckets, error: listBucketsError } = await supabaseClient.storage.listBuckets();
-    
-    if (listBucketsError) {
-      console.error(`Server Actions - Error listing buckets: ${listBucketsError.message}`);
-      return null;
-    }
-    
-    console.log(`Server Actions - Buckets found: ${buckets?.length || 0}`);
-    const bucketExists = buckets?.some(b => b.name === bucket);
-    console.log(`Server Actions - Bucket ${bucket} exists: ${bucketExists}`);
-    
-    if (!bucketExists) {
-      console.log(`Server Actions - Creating bucket: ${bucket}`);
-      const { error: createBucketError } = await supabaseClient.storage.createBucket(bucket, {
-        public: true,
-        fileSizeLimit: 10485760, // 10MB
-      });
+    // Check if the URL is a data URL
+    if (imageUrl.startsWith('data:')) {
+      console.log('uploadImageFromUrl - Processing data URL');
       
-      if (createBucketError) {
-        console.error(`Server Actions - Error creating bucket: ${createBucketError.message}`);
+      // Extract the content type and base64 data
+      const matches = imageUrl.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+      
+      if (!matches || matches.length !== 3) {
+        console.error('uploadImageFromUrl - Invalid data URL format');
         return null;
       }
-      console.log(`Server Actions - Bucket ${bucket} created successfully`);
+      
+      const contentType = matches[1];
+      const base64Data = matches[2];
+      const binaryData = Buffer.from(base64Data, 'base64');
+      
+      console.log('uploadImageFromUrl - Content type:', contentType);
+      console.log('uploadImageFromUrl - Binary data size:', binaryData.length);
+      
+      // Generate a unique filename
+      const filename = `fusion_${Date.now()}.${contentType.split('/')[1] || 'png'}`;
+      
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('fusions')
+        .upload(filename, binaryData, {
+          contentType,
+          upsert: true
+        });
+      
+      if (error) {
+        console.error('uploadImageFromUrl - Error uploading data URL:', error);
+        return null;
+      }
+      
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('fusions')
+        .getPublicUrl(filename);
+      
+      console.log('uploadImageFromUrl - Uploaded successfully, public URL:', publicUrlData.publicUrl);
+      return publicUrlData.publicUrl;
+    } else {
+      // It's a regular URL, fetch it first
+      console.log('uploadImageFromUrl - Fetching image from URL');
+      const response = await fetch(imageUrl);
+      
+      if (!response.ok) {
+        console.error(`uploadImageFromUrl - Failed to fetch image: ${response.status}`);
+        return null;
+      }
+      
+      // Get content type from response
+      const contentType = response.headers.get('content-type') || 'image/png';
+      console.log('uploadImageFromUrl - Content type:', contentType);
+      
+      // Get the image as a buffer
+      const arrayBuffer = await response.arrayBuffer();
+      console.log('uploadImageFromUrl - Image buffer size:', arrayBuffer.byteLength, 'bytes');
+      
+      // Generate a unique filename with the correct extension
+      const extension = contentType.split('/')[1] || 'png';
+      const filename = `fusion_${Date.now()}.${extension}`;
+      
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('fusions')
+        .upload(filename, arrayBuffer, {
+          contentType,
+          upsert: true
+        });
+      
+      if (error) {
+        console.error('uploadImageFromUrl - Error uploading image:', error);
+        return null;
+      }
+      
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('fusions')
+        .getPublicUrl(filename);
+      
+      console.log('uploadImageFromUrl - Uploaded successfully, public URL:', publicUrlData.publicUrl);
+      return publicUrlData.publicUrl;
     }
-    
-    // Fetch the image
-    console.log(`Server Actions - Fetching image from URL...`);
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      console.error(`Server Actions - Failed to fetch image from URL: ${imageUrl.substring(0, 50)}... Status: ${response.status}`);
-      return null;
-    }
-    
-    // Get the image as a blob
-    console.log(`Server Actions - Converting response to blob...`);
-    const imageBlob = await response.blob();
-    console.log(`Server Actions - Image blob size: ${imageBlob.size} bytes`);
-    
-    // Upload to Supabase Storage
-    console.log(`Server Actions - Uploading to Supabase Storage...`);
-    const { data, error } = await supabaseClient.storage
-      .from(bucket)
-      .upload(path, imageBlob, {
-        contentType: 'image/png',
-        upsert: true,
-      });
-    
-    if (error) {
-      console.error(`Server Actions - Error uploading image to Supabase Storage: ${error.message}`);
-      console.error(`Server Actions - Error details:`, error);
-      return null;
-    }
-    
-    console.log(`Server Actions - Upload successful, getting public URL...`);
-    // Get the public URL
-    const { data: publicUrlData } = supabaseClient.storage
-      .from(bucket)
-      .getPublicUrl(path);
-    
-    console.log(`Server Actions - Image uploaded successfully to: ${publicUrlData.publicUrl}`);
-    return publicUrlData.publicUrl;
   } catch (error) {
-    console.error('Server Actions - Error in uploadImageFromUrl:', error);
+    console.error('uploadImageFromUrl - Unexpected error:', error);
     return null;
   }
 } 

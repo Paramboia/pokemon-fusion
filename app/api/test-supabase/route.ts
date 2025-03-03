@@ -1,120 +1,151 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-
-// Create a Supabase client with fallback values for build time
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
-// Use the service role key for server-side operations to bypass RLS
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function GET() {
   try {
-    console.log('Test Supabase API - Checking connection');
-    console.log('Test Supabase API - Supabase URL:', supabaseUrl);
-    console.log('Test Supabase API - Supabase Service Key available:', !!supabaseServiceKey);
-    console.log('Test Supabase API - Supabase Service Key length:', supabaseServiceKey ? supabaseServiceKey.length : 0);
+    console.log('Test Supabase API - GET request received');
     
-    // Create a server-side Supabase client
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-      global: {
-        headers: {
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation',
-          'Authorization': `Bearer ${supabaseServiceKey}`
-        },
-      },
-      db: {
-        schema: 'public',
-      },
-    });
+    // Get Supabase credentials from environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    // Test listing buckets
-    console.log('Test Supabase API - Listing storage buckets');
-    const { data: buckets, error: bucketsError } = await supabaseClient.storage.listBuckets();
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Supabase Service Key available:', !!supabaseServiceKey);
     
-    if (bucketsError) {
-      console.error('Test Supabase API - Error listing buckets:', bucketsError);
-      return NextResponse.json({
-        success: false,
-        error: bucketsError.message,
-        step: 'listing buckets'
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ 
+        error: 'Supabase credentials not available',
+        supabaseUrlAvailable: !!supabaseUrl,
+        supabaseServiceKeyAvailable: !!supabaseServiceKey
       }, { status: 500 });
     }
     
-    console.log('Test Supabase API - Buckets found:', buckets?.length || 0);
+    // Create Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Test creating a test record
-    console.log('Test Supabase API - Creating test record');
-    const testData = {
-      id: `test_${Date.now()}`,
-      user_id: `test_user_${Date.now()}`,
-      pokemon_1_id: 1,
-      pokemon_2_id: 2,
-      fusion_name: 'TestFusion',
-      fusion_image: 'https://example.com/test.png',
-      likes: 0
-    };
+    // Test connection by querying the pokemon table
+    const { data: pokemonData, error: pokemonError } = await supabase
+      .from('pokemon')
+      .select('id, name')
+      .limit(5);
     
-    const { data: insertData, error: insertError } = await supabaseClient
+    if (pokemonError) {
+      console.error('Error querying pokemon table:', pokemonError);
+      return NextResponse.json({ 
+        error: 'Error querying pokemon table',
+        details: pokemonError
+      }, { status: 500 });
+    }
+    
+    // Test connection by querying the fusions table
+    const { data: fusionsData, error: fusionsError } = await supabase
       .from('fusions')
-      .insert(testData)
-      .select()
-      .single();
+      .select('id, fusion_name')
+      .limit(5);
     
-    if (insertError) {
-      console.error('Test Supabase API - Error inserting test record:', insertError);
-      return NextResponse.json({
-        success: false,
-        error: insertError.message,
-        step: 'inserting test record',
-        buckets: buckets
-      }, { status: 500 });
-    }
-    
-    console.log('Test Supabase API - Test record created:', insertData);
-    
-    // Test creating a test bucket if it doesn't exist
-    const testBucket = 'test-bucket';
-    const bucketExists = buckets?.some(b => b.name === testBucket);
-    
-    if (!bucketExists) {
-      console.log(`Test Supabase API - Creating test bucket: ${testBucket}`);
-      const { error: createBucketError } = await supabaseClient.storage.createBucket(testBucket, {
-        public: true,
-        fileSizeLimit: 10485760, // 10MB
-      });
-      
-      if (createBucketError) {
-        console.error(`Test Supabase API - Error creating test bucket:`, createBucketError);
-        return NextResponse.json({
-          success: false,
-          error: createBucketError.message,
-          step: 'creating test bucket',
-          buckets: buckets,
-          insertData: insertData
-        }, { status: 500 });
-      }
-      
-      console.log(`Test Supabase API - Test bucket created successfully`);
-    } else {
-      console.log(`Test Supabase API - Test bucket already exists`);
-    }
-    
+    // Return the results
     return NextResponse.json({
-      success: true,
-      buckets: buckets,
-      insertData: insertData,
-      message: 'Supabase connection test successful'
+      message: 'Supabase connection test successful',
+      pokemon: pokemonData,
+      fusions: fusionsError ? null : fusionsData,
+      fusionsError: fusionsError ? fusionsError.message : null,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Test Supabase API - Unexpected error:', error);
+    console.error('Error in test-supabase GET handler:', error);
+    return NextResponse.json({ 
+      error: 'Error testing Supabase connection',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    console.log('Test Supabase API - POST request received');
+    
+    // Get Supabase credentials from environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Supabase Service Key available:', !!supabaseServiceKey);
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ 
+        error: 'Supabase credentials not available',
+        supabaseUrlAvailable: !!supabaseUrl,
+        supabaseServiceKeyAvailable: !!supabaseServiceKey
+      }, { status: 500 });
+    }
+    
+    // Create Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Parse the request body
+    const body = await req.json();
+    const { testInsert } = body;
+    
+    let insertResult = null;
+    let insertError = null;
+    
+    // Test insert if requested
+    if (testInsert) {
+      // Create a test user
+      const testUserId = uuidv4();
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: testUserId,
+          name: 'Test User',
+          email: `test-${Date.now()}@example.com`
+        })
+        .select();
+      
+      if (userError) {
+        console.error('Error creating test user:', userError);
+        insertError = userError;
+      } else {
+        // Create a test fusion
+        const { data: fusionData, error: fusionError } = await supabase
+          .from('fusions')
+          .insert({
+            id: uuidv4(),
+            user_id: testUserId,
+            pokemon_1_id: 25,
+            pokemon_2_id: 1,
+            fusion_name: 'Test Pikasaur',
+            fusion_image: 'https://example.com/test-image.png',
+            likes: 0
+          })
+          .select();
+        
+        if (fusionError) {
+          console.error('Error creating test fusion:', fusionError);
+          insertError = fusionError;
+        } else {
+          insertResult = {
+            user: userData,
+            fusion: fusionData
+          };
+        }
+      }
+    }
+    
+    // Return the results
     return NextResponse.json({
-      success: false,
-      error: error.message,
-      step: 'unexpected error'
+      message: 'Supabase connection test successful',
+      testInsert: testInsert ? true : false,
+      insertResult,
+      insertError: insertError ? insertError.message : null,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error in test-supabase POST handler:', error);
+    return NextResponse.json({ 
+      error: 'Error testing Supabase connection',
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 } 

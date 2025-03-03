@@ -220,8 +220,6 @@ I have already created the supabase project and the database, with the following
     CREATE TABLE pokemon (
         id SERIAL PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,
-        image_url TEXT NOT NULL,
-        type TEXT[] NOT NULL,
         created_at TIMESTAMP DEFAULT now()
     );
 

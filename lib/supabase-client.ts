@@ -2,32 +2,69 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Create a Supabase client with fallback values for build time
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-value-replace-in-vercel';
+// Validate environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-console.log('Supabase Client - Initializing with URL:', supabaseUrl);
-console.log('Supabase Client - Anon Key available:', !!supabaseAnonKey);
+// Validate required environment variables
+if (!supabaseUrl) {
+  console.error('NEXT_PUBLIC_SUPABASE_URL is not defined. Please check your environment variables.');
+}
 
-// Create a Supabase client with minimal configuration
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    // IMPORTANT: We're using Clerk for authentication, NOT Supabase Auth
-    // These settings explicitly disable all Supabase Auth functionality
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-    flowType: 'implicit',  // Most minimal flow type
-    storage: null,  // Don't store anything in local storage
-  },
-});
+if (!supabaseAnonKey) {
+  console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined. Please check your environment variables.');
+}
 
-// Log when the client is created
-console.log('Supabase Client - Client created successfully');
-console.log('Supabase Client - Auth is DISABLED - using Clerk for authentication only');
+// Create a Supabase client with proper error handling
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder-value-replace-in-vercel.supabase.co',
+  supabaseAnonKey || 'placeholder-value-replace-in-vercel',
+  {
+    auth: {
+      // IMPORTANT: We're using Clerk for authentication, NOT Supabase Auth
+      // These settings explicitly disable all Supabase Auth functionality
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      flowType: 'implicit',  // Most minimal flow type
+      storage: null,  // Don't store anything in local storage
+    },
+    global: {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    },
+  }
+);
+
+// Function to check if Supabase connection is healthy
+export async function checkSupabaseConnection() {
+  try {
+    // Try a simple query to check connection
+    const { data, error } = await supabase
+      .from('pokemon')
+      .select('id')
+      .limit(1);
+    
+    if (error) {
+      console.error('Supabase connection check failed:', error.message);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Unexpected error checking Supabase connection:', error);
+    return false;
+  }
+}
 
 // Function to create an authenticated Supabase client for a single request
-const createAuthenticatedClient = (token: string, userId: string) => {
+export const createAuthenticatedClient = (token: string, userId: string) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Cannot create authenticated client: Supabase credentials are missing');
+    throw new Error('Supabase credentials are missing');
+  }
+
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       // IMPORTANT: We're using Clerk for authentication, NOT Supabase Auth
@@ -42,12 +79,15 @@ const createAuthenticatedClient = (token: string, userId: string) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'x-clerk-user-id': userId,
+        'Content-Type': 'application/json',
       },
     },
   });
 };
 
-export default supabase;
+// Log when the client is created
+console.log('Supabase Client - Client created successfully');
+console.log('Supabase Client - Auth is DISABLED - using Clerk for authentication only');
 
 export interface FusionDB {
   id: string;

@@ -80,19 +80,17 @@ export async function POST(req: Request) {
         pokemon2: pokemon2.substring(0, 50) + "..."
       });
       
-      // Call the Replicate API to generate the fusion image
+      // Call the Replicate API to generate the fusion image using the image-merger model
       const output = await replicate.run(
-        "lucataco/sdxl-pokemon-lora:93b78f2a0c2f0f9bf06f8be8d1c8d6d6a4b1b5d1f1d6420e0b6e708ddb1b3d5e",
+        "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
         {
           input: {
+            image_1: pokemon1,
+            image_2: pokemon2,
+            merge_mode: "overlay",
             prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
             negative_prompt: "low quality, blurry, distorted",
-            width: 768,
-            height: 768,
-            num_outputs: 1,
-            scheduler: "K_EULER_ANCESTRAL",
-            num_inference_steps: 25,
-            guidance_scale: 7.5,
+            upscale_2x: false
           }
         }
       );
@@ -108,6 +106,17 @@ export async function POST(req: Request) {
           pokemon2Id,
           fusionName: capitalizedFusionName,
           fusionImage: output[0],
+          isLocalFallback: false,
+          createdAt: new Date().toISOString()
+        });
+      } else if (typeof output === 'string') {
+        // Sometimes the output might be a single string instead of an array
+        return NextResponse.json({
+          id: fusionId,
+          pokemon1Id,
+          pokemon2Id,
+          fusionName: capitalizedFusionName,
+          fusionImage: output,
           isLocalFallback: false,
           createdAt: new Date().toISOString()
         });

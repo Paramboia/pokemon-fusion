@@ -303,4 +303,68 @@ export async function syncUserToSupabase(
     console.error('Error in syncUserToSupabase:', error);
     return false;
   }
+}
+
+/**
+ * Uploads an image from a URL to Supabase Storage
+ * @param imageUrl The URL of the image to upload
+ * @param bucket The storage bucket to upload to
+ * @param path The path within the bucket to store the image
+ * @returns The URL of the uploaded image in Supabase Storage
+ */
+export async function uploadImageFromUrl(imageUrl: string, bucket: string = 'fusions', path: string): Promise<string | null> {
+  try {
+    console.log(`Uploading image from URL: ${imageUrl} to ${bucket}/${path}`);
+    
+    // Create the bucket if it doesn't exist
+    const { data: buckets } = await supabaseClient.storage.listBuckets();
+    const bucketExists = buckets?.some(b => b.name === bucket);
+    
+    if (!bucketExists) {
+      console.log(`Creating bucket: ${bucket}`);
+      const { error: createBucketError } = await supabaseClient.storage.createBucket(bucket, {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB
+      });
+      
+      if (createBucketError) {
+        console.error(`Error creating bucket: ${createBucketError.message}`);
+        return null;
+      }
+    }
+    
+    // Fetch the image
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.error(`Failed to fetch image from URL: ${imageUrl}`);
+      return null;
+    }
+    
+    // Get the image as a blob
+    const imageBlob = await response.blob();
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabaseClient.storage
+      .from(bucket)
+      .upload(path, imageBlob, {
+        contentType: 'image/png',
+        upsert: true,
+      });
+    
+    if (error) {
+      console.error(`Error uploading image to Supabase Storage: ${error.message}`);
+      return null;
+    }
+    
+    // Get the public URL
+    const { data: publicUrlData } = supabaseClient.storage
+      .from(bucket)
+      .getPublicUrl(path);
+    
+    console.log(`Image uploaded successfully to: ${publicUrlData.publicUrl}`);
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error('Error in uploadImageFromUrl:', error);
+    return null;
+  }
 } 

@@ -10,7 +10,6 @@ import type { Pokemon } from "@/types";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/auth-context";
-import { AuthCtaButton } from "@/components/auth-cta-button";
 import { FusionAuthGate } from "@/components/fusion-auth-gate";
 
 export default function Home() {
@@ -68,10 +67,10 @@ export default function Home() {
         pokemon2.id
       );
       
-      toast.success("Fusion generated successfully!");
+      // Success toast is now handled in the useFusion hook
     } catch (error) {
-      console.error("Error generating fusion:", error);
-      // Error is already handled in the useFusion hook
+      console.error("Error in handleGenerateFusion:", error);
+      toast.error("Failed to start fusion generation. Please try again.");
     }
   };
 
@@ -164,7 +163,7 @@ export default function Home() {
         )}
 
         {/* Error Messages */}
-        {error && (
+        {error && !isLocalFallback && (
           <div className="mt-6 flex justify-center">
             <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 p-4 max-w-md w-full">
               <div className="flex items-start">
@@ -205,9 +204,9 @@ export default function Home() {
               <div className="flex items-start">
                 <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3 mt-0.5" />
                 <div>
-                  <h3 className="font-medium text-blue-600 dark:text-blue-400">Using Local Fallback</h3>
+                  <h3 className="font-medium text-blue-600 dark:text-blue-400">Using Simple Fusion</h3>
                   <p className="text-sm text-blue-600/90 dark:text-blue-400/90 mt-1">
-                    The AI fusion service is currently unavailable. We're using a local fallback method instead.
+                    The AI fusion service is currently unavailable. We're using a simplified fusion method instead.
                   </p>
                 </div>
               </div>

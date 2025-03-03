@@ -3,7 +3,7 @@ import { auth, clerkClient } from '@clerk/nextjs';
 import { v4 as uuidv4 } from 'uuid';
 import Replicate from 'replicate';
 import { supabaseClient } from '@/lib/supabase-server';
-import { getSupabaseUserId } from '@/lib/supabase-server-actions';
+import { getSupabaseUserId, uploadImageFromUrl } from '@/lib/supabase-server-actions';
 import { savePokemon, saveFusion } from '@/lib/supabase-server-actions';
 import { createClient } from '@supabase/supabase-js';
 
@@ -386,7 +386,20 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
         
         // Get the generated image URL
         const fusionImageUrl = Array.isArray(output) ? output[0] : output;
-        return fusionImageUrl;
+        
+        // Generate a unique filename for the fusion image
+        const fusionId = uuidv4();
+        const filename = `fusion_${pokemon1Id}_${pokemon2Id}_${fusionId}.png`;
+        
+        // Upload the image to Supabase Storage
+        const storedImageUrl = await uploadImageFromUrl(
+          fusionImageUrl,
+          'fusions',
+          filename
+        );
+        
+        // Return the stored image URL or fall back to the original URL
+        return storedImageUrl || fusionImageUrl;
       } catch (error) {
         console.error("Generate API - Error calling Replicate API:", error);
         console.log("Generate API - Falling back to local fusion generation");

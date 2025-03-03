@@ -3,7 +3,7 @@
 import { SparklesText } from "@/components/ui";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { FusionCard } from "@/components/fusion-card";
+import FusionCard from "@/components/fusion-card";
 import { PopularAuthGate } from "@/components/popular-auth-gate";
 import { dbService, FusionDB } from "@/lib/supabase-client";
 import { toast } from "sonner";

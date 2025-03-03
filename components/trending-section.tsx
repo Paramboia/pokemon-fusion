@@ -1,9 +1,11 @@
 "use client"
 
 import { useTrending } from '@/hooks/use-trending'
-import { FusionCard } from './fusion-card'
+import FusionCard from './fusion-card'
 import { useLikes } from '@/hooks/use-likes'
 import { Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { dbService, FusionDB } from '@/lib/supabase-client'
 
 export function TrendingSection() {
   const { trendingFusions, loading, refetch } = useTrending()

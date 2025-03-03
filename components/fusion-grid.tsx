@@ -1,6 +1,7 @@
 "use client"
 
-import { FusionCard } from './fusion-card'
+import { useState } from "react";
+import FusionCard from './fusion-card'
 import { useInfiniteFusions } from '@/hooks/use-infinite-fusions'
 import { Loader2 } from 'lucide-react'
 

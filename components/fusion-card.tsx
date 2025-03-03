@@ -17,7 +17,7 @@ interface FusionCardProps {
   showActions?: boolean
 }
 
-export function FusionCard({ fusion, onDelete, onLike, showActions = true }: FusionCardProps) {
+export default function FusionCard({ fusion, onDelete, onLike, showActions = true }: FusionCardProps) {
   const [showShareOptions, setShowShareOptions] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes)

@@ -42,12 +42,20 @@ export function useFusion() {
       // Show a toast to indicate generation has started
       toast.loading('Starting Pokémon fusion generation...', {
         id: 'fusion-generation',
-        duration: 10000, // 10 seconds
+        duration: 60000, // 60 seconds
       })
+
+      // Update toast after 5 seconds to inform about AI model warming up
+      const warmupTimer = setTimeout(() => {
+        toast.loading('AI model is warming up. This may take up to a minute...', {
+          id: 'fusion-generation',
+          duration: 55000, // 55 more seconds
+        })
+      }, 5000)
 
       // Set a timeout for the API call
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 50000) // 50 second timeout
 
       try {
         // Call the API endpoint to generate the fusion
@@ -71,6 +79,7 @@ export function useFusion() {
 
         // Clear the timeout
         clearTimeout(timeoutId)
+        clearTimeout(warmupTimer)
 
         // Check if the response is successful before parsing JSON
         if (!response.ok) {
@@ -172,6 +181,7 @@ export function useFusion() {
       } catch (fetchError) {
         // Clear the timeout
         clearTimeout(timeoutId)
+        clearTimeout(warmupTimer)
         
         console.error('Error in fetch:', fetchError);
         
@@ -180,7 +190,7 @@ export function useFusion() {
         
         // Check if it was an abort error (timeout)
         if (fetchError.name === 'AbortError') {
-          toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
+          toast.error('The fusion generation is taking longer than expected. Please try again.');
           setError('The fusion generator took too long to respond. Please try again later.');
         } else {
           toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');

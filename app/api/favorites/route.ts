@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs';
-import { addFavorite, removeFavorite, getSupabaseUserId } from '@/lib/supabase-server-actions';
+import { auth } from '@clerk/nextjs/server';
+import { clerkClient } from '@clerk/nextjs/server';
+import { addFavorite, removeFavorite } from '@/lib/supabase-server-actions';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseClient } from "@/lib/supabase-server";
+import { getSupabaseAdminClient } from '@/lib/supabase-server';
 
 // Create a Supabase client with fallback values for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
@@ -11,24 +12,6 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.
 
 console.log('Favorites API - Supabase URL:', supabaseUrl);
 console.log('Favorites API - Service Key available:', !!supabaseServiceKey);
-
-// Create a server-side Supabase client with additional headers
-const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-      'Authorization': `Bearer ${supabaseServiceKey}`
-    },
-  },
-  db: {
-    schema: 'public',
-  },
-});
 
 // Helper function to get the Supabase user ID from Clerk ID
 async function getSupabaseUserId(clerkId: string): Promise<string | null> {
@@ -48,6 +31,9 @@ async function getSupabaseUserId(clerkId: string): Promise<string | null> {
     const primaryEmailObj = user.emailAddresses.find(email => email.id === user.primaryEmailAddressId) || user.emailAddresses[0];
     const email = primaryEmailObj.emailAddress;
     console.log('Favorites API - Using email for lookup:', email);
+    
+    // Get Supabase client
+    const supabaseClient = await getSupabaseAdminClient();
     
     // Query Supabase for the user ID
     const { data, error } = await supabaseClient
@@ -116,6 +102,7 @@ export async function POST(req: Request) {
     // Ensure the favorites table exists before adding
     try {
       console.log('Favorites API - Checking if favorites table exists');
+      const supabaseClient = await getSupabaseAdminClient();
       const { data, error } = await supabaseClient
         .from('favorites')
         .select('id')
@@ -211,6 +198,7 @@ export async function DELETE(req: Request) {
     // Ensure the favorites table exists before deleting
     try {
       console.log('Favorites API - Checking if favorites table exists');
+      const supabaseClient = await getSupabaseAdminClient();
       const { data, error } = await supabaseClient
         .from('favorites')
         .select('id')
@@ -345,6 +333,7 @@ export async function GET(req: Request) {
     // Ensure the favorites table exists before querying
     try {
       console.log('Favorites API - Checking if favorites table exists');
+      const supabaseClient = await getSupabaseAdminClient();
       const { data, error } = await supabaseClient
         .from('favorites')
         .select('id')

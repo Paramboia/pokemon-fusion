@@ -68,6 +68,8 @@ async function testSupabaseConnections() {
       
       if (!response.ok) {
         console.error('Health check API returned an error:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error details:', errorText);
       } else {
         const healthData = await response.json();
         console.log('Health check API response:', JSON.stringify(healthData, null, 2));

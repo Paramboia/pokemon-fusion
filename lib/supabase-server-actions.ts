@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import { supabaseAdmin } from './supabase-server';
+import { getSupabaseAdminClient } from './supabase-server';
 
 // Validate environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -19,7 +19,7 @@ if (!supabaseServiceKey) {
 
 // Instead of creating a new client, use the admin client from supabase-server.ts
 async function getSupabaseClient() {
-  return supabaseAdmin;
+  return getSupabaseAdminClient();
 }
 
 // Function to check if Supabase connection is healthy

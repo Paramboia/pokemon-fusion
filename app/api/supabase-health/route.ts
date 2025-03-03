@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { checkSupabaseConnection } from '@/lib/supabase-client';
+import { getSupabaseClient, getSupabaseAdminClient } from '@/lib/supabase-server';
+import { checkSupabaseActionConnection } from '@/lib/supabase-server-actions';
 
 export async function GET() {
   try {
@@ -30,7 +33,7 @@ export async function GET() {
     
     // Create Supabase clients
     const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAdmin = await getSupabaseAdminClient();
     
     // Check client-side connection
     let clientConnectionStatus = false;

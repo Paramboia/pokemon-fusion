@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Heart, Download, Share } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { downloadImage } from '@/lib/utils'
 import { dbService, FusionDB } from '@/lib/supabase-client'
 import { useUser } from "@clerk/nextjs";
 import { toast } from 'sonner'
+import { useTheme } from 'next-themes'
 
 interface FusionCardProps {
   fusion: FusionDB
@@ -20,8 +21,15 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   const [showShareOptions, setShowShareOptions] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes)
+  const [mounted, setMounted] = useState(false)
+  const { theme } = useTheme()
   const { user } = useUser();
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
+
+  // Wait for component to mount to access theme
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleLike = async () => {
     try {
@@ -68,11 +76,19 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
     }
   };
 
+  // Determine background color based on theme
+  const isDarkTheme = mounted && theme === 'dark'
+  const backgroundColor = isDarkTheme ? '#1f2937' : '#ffffff' // dark gray for dark mode, white for light mode
+
   return (
     <div style={{ position: 'relative' }}>
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden" style={{ backgroundColor }}>
         {/* Image container */}
-        <div style={{ position: 'relative', aspectRatio: '1/1' }}>
+        <div style={{ 
+          position: 'relative', 
+          aspectRatio: '1/1',
+          backgroundColor: isDarkTheme ? '#111827' : '#f9fafb' // Even darker for image background in dark mode
+        }}>
           <Image
             src={fusion.fusion_image}
             alt={fusion.fusion_name}

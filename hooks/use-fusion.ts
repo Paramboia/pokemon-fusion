@@ -106,12 +106,12 @@ export function useFusion() {
             setIsPaymentRequired(true);
             toast.error('Payment required to generate more fusions');
             setError('Payment required to generate more fusions');
-          } else if (response.status === 500) {
+          } else if (response.status === 500 || response.status === 504) {
             // For server errors, use a more user-friendly message
-            toast.error('Server error. Using fallback fusion instead.');
-            setError('The fusion generator is currently experiencing issues. Using a fallback fusion.');
+            toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
+            setError('The fusion generator is currently experiencing issues. Please try again later.');
             
-            // Use a fallback approach for 500 errors
+            // Use a fallback approach for server errors
             setIsLocalFallback(true);
             
             // Create a simple fusion name
@@ -128,7 +128,7 @@ export function useFusion() {
             setGenerating(false);
             return;
           } else {
-            toast.error(errorMessage);
+            toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
             setError(errorMessage);
           }
           
@@ -190,11 +190,11 @@ export function useFusion() {
         
         // Check if it was an abort error (timeout)
         if (fetchError.name === 'AbortError') {
-          toast.error('Fusion generation timed out. Using fallback instead.');
-          setError('The fusion generator took too long to respond. Using a fallback fusion.');
+          toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
+          setError('The fusion generator took too long to respond. Please try again later.');
         } else {
-          toast.error('Failed to generate fusion. Using fallback instead.');
-          setError('An unexpected error occurred. Using a fallback fusion.');
+          toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
+          setError('An unexpected error occurred. Please try again later.');
         }
         
         // Use a fallback approach

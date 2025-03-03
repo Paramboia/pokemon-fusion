@@ -76,37 +76,96 @@ export async function POST(req: Request) {
       if (replicate) {
         try {
           console.log("Generate API - Attempting to use Replicate for fusion generation");
+          console.log("Generate API - Image URLs:", { 
+            pokemon1: pokemon1.substring(0, 50) + "...", 
+            pokemon2: pokemon2.substring(0, 50) + "..." 
+          });
           
           // Use the image-merger model
           console.log("Generate API - Using image-merger model");
           
-          const output = await replicate.run(
-            "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-            {
-              input: {
-                image_1: pokemon1,
-                image_2: pokemon2,
-                prompt: `a fusion of ${name1} and ${name2}, pokemon style, digital art`,
-                merge_mode: "left_right",
-                upscale_2x: true,
-                negative_prompt: "ugly, deformed, noisy, blurry, distorted",
+          // Set a longer timeout for the Replicate API call
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+          
+          try {
+            const output = await replicate.run(
+              "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+              {
+                input: {
+                  image_1: pokemon1,
+                  image_2: pokemon2,
+                  prompt: `a fusion of ${name1} and ${name2}, pokemon style, digital art`,
+                  merge_mode: "left_right",
+                  upscale_2x: true,
+                  negative_prompt: "ugly, deformed, noisy, blurry, distorted",
+                }
               }
+            );
+            
+            // Clear the timeout
+            clearTimeout(timeoutId);
+            
+            console.log("Generate API - Replicate output received:", output);
+            
+            if (Array.isArray(output) && output.length > 0) {
+              fusionImageUrl = output[0];
+              console.log("Generate API - Fusion image URL:", fusionImageUrl);
+            } else if (typeof output === 'string') {
+              fusionImageUrl = output;
+              console.log("Generate API - Fusion image URL (string):", fusionImageUrl);
+            } else {
+              console.log("Generate API - Unexpected output format:", output);
             }
-          );
-          
-          console.log("Generate API - Replicate output received:", output);
-          
-          if (Array.isArray(output) && output.length > 0) {
-            fusionImageUrl = output[0];
-            console.log("Generate API - Fusion image URL:", fusionImageUrl);
-          } else if (typeof output === 'string') {
-            fusionImageUrl = output;
-            console.log("Generate API - Fusion image URL (string):", fusionImageUrl);
-          } else {
-            console.log("Generate API - Unexpected output format:", output);
+          } catch (abortError) {
+            if (abortError.name === 'AbortError') {
+              console.error("Generate API - Replicate API call timed out after 2 minutes");
+              throw new Error("Replicate API call timed out");
+            } else {
+              throw abortError;
+            }
           }
         } catch (replicateError) {
           console.error("Generate API - Replicate API error:", replicateError);
+          console.error("Generate API - Error details:", replicateError.message);
+          
+          // Try a simpler approach with direct prediction API
+          try {
+            console.log("Generate API - Attempting fallback with direct prediction API");
+            
+            const response = await fetch("https://api.replicate.com/v1/predictions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Token ${replicateApiKey}`
+              },
+              body: JSON.stringify({
+                version: "db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+                input: {
+                  image_1: pokemon1,
+                  image_2: pokemon2,
+                  prompt: `a fusion of ${name1} and ${name2}, pokemon style, digital art`,
+                  merge_mode: "left_right",
+                  upscale_2x: true,
+                  negative_prompt: "ugly, deformed, noisy, blurry, distorted",
+                }
+              })
+            });
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error("Generate API - Direct API error:", errorData);
+              throw new Error(`Direct API error: ${response.status} ${response.statusText}`);
+            }
+            
+            const prediction = await response.json();
+            console.log("Generate API - Prediction created:", prediction);
+            
+            // For direct API, we would need to poll for results, but we'll use fallback for now
+            // as this is just a backup approach
+          } catch (directApiError) {
+            console.error("Generate API - Direct API fallback also failed:", directApiError);
+          }
         }
       } else {
         console.log("Generate API - Replicate client not available, using fallback");

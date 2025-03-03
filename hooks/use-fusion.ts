@@ -42,20 +42,20 @@ export function useFusion() {
       // Show a toast to indicate generation has started
       toast.loading('Starting Pokémon fusion generation...', {
         id: 'fusion-generation',
-        duration: 60000, // 60 seconds
+        duration: 120000, // 120 seconds (2 minutes)
       })
 
       // Update toast after 5 seconds to inform about potential cold start
       const coldStartTimer = setTimeout(() => {
-        toast.loading('AI model is warming up. This may take up to a minute...', {
+        toast.loading('AI model is warming up. This may take up to 2 minutes...', {
           id: 'fusion-generation',
-          duration: 55000, // 55 more seconds
+          duration: 115000, // 115 more seconds
         })
       }, 5000)
 
       // Set a timeout for the API call
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 120000) // 120 second timeout (2 minutes)
 
       try {
         // Call the API endpoint to generate the fusion

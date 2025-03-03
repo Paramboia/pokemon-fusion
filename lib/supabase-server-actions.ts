@@ -89,6 +89,11 @@ export async function savePokemon(pokemon: Omit<PokemonDB, 'created_at'>): Promi
 export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<FusionDB | null> {
   try {
     console.log('Server Actions - Saving fusion with user ID:', fusion.user_id);
+    console.log('Server Actions - Fusion data:', JSON.stringify(fusion, null, 2));
+    console.log('Server Actions - Supabase URL:', supabaseUrl);
+    console.log('Server Actions - Supabase Service Key available:', !!supabaseServiceKey);
+    console.log('Server Actions - Supabase Service Key length:', supabaseServiceKey ? supabaseServiceKey.length : 0);
+    
     const client = await getSupabaseClient();
     
     // First, ensure the fusions table exists
@@ -107,6 +112,7 @@ export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<
         );
       `;
       
+      console.log('Server Actions - Executing create table query');
       const { error: createTableError } = await client.rpc('exec_sql', { query: createTableQuery });
       if (createTableError) {
         console.log('Server Actions - Error creating fusions table (may already exist):', createTableError);
@@ -118,6 +124,7 @@ export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<
       // Continue anyway, as the table might already exist
     }
     
+    console.log('Server Actions - Inserting fusion into database');
     const { data, error } = await client
       .from('fusions')
       .insert(fusion)
@@ -126,6 +133,7 @@ export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<
     
     if (error) {
       console.error('Server Actions - Error saving fusion:', error);
+      console.error('Server Actions - Error details:', JSON.stringify(error, null, 2));
       return null;
     }
     
@@ -314,36 +322,53 @@ export async function syncUserToSupabase(
  */
 export async function uploadImageFromUrl(imageUrl: string, bucket: string = 'fusions', path: string): Promise<string | null> {
   try {
-    console.log(`Uploading image from URL: ${imageUrl} to ${bucket}/${path}`);
+    console.log(`Server Actions - Uploading image from URL: ${imageUrl.substring(0, 50)}... to ${bucket}/${path}`);
+    console.log(`Server Actions - Supabase URL: ${supabaseUrl}`);
+    console.log(`Server Actions - Supabase Service Key available: ${!!supabaseServiceKey}`);
+    console.log(`Server Actions - Supabase Service Key length: ${supabaseServiceKey ? supabaseServiceKey.length : 0}`);
     
     // Create the bucket if it doesn't exist
-    const { data: buckets } = await supabaseClient.storage.listBuckets();
+    console.log(`Server Actions - Listing buckets...`);
+    const { data: buckets, error: listBucketsError } = await supabaseClient.storage.listBuckets();
+    
+    if (listBucketsError) {
+      console.error(`Server Actions - Error listing buckets: ${listBucketsError.message}`);
+      return null;
+    }
+    
+    console.log(`Server Actions - Buckets found: ${buckets?.length || 0}`);
     const bucketExists = buckets?.some(b => b.name === bucket);
+    console.log(`Server Actions - Bucket ${bucket} exists: ${bucketExists}`);
     
     if (!bucketExists) {
-      console.log(`Creating bucket: ${bucket}`);
+      console.log(`Server Actions - Creating bucket: ${bucket}`);
       const { error: createBucketError } = await supabaseClient.storage.createBucket(bucket, {
         public: true,
         fileSizeLimit: 10485760, // 10MB
       });
       
       if (createBucketError) {
-        console.error(`Error creating bucket: ${createBucketError.message}`);
+        console.error(`Server Actions - Error creating bucket: ${createBucketError.message}`);
         return null;
       }
+      console.log(`Server Actions - Bucket ${bucket} created successfully`);
     }
     
     // Fetch the image
+    console.log(`Server Actions - Fetching image from URL...`);
     const response = await fetch(imageUrl);
     if (!response.ok) {
-      console.error(`Failed to fetch image from URL: ${imageUrl}`);
+      console.error(`Server Actions - Failed to fetch image from URL: ${imageUrl.substring(0, 50)}... Status: ${response.status}`);
       return null;
     }
     
     // Get the image as a blob
+    console.log(`Server Actions - Converting response to blob...`);
     const imageBlob = await response.blob();
+    console.log(`Server Actions - Image blob size: ${imageBlob.size} bytes`);
     
     // Upload to Supabase Storage
+    console.log(`Server Actions - Uploading to Supabase Storage...`);
     const { data, error } = await supabaseClient.storage
       .from(bucket)
       .upload(path, imageBlob, {
@@ -352,19 +377,21 @@ export async function uploadImageFromUrl(imageUrl: string, bucket: string = 'fus
       });
     
     if (error) {
-      console.error(`Error uploading image to Supabase Storage: ${error.message}`);
+      console.error(`Server Actions - Error uploading image to Supabase Storage: ${error.message}`);
+      console.error(`Server Actions - Error details:`, error);
       return null;
     }
     
+    console.log(`Server Actions - Upload successful, getting public URL...`);
     // Get the public URL
     const { data: publicUrlData } = supabaseClient.storage
       .from(bucket)
       .getPublicUrl(path);
     
-    console.log(`Image uploaded successfully to: ${publicUrlData.publicUrl}`);
+    console.log(`Server Actions - Image uploaded successfully to: ${publicUrlData.publicUrl}`);
     return publicUrlData.publicUrl;
   } catch (error) {
-    console.error('Error in uploadImageFromUrl:', error);
+    console.error('Server Actions - Error in uploadImageFromUrl:', error);
     return null;
   }
 } 

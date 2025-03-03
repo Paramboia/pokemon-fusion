@@ -123,12 +123,33 @@ export async function POST(req: Request) {
     // Get the user ID from Clerk
     let userId = null;
     try {
+      console.log("Generate API - Getting user ID from Clerk auth");
       const authResult = await auth();
+      console.log("Generate API - Auth result:", JSON.stringify(authResult, null, 2));
       userId = authResult?.userId;
       console.log("Generate API - User ID:", userId);
+      
+      if (!userId) {
+        console.log("Generate API - No user ID found in auth result, checking headers");
+        // Try to get user ID from headers as fallback
+        const userIdHeader = req.headers.get("X-User-ID");
+        if (userIdHeader) {
+          console.log("Generate API - Found user ID in header:", userIdHeader);
+          userId = userIdHeader;
+        } else {
+          console.log("Generate API - No user ID found in headers either");
+        }
+      }
     } catch (authError) {
       console.error("Generate API - Error getting user ID:", authError);
       // Continue without user ID, we'll still generate the fusion but won't save it to Supabase
+    }
+    
+    // If we still don't have a user ID, use a default one for testing
+    if (!userId) {
+      console.log("Generate API - Using default user ID for testing");
+      userId = "test_user_" + Math.random().toString(36).substring(2, 15);
+      console.log("Generate API - Default user ID:", userId);
     }
     
     // Parse the request body

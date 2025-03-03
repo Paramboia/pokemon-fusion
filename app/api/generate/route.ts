@@ -40,7 +40,7 @@ async function callReplicateDirectly(pokemon1Url: string, pokemon2Url: string, n
         input: {
           image_1: pokemon1Url,
           image_2: pokemon2Url,
-          merge_mode: "overlay",
+          merge_mode: "full",
           prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
           negative_prompt: "low quality, blurry, distorted",
           upscale_2x: false
@@ -221,7 +221,7 @@ export async function POST(req: Request) {
       
       // Log the input parameters
       console.log("Generate API - Input parameters:", {
-        merge_mode: "overlay",
+        merge_mode: "full",
         prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
         negative_prompt: "low quality, blurry, distorted",
         upscale_2x: false
@@ -239,7 +239,7 @@ export async function POST(req: Request) {
             input: {
               image_1: pokemon1,
               image_2: pokemon2,
-              merge_mode: "overlay",
+              merge_mode: "full",
               prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
               negative_prompt: "low quality, blurry, distorted",
               upscale_2x: false

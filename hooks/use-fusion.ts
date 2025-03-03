@@ -23,8 +23,9 @@ export function useFusion() {
       setIsLocalFallback(false)
       setFusionId(null)
       setFusionName(null)
+      setFusionImage(null)
 
-      console.log('Generating fusion for:', { name1, name2 })
+      console.log('Generating fusion for:', { name1, name2, pokemon1Id, pokemon2Id })
 
       // Get the Clerk session token
       const token = await getToken()
@@ -37,6 +38,12 @@ export function useFusion() {
         setGenerating(false)
         return
       }
+
+      // Show a toast to indicate generation has started
+      toast.loading('Generating your Pokémon fusion... This may take up to 30 seconds.', {
+        id: 'fusion-generation',
+        duration: 30000, // 30 seconds
+      })
 
       // Call the API endpoint to generate the fusion
       const response = await fetch('/api/generate', {
@@ -71,11 +78,15 @@ export function useFusion() {
         
         console.error('Error generating fusion:', errorMessage, 'Status:', response.status);
         
+        // Dismiss the loading toast
+        toast.dismiss('fusion-generation')
+        
         if (response.status === 401) {
           toast.error('Authentication required. Please sign in again.');
           setError('Authentication required');
         } else if (response.status === 402) {
           setIsPaymentRequired(true);
+          toast.error('Payment required to generate more fusions');
           setError('Payment required to generate more fusions');
         } else if (response.status === 500) {
           // For server errors, use a more user-friendly message
@@ -113,23 +124,44 @@ export function useFusion() {
         data = await response.json();
       } catch (parseError) {
         console.error('Error parsing response:', parseError);
+        
+        // Dismiss the loading toast
+        toast.dismiss('fusion-generation')
+        
         toast.error('Invalid response from server');
         setError('Failed to parse server response');
         setGenerating(false);
         return;
       }
 
+      // Dismiss the loading toast
+      toast.dismiss('fusion-generation')
+
       // Set the fusion data
       console.log('Fusion generated successfully:', data);
       setFusionImage(data.fusionImage);
-      setFusionId(data.fusionId);
-      setFusionName(data.fusionName);
+      setFusionId(data.id);
+      
+      // Create a fusion name if not provided
+      if (data.fusionName) {
+        setFusionName(data.fusionName);
+      } else {
+        const firstHalf = name1.substring(0, Math.ceil(name1.length / 2));
+        const secondHalf = name2.substring(Math.floor(name2.length / 2));
+        const fallbackName = firstHalf + secondHalf;
+        setFusionName(fallbackName);
+      }
+      
       setIsLocalFallback(data.isLocalFallback || false);
       
       // Show success message
       toast.success('Fusion generated successfully!');
     } catch (err) {
       console.error('Error in generateFusion:', err);
+      
+      // Dismiss the loading toast
+      toast.dismiss('fusion-generation')
+      
       setError('An unexpected error occurred');
       toast.error('Failed to generate fusion. Please try again.');
       

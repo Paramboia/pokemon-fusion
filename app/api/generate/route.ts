@@ -365,7 +365,6 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
     const isReplicateConfigured = !!replicateToken;
     
     console.log("Generate API - Replicate token available:", !!replicateToken);
-    console.log("Generate API - Replicate token length:", replicateToken ? replicateToken.length : 0);
     
     if (isReplicateConfigured) {
       try {
@@ -395,55 +394,33 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
         }
         
         // Call the Replicate API to generate the fusion image
-        console.log("Generate API - Calling Replicate with model: fofr/image-merger");
+        console.log("Generate API - Calling Replicate with model: stability-ai/sdxl");
         
-        const modelVersion = "db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867";
+        // Use SDXL model for better quality
+        const output = await replicateInstance.run(
+          "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+          {
+            input: {
+              prompt: `a fusion of two pokemon, one is ${pokemon1Data.name} and the other is ${pokemon2Data.name}, digital art, sharp, solid color, thick outline, game art style, official pokemon art style`,
+              negative_prompt: "garish, soft, ugly, broken, distorted, deformed, low quality, blurry",
+              width: 768,
+              height: 768,
+              refine: "expert_ensemble_refiner",
+              scheduler: "K_EULER",
+              lora_scale: 0.6,
+              num_outputs: 1,
+              guidance_scale: 7.5,
+              apply_watermark: false,
+              high_noise_frac: 0.8,
+              prompt_strength: 0.8,
+              num_inference_steps: 30
+            }
+          }
+        );
         
-        // Create a prediction
-        const prediction = await replicateInstance.predictions.create({
-          version: modelVersion,
-          input: {
-            image_1: pokemon1Image,
-            image_2: pokemon2Image,
-            merge_mode: "left_right",
-            upscale_2x: true,
-            prompt: "a pokemon, digital art, sharp, solid color, thick outline",
-            negative_prompt: "garish, soft, ugly, broken, distorted"
-          },
-        });
+        console.log("Generate API - SDXL output:", output);
         
-        console.log("Generate API - Prediction created:", prediction.id);
-        
-        // Wait for the prediction to complete
-        let completedPrediction = await replicateInstance.predictions.get(prediction.id);
-        
-        // Poll until the prediction is complete
-        while (
-          completedPrediction.status !== "succeeded" && 
-          completedPrediction.status !== "failed" &&
-          completedPrediction.status !== "canceled"
-        ) {
-          console.log("Generate API - Waiting for prediction to complete. Current status:", completedPrediction.status);
-          
-          // Wait for 1 second before checking again
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Get the updated prediction
-          completedPrediction = await replicateInstance.predictions.get(prediction.id);
-        }
-        
-        console.log("Generate API - Prediction completed with status:", completedPrediction.status);
-        
-        if (completedPrediction.status !== "succeeded") {
-          console.error("Generate API - Prediction failed:", completedPrediction.error);
-          return pokemon1Image; // Fallback to first Pokemon image
-        }
-        
-        // Get the output from the prediction
-        const output = completedPrediction.output;
-        console.log("Generate API - Prediction output:", output);
-        
-        // Get the generated image URL - the output could be an array or a string
+        // Get the generated image URL
         let fusionImageUrl;
         if (Array.isArray(output)) {
           fusionImageUrl = output[0];
@@ -459,7 +436,33 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
         
         if (!fusionImageUrl) {
           console.error("Generate API - No image URL in Replicate response:", output);
-          return pokemon1Image; // Fallback to first Pokemon image
+          
+          // Try fallback to image-merger model if SDXL fails
+          console.log("Generate API - Trying fallback to image-merger model");
+          
+          const fallbackOutput = await replicateInstance.run(
+            "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+            {
+              input: {
+                image_1: pokemon1Image,
+                image_2: pokemon2Image,
+                merge_mode: "left_right",
+                upscale_2x: true,
+                prompt: "a pokemon, digital art, sharp, solid color, thick outline",
+                negative_prompt: "garish, soft, ugly, broken, distorted"
+              }
+            }
+          );
+          
+          console.log("Generate API - Fallback model output:", fallbackOutput);
+          
+          if (Array.isArray(fallbackOutput)) {
+            fusionImageUrl = fallbackOutput[0];
+          } else if (typeof fallbackOutput === 'string') {
+            fusionImageUrl = fallbackOutput;
+          } else {
+            return pokemon1Image; // Fallback to first Pokemon image if both models fail
+          }
         }
         
         console.log("Generate API - Fusion image URL:", fusionImageUrl);

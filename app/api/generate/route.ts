@@ -1,26 +1,80 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import Replicate from 'replicate';
 
-// Check if Replicate API key is available
-const replicateApiKey = process.env.REPLICATE_API_TOKEN || '';
-console.log('Generate API - Replicate API key available:', !!replicateApiKey);
-console.log('Generate API - Replicate API key length:', replicateApiKey ? replicateApiKey.length : 0);
-console.log('Generate API - Replicate API key first 4 chars:', replicateApiKey ? replicateApiKey.substring(0, 4) : 'none');
+// Check if Replicate API token is available
+const replicateApiToken = process.env.REPLICATE_API_TOKEN || '';
+console.log('Generate API - Replicate API token available:', !!replicateApiToken);
+console.log('Generate API - Replicate API token length:', replicateApiToken ? replicateApiToken.length : 0);
+console.log('Generate API - Replicate API token first 4 chars:', replicateApiToken ? replicateApiToken.substring(0, 4) : 'none');
 
-// Initialize Replicate client
-let replicate = null;
-try {
-  if (replicateApiKey) {
-    replicate = new Replicate({
-      auth: replicateApiKey,
+// Helper function to wait for a specified time
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Function to create a prediction using Replicate API
+async function createPrediction(pokemon1: string, pokemon2: string, name1: string, name2: string) {
+  console.log('Generate API - Creating prediction with Replicate API');
+  
+  try {
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${replicateApiToken}`
+      },
+      body: JSON.stringify({
+        version: "db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+        input: {
+          image_1: pokemon1,
+          image_2: pokemon2,
+          prompt: `a fusion of ${name1} and ${name2}, pokemon style, digital art`,
+          merge_mode: "left_right",
+          upscale_2x: true,
+          negative_prompt: "ugly, deformed, noisy, blurry, distorted",
+        }
+      })
     });
-    console.log('Generate API - Replicate client initialized successfully');
-  } else {
-    console.log('Generate API - No Replicate API key available, client not initialized');
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Generate API - Error creating prediction:', errorData);
+      throw new Error(`Failed to create prediction: ${response.status} ${response.statusText}`);
+    }
+
+    const prediction = await response.json();
+    console.log('Generate API - Prediction created:', prediction.id);
+    return prediction;
+  } catch (error) {
+    console.error('Generate API - Error in createPrediction:', error);
+    throw error;
   }
-} catch (error) {
-  console.error('Generate API - Error initializing Replicate client:', error);
+}
+
+// Function to get prediction results
+async function getPredictionResult(predictionId: string) {
+  console.log('Generate API - Getting prediction result for:', predictionId);
+  
+  try {
+    const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token ${replicateApiToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Generate API - Error getting prediction:', errorData);
+      throw new Error(`Failed to get prediction: ${response.status} ${response.statusText}`);
+    }
+
+    const prediction = await response.json();
+    console.log('Generate API - Prediction status:', prediction.status);
+    return prediction;
+  } catch (error) {
+    console.error('Generate API - Error in getPredictionResult:', error);
+    throw error;
+  }
 }
 
 export async function POST(req: Request) {
@@ -72,103 +126,70 @@ export async function POST(req: Request) {
       let fusionImageUrl = null;
       let isLocalFallback = false;
       
-      // Try to generate the fusion image with Replicate if client is available
-      if (replicate) {
+      // Check if Replicate API token is available
+      if (replicateApiToken) {
         try {
-          console.log("Generate API - Attempting to use Replicate for fusion generation");
+          console.log("Generate API - Attempting to use Replicate API for fusion generation");
           console.log("Generate API - Image URLs:", { 
             pokemon1: pokemon1.substring(0, 50) + "...", 
             pokemon2: pokemon2.substring(0, 50) + "..." 
           });
           
-          // Use the image-merger model
-          console.log("Generate API - Using image-merger model");
+          // Create a prediction
+          const prediction = await createPrediction(pokemon1, pokemon2, name1, name2);
           
-          // Set a longer timeout for the Replicate API call
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+          // Poll for the prediction result
+          let result = null;
+          let attempts = 0;
+          const maxAttempts = 30; // 30 attempts with 2 second delay = up to 60 seconds of waiting
           
-          try {
-            const output = await replicate.run(
-              "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-              {
-                input: {
-                  image_1: pokemon1,
-                  image_2: pokemon2,
-                  prompt: `a fusion of ${name1} and ${name2}, pokemon style, digital art`,
-                  merge_mode: "left_right",
-                  upscale_2x: true,
-                  negative_prompt: "ugly, deformed, noisy, blurry, distorted",
-                }
-              }
-            );
+          while (attempts < maxAttempts) {
+            attempts++;
+            console.log(`Generate API - Polling for result, attempt ${attempts}/${maxAttempts}`);
             
-            // Clear the timeout
-            clearTimeout(timeoutId);
+            const predictionStatus = await getPredictionResult(prediction.id);
             
-            console.log("Generate API - Replicate output received:", output);
-            
-            if (Array.isArray(output) && output.length > 0) {
-              fusionImageUrl = output[0];
-              console.log("Generate API - Fusion image URL:", fusionImageUrl);
-            } else if (typeof output === 'string') {
-              fusionImageUrl = output;
-              console.log("Generate API - Fusion image URL (string):", fusionImageUrl);
-            } else {
-              console.log("Generate API - Unexpected output format:", output);
+            if (predictionStatus.status === 'succeeded') {
+              result = predictionStatus;
+              break;
+            } else if (predictionStatus.status === 'failed') {
+              console.error('Generate API - Prediction failed:', predictionStatus.error);
+              throw new Error(`Prediction failed: ${predictionStatus.error}`);
+            } else if (predictionStatus.status === 'canceled') {
+              console.error('Generate API - Prediction was canceled');
+              throw new Error('Prediction was canceled');
             }
-          } catch (abortError) {
-            if (abortError.name === 'AbortError') {
-              console.error("Generate API - Replicate API call timed out after 2 minutes");
-              throw new Error("Replicate API call timed out");
-            } else {
-              throw abortError;
-            }
+            
+            // Wait before polling again
+            await sleep(2000); // 2 second delay
           }
+          
+          if (!result) {
+            console.error('Generate API - Prediction timed out after maximum attempts');
+            throw new Error('Prediction timed out after maximum attempts');
+          }
+          
+          console.log('Generate API - Prediction succeeded:', result.output);
+          
+          // Extract the output URL
+          if (Array.isArray(result.output) && result.output.length > 0) {
+            fusionImageUrl = result.output[0];
+          } else if (typeof result.output === 'string') {
+            fusionImageUrl = result.output;
+          } else {
+            console.log('Generate API - Unexpected output format:', result.output);
+            throw new Error('Unexpected output format from Replicate API');
+          }
+          
+          console.log('Generate API - Fusion image URL:', fusionImageUrl);
         } catch (replicateError) {
           console.error("Generate API - Replicate API error:", replicateError);
           console.error("Generate API - Error details:", replicateError.message);
-          
-          // Try a simpler approach with direct prediction API
-          try {
-            console.log("Generate API - Attempting fallback with direct prediction API");
-            
-            const response = await fetch("https://api.replicate.com/v1/predictions", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Token ${replicateApiKey}`
-              },
-              body: JSON.stringify({
-                version: "db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-                input: {
-                  image_1: pokemon1,
-                  image_2: pokemon2,
-                  prompt: `a fusion of ${name1} and ${name2}, pokemon style, digital art`,
-                  merge_mode: "left_right",
-                  upscale_2x: true,
-                  negative_prompt: "ugly, deformed, noisy, blurry, distorted",
-                }
-              })
-            });
-            
-            if (!response.ok) {
-              const errorData = await response.json();
-              console.error("Generate API - Direct API error:", errorData);
-              throw new Error(`Direct API error: ${response.status} ${response.statusText}`);
-            }
-            
-            const prediction = await response.json();
-            console.log("Generate API - Prediction created:", prediction);
-            
-            // For direct API, we would need to poll for results, but we'll use fallback for now
-            // as this is just a backup approach
-          } catch (directApiError) {
-            console.error("Generate API - Direct API fallback also failed:", directApiError);
-          }
+          throw replicateError;
         }
       } else {
-        console.log("Generate API - Replicate client not available, using fallback");
+        console.log("Generate API - No Replicate API token available, using fallback");
+        throw new Error('No Replicate API token available');
       }
       
       // If Replicate failed or is not available, use local fallback

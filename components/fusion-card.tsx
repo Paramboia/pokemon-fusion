@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Heart, Download, Share } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { downloadImage } from '@/lib/utils'
 import { dbService, FusionDB } from '@/lib/supabase-client'
 import { useUser } from "@clerk/nextjs";
 import { toast } from 'sonner'
+import styles from './fusion-card.module.css'
 
 interface FusionCardProps {
   fusion: FusionDB
@@ -20,8 +21,25 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
   const [showShareOptions, setShowShareOptions] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes)
+  const [isMobile, setIsMobile] = useState(false)
   const { user } = useUser();
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkIfMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
 
   const handleLike = async () => {
     try {
@@ -69,10 +87,10 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
   };
 
   return (
-    <div className="relative">
+    <div className={styles.cardContainer}>
       <Card className="overflow-hidden">
         {/* Image container */}
-        <div className="relative aspect-square">
+        <div className={styles.imageContainer}>
           <Image
             src={fusion.fusion_image}
             alt={fusion.fusion_name}
@@ -80,54 +98,92 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
             className="object-contain p-4"
           />
           
-          {/* Action buttons - always visible at the bottom */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/70 py-2 flex justify-center gap-4">
-            {/* Like button */}
-            <button 
-              onClick={handleLike}
-              className="bg-white/20 hover:bg-white/40 rounded-full p-2 transition-colors"
-              aria-label="Like fusion"
-            >
-              <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-red-500' : ''}`} />
-            </button>
-            
-            {/* Download button */}
-            <button 
-              onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
-              className="bg-white/20 hover:bg-white/40 rounded-full p-2 transition-colors"
-              aria-label="Download fusion"
-            >
-              <Download className="h-5 w-5 text-white" />
-            </button>
-            
-            {/* Share button */}
-            <button 
-              onClick={() => setShowShareOptions(!showShareOptions)}
-              className="bg-white/20 hover:bg-white/40 rounded-full p-2 transition-colors"
-              aria-label="Share fusion"
-            >
-              <Share className="h-5 w-5 text-white" />
-            </button>
-          </div>
+          {/* Desktop hover overlay */}
+          {showActions && !isMobile && (
+            <div className={styles.hoverOverlay}>
+              <div className="flex gap-4">
+                {/* Like button */}
+                <button 
+                  onClick={handleLike}
+                  className={styles.actionButton}
+                  aria-label="Like fusion"
+                >
+                  <Heart className={`${styles.actionIcon} ${isLiked ? 'fill-red-500' : ''}`} />
+                </button>
+                
+                {/* Download button */}
+                <button 
+                  onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
+                  className={styles.actionButton}
+                  aria-label="Download fusion"
+                >
+                  <Download className={styles.actionIcon} />
+                </button>
+                
+                {/* Share button */}
+                <button 
+                  onClick={() => setShowShareOptions(!showShareOptions)}
+                  className={styles.actionButton}
+                  aria-label="Share fusion"
+                >
+                  <Share className={styles.actionIcon} />
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Mobile permanent action bar */}
+          {showActions && isMobile && (
+            <div className={styles.mobileActionBar}>
+              <div className="flex gap-4">
+                {/* Like button */}
+                <button 
+                  onClick={handleLike}
+                  className={styles.actionButton}
+                  aria-label="Like fusion"
+                >
+                  <Heart className={`${styles.actionIcon} ${isLiked ? 'fill-red-500' : ''}`} />
+                </button>
+                
+                {/* Download button */}
+                <button 
+                  onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
+                  className={styles.actionButton}
+                  aria-label="Download fusion"
+                >
+                  <Download className={styles.actionIcon} />
+                </button>
+                
+                {/* Share button */}
+                <button 
+                  onClick={() => setShowShareOptions(!showShareOptions)}
+                  className={styles.actionButton}
+                  aria-label="Share fusion"
+                >
+                  <Share className={styles.actionIcon} />
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* Share options popup */}
           {showShareOptions && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-black/90 rounded-lg p-3 flex flex-col gap-2 z-10">
+            <div className={styles.shareOptions}>
               <button 
                 onClick={() => handleShare('twitter')}
-                className="text-white hover:text-blue-400 px-4 py-2 text-sm transition-colors"
+                className={`${styles.shareButton} ${styles.twitterButton}`}
               >
                 Twitter
               </button>
               <button 
                 onClick={() => handleShare('facebook')}
-                className="text-white hover:text-blue-600 px-4 py-2 text-sm transition-colors"
+                className={`${styles.shareButton} ${styles.facebookButton}`}
               >
                 Facebook
               </button>
               <button 
                 onClick={() => handleShare('reddit')}
-                className="text-white hover:text-orange-500 px-4 py-2 text-sm transition-colors"
+                className={`${styles.shareButton} ${styles.redditButton}`}
               >
                 Reddit
               </button>

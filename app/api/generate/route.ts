@@ -361,16 +361,28 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
     const pokemon2Image = pokemon2Data.image_url;
     
     // Check if we should use the Replicate API or local fallback
-    const isReplicateConfigured = !!(process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN);
+    const replicateToken = process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN;
+    const isReplicateConfigured = !!replicateToken;
+    
+    console.log("Generate API - Replicate token available:", !!replicateToken);
+    console.log("Generate API - Replicate token length:", replicateToken ? replicateToken.length : 0);
     
     if (isReplicateConfigured) {
       try {
         console.log("Generate API - Using Replicate API for fusion generation");
+        console.log("Generate API - Pokemon 1 image URL:", pokemon1Image);
+        console.log("Generate API - Pokemon 2 image URL:", pokemon2Image);
+        
+        // Initialize Replicate with the token
+        const replicateInstance = new Replicate({
+          auth: replicateToken,
+        });
         
         // Call the Replicate API to generate the fusion image
-        const output = await replicate.run(
-          "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-          {
+        // Note: According to the documentation, we need to pass the input as a separate object
+        const output = await replicateInstance.run(
+          "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867", 
+          { 
             input: {
               image_1: pokemon1Image,
               image_2: pokemon2Image,
@@ -382,10 +394,26 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
           }
         );
         
-        console.log("Generate API - Replicate API response received");
+        console.log("Generate API - Replicate API response received:", output);
         
-        // Get the generated image URL
-        const fusionImageUrl = Array.isArray(output) ? output[0] : output;
+        // Get the generated image URL - the output could be an array or a string
+        let fusionImageUrl;
+        if (Array.isArray(output)) {
+          fusionImageUrl = output[0];
+        } else if (typeof output === 'string') {
+          fusionImageUrl = output;
+        } else if (output && typeof output === 'object') {
+          // If it's an object, try to find a URL property
+          const possibleUrls = Object.values(output).filter(val => 
+            typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://'))
+          );
+          fusionImageUrl = possibleUrls.length > 0 ? possibleUrls[0] : null;
+        }
+        
+        if (!fusionImageUrl) {
+          console.error("Generate API - No image URL in Replicate response:", output);
+          return pokemon1Image; // Fallback to first Pokemon image
+        }
         
         // Generate a unique filename for the fusion image
         const fusionId = uuidv4();
@@ -397,6 +425,8 @@ async function generateFusionImage(pokemon1Id: number, pokemon2Id: number): Prom
           'fusions',
           filename
         );
+        
+        console.log("Generate API - Stored image URL:", storedImageUrl);
         
         // Return the stored image URL or fall back to the original URL
         return storedImageUrl || fusionImageUrl;

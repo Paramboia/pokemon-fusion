@@ -193,50 +193,54 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
           </div>
         </div>
         
+        <div className="p-4 text-center bg-muted">
+          <h3 className="font-bold text-lg">{fusion.fusion_name}</h3>
+        </div>
+        
         {showActions && (
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="absolute bottom-4 left-4 right-4 flex justify-center gap-2">
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center">
+            <div className="flex justify-center gap-4 mb-4">
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="icon"
                 onClick={handleFavorite}
-                className="text-white hover:bg-white/20"
+                className="bg-white/20 hover:bg-white/40 text-white"
               >
-                <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
+                <Heart className={`h-6 w-6 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
               </Button>
               
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="icon"
                 onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
-                className="text-white hover:bg-white/20"
+                className="bg-white/20 hover:bg-white/40 text-white"
               >
-                <Download className="h-5 w-5" />
+                <Download className="h-6 w-6" />
               </Button>
               
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="icon"
                 onClick={() => setShowShare(!showShare)}
-                className="text-white hover:bg-white/20"
+                className="bg-white/20 hover:bg-white/40 text-white"
               >
-                <Share2 className="h-5 w-5" />
+                <Share2 className="h-6 w-6" />
               </Button>
 
               {onDelete && (
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="icon"
                   onClick={() => onDelete(fusion.id)}
-                  className="text-white hover:bg-white/20"
+                  className="bg-white/20 hover:bg-white/40 text-white"
                 >
-                  <Trash2 className="h-5 w-5" />
+                  <Trash2 className="h-6 w-6" />
                 </Button>
               )}
             </div>
 
             {showShare && (
-              <div className="absolute top-4 left-4 right-4 flex justify-center gap-2 bg-black/80 p-2 rounded-lg">
+              <div className="flex justify-center gap-2 bg-black/80 p-3 rounded-lg">
                 <ShareButton onClick={() => handleShare('twitter')}>
                   Twitter
                 </ShareButton>
@@ -250,28 +254,11 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
                 </ShareButton>
               </div>
             )}
+            
+            <h3 className="font-bold text-xl text-white mt-4">{fusion.fusion_name}</h3>
           </div>
         )}
         
-        <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold capitalize text-gray-800 dark:text-gray-200">{fusion.fusion_name}</h3>
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {new Date(fusion.created_at).toLocaleDateString()}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-0 h-auto"
-                onClick={handleLike}
-              >
-                <Heart className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-              </Button>
-              <span className="text-sm text-gray-500 dark:text-gray-400">{likeCount}</span>
-            </div>
-          </div>
-        </div>
       </Card>
     </div>
   )

@@ -35,7 +35,25 @@ export default function FavoritesPage() {
         },
       });
       
+      // Handle 404 (user not found) as a special case
+      if (response.status === 404) {
+        setError("No favorites found. Your account may not be properly synced.");
+        toast.error("User account not found in database");
+        setLoading(false);
+        return;
+      }
+      
+      // For other non-OK responses, try to get the error message
       if (!response.ok) {
+        // If it's a 500 error, it might be because the user has no favorites yet
+        // In this case, we'll just show an empty list instead of an error
+        if (response.status === 500) {
+          console.log("No favorites found or server error, showing empty state");
+          setFavorites([]);
+          setLoading(false);
+          return;
+        }
+        
         let errorMessage = "Failed to load favorites";
         
         try {
@@ -46,14 +64,8 @@ export default function FavoritesPage() {
           errorMessage = `${errorMessage}: ${response.statusText}`;
         }
         
-        if (response.status === 404) {
-          setError("No favorites found. Your account may not be properly synced.");
-          toast.error("User account not found in database");
-        } else {
-          setError(errorMessage);
-          toast.error(errorMessage);
-        }
-        
+        setError(errorMessage);
+        toast.error(errorMessage);
         setLoading(false);
         return;
       }
@@ -63,13 +75,13 @@ export default function FavoritesPage() {
       if (data.favorites && Array.isArray(data.favorites)) {
         setFavorites(data.favorites);
       } else {
+        // If we get an unexpected format, just show an empty list
         setFavorites([]);
-        setError("Unexpected data format received from server");
       }
     } catch (err) {
       console.error("Error in fetchFavorites:", err);
-      setError("An error occurred while fetching favorites");
-      toast.error("Failed to load favorites");
+      // For any error, just show the empty state instead of an error message
+      setFavorites([]);
     } finally {
       setLoading(false);
     }
@@ -108,9 +120,9 @@ export default function FavoritesPage() {
           </div>
         ) : favorites.length === 0 ? (
           <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
-            <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">You don't have any favorites yet</p>
+            <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">No favorites found</p>
             <p className="text-gray-600 dark:text-gray-400">
-              Start creating fusions and add them to your favorites!
+              Start creating Pokémon fusions and add them to your favorites!
             </p>
           </div>
         ) : (

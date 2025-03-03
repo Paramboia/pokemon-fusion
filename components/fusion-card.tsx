@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Heart, Download, Share2 } from 'lucide-react'
+import { Heart, Download, Share } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { downloadImage } from '@/lib/utils'
 import { dbService, FusionDB } from '@/lib/supabase-client'
@@ -20,7 +20,6 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
   const [showShareOptions, setShowShareOptions] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes)
-  const [forceShowOverlay, setForceShowOverlay] = useState(false)
   const { user } = useUser();
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
 
@@ -69,12 +68,8 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
     }
   };
 
-  const handleDoubleClick = () => {
-    setForceShowOverlay(!forceShowOverlay);
-  };
-
   return (
-    <div className="relative" onDoubleClick={handleDoubleClick}>
+    <div className="relative">
       <Card className="overflow-hidden">
         {/* Image container */}
         <div className="relative aspect-square">
@@ -85,70 +80,9 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
             className="object-contain p-4"
           />
           
-          {/* Hover overlay with actions - visible on hover or when forced */}
-          {showActions && (
-            <div 
-              className={`absolute inset-0 bg-black/70 flex items-center justify-center
-                ${forceShowOverlay ? 'opacity-100' : 'opacity-0 hover:opacity-100'}
-                transition-opacity duration-300`}
-            >
-              <div className="flex gap-4">
-                {/* Like button */}
-                <button 
-                  onClick={handleLike}
-                  className="bg-white/20 hover:bg-white/40 rounded-full p-3 transition-colors"
-                  aria-label="Like fusion"
-                >
-                  <Heart className={`h-6 w-6 text-white ${isLiked ? 'fill-red-500' : ''}`} />
-                </button>
-                
-                {/* Download button */}
-                <button 
-                  onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
-                  className="bg-white/20 hover:bg-white/40 rounded-full p-3 transition-colors"
-                  aria-label="Download fusion"
-                >
-                  <Download className="h-6 w-6 text-white" />
-                </button>
-                
-                {/* Share button */}
-                <button 
-                  onClick={() => setShowShareOptions(!showShareOptions)}
-                  className="bg-white/20 hover:bg-white/40 rounded-full p-3 transition-colors"
-                  aria-label="Share fusion"
-                >
-                  <Share2 className="h-6 w-6 text-white" />
-                </button>
-              </div>
-              
-              {/* Share options popup */}
-              {showShareOptions && (
-                <div className="absolute bottom-20 bg-black/90 rounded-lg p-3 flex flex-col gap-2 z-10">
-                  <button 
-                    onClick={() => handleShare('twitter')}
-                    className="text-white hover:text-blue-400 px-4 py-2 text-sm transition-colors"
-                  >
-                    Twitter
-                  </button>
-                  <button 
-                    onClick={() => handleShare('facebook')}
-                    className="text-white hover:text-blue-600 px-4 py-2 text-sm transition-colors"
-                  >
-                    Facebook
-                  </button>
-                  <button 
-                    onClick={() => handleShare('reddit')}
-                    className="text-white hover:text-orange-500 px-4 py-2 text-sm transition-colors"
-                  >
-                    Reddit
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Mobile-friendly permanent action bar at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/70 py-2 flex justify-center gap-4 md:hidden">
+          {/* Action buttons - always visible at the bottom */}
+          <div className="absolute bottom-0 left-0 right-0 bg-black/70 py-2 flex justify-center gap-4">
+            {/* Like button */}
             <button 
               onClick={handleLike}
               className="bg-white/20 hover:bg-white/40 rounded-full p-2 transition-colors"
@@ -157,6 +91,7 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
               <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-red-500' : ''}`} />
             </button>
             
+            {/* Download button */}
             <button 
               onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
               className="bg-white/20 hover:bg-white/40 rounded-full p-2 transition-colors"
@@ -165,14 +100,39 @@ export function FusionCard({ fusion, onDelete, onLike, showActions = true }: Fus
               <Download className="h-5 w-5 text-white" />
             </button>
             
+            {/* Share button */}
             <button 
               onClick={() => setShowShareOptions(!showShareOptions)}
               className="bg-white/20 hover:bg-white/40 rounded-full p-2 transition-colors"
               aria-label="Share fusion"
             >
-              <Share2 className="h-5 w-5 text-white" />
+              <Share className="h-5 w-5 text-white" />
             </button>
           </div>
+          
+          {/* Share options popup */}
+          {showShareOptions && (
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-black/90 rounded-lg p-3 flex flex-col gap-2 z-10">
+              <button 
+                onClick={() => handleShare('twitter')}
+                className="text-white hover:text-blue-400 px-4 py-2 text-sm transition-colors"
+              >
+                Twitter
+              </button>
+              <button 
+                onClick={() => handleShare('facebook')}
+                className="text-white hover:text-blue-600 px-4 py-2 text-sm transition-colors"
+              >
+                Facebook
+              </button>
+              <button 
+                onClick={() => handleShare('reddit')}
+                className="text-white hover:text-orange-500 px-4 py-2 text-sm transition-colors"
+              >
+                Reddit
+              </button>
+            </div>
+          )}
         </div>
         
         {/* Pokemon name */}

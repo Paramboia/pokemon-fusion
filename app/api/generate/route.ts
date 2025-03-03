@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs';
 import { v4 as uuidv4 } from 'uuid';
-import Replicate from 'replicate';
 import { supabaseClient } from '@/lib/supabase-server';
 import { getSupabaseUserId, uploadImageFromUrl } from '@/lib/supabase-server-actions';
 import { savePokemon, saveFusion } from '@/lib/supabase-server-actions';
@@ -33,10 +32,11 @@ const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   },
 });
 
-// Initialize Replicate client
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN || '',
-});
+// Check if Replicate API token is available
+const replicateToken = process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN || '';
+console.log('Generate API - Replicate token available:', !!replicateToken);
+console.log('Generate API - Replicate token length:', replicateToken ? replicateToken.length : 0);
+console.log('Generate API - Replicate token first 4 chars:', replicateToken ? replicateToken.substring(0, 4) : 'none');
 
 // Fallback function to generate a fusion image locally
 // This is a simple implementation that just returns one of the original Pokemon images
@@ -47,6 +47,90 @@ const generateLocalFusion = (pokemon1Url: string, pokemon2Url: string, name1: st
   // In a real implementation, you would combine the images
   return pokemon1Url;
 };
+
+// Direct API call to Replicate
+async function callReplicateAPI(model: string, input: any) {
+  if (!replicateToken) {
+    console.log("Generate API - No Replicate token available");
+    return null;
+  }
+
+  try {
+    console.log(`Generate API - Calling Replicate API for model: ${model}`);
+    
+    // Create prediction
+    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Token ${replicateToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        version: model,
+        input: input
+      })
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error(`Generate API - Error creating prediction: ${createResponse.status} ${errorText}`);
+      return null;
+    }
+
+    const prediction = await createResponse.json();
+    console.log(`Generate API - Prediction created with ID: ${prediction.id}`);
+
+    // Poll for completion
+    let completed = false;
+    let result = null;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 attempts with 2 second delay = 60 seconds max
+
+    while (!completed && attempts < maxAttempts) {
+      attempts++;
+      
+      // Wait 2 seconds between polling attempts
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Get prediction status
+      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Token ${replicateToken}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error(`Generate API - Error checking prediction status: ${statusResponse.status} ${errorText}`);
+        break;
+      }
+
+      const status = await statusResponse.json();
+      console.log(`Generate API - Prediction status: ${status.status}, attempt ${attempts}/${maxAttempts}`);
+
+      if (status.status === "succeeded") {
+        completed = true;
+        result = status.output;
+        console.log("Generate API - Prediction completed successfully");
+      } else if (status.status === "failed" || status.status === "canceled") {
+        console.error(`Generate API - Prediction ${status.status}: ${status.error || "Unknown error"}`);
+        break;
+      }
+    }
+
+    if (!completed) {
+      console.log("Generate API - Prediction timed out or failed");
+      return null;
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Generate API - Error calling Replicate API:", error);
+    return null;
+  }
+}
 
 // Helper function to get the Supabase user ID from Clerk ID
 async function getSupabaseUserId(clerkId: string): Promise<string | null> {
@@ -226,10 +310,6 @@ export async function POST(req: Request) {
       
       console.log("Generate API - Generated fusion name:", capitalizedFusionName);
       
-      // Check if Replicate API token is available
-      const replicateToken = process.env.REPLICATE_API_TOKEN || process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN;
-      console.log("Generate API - Replicate token available:", !!replicateToken);
-      
       let fusionImageUrl = null;
       let isLocalFallback = false;
       
@@ -238,80 +318,63 @@ export async function POST(req: Request) {
         try {
           console.log("Generate API - Attempting to use Replicate for fusion generation");
           
-          // Initialize Replicate with the token
-          const replicateInstance = new Replicate({
-            auth: replicateToken,
-          });
-          
           // Try SDXL model first
-          try {
-            console.log("Generate API - Trying SDXL model");
-            
-            const output = await replicateInstance.run(
-              "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-              {
-                input: {
-                  prompt: `a fusion of two pokemon, one is ${name1} and the other is ${name2}, digital art, sharp, solid color, thick outline, game art style, official pokemon art style`,
-                  negative_prompt: "garish, soft, ugly, broken, distorted, deformed, low quality, blurry",
-                  width: 768,
-                  height: 768,
-                  refine: "expert_ensemble_refiner",
-                  scheduler: "K_EULER",
-                  lora_scale: 0.6,
-                  num_outputs: 1,
-                  guidance_scale: 7.5,
-                  apply_watermark: false,
-                  high_noise_frac: 0.8,
-                  prompt_strength: 0.8,
-                  num_inference_steps: 30
-                }
-              }
-            );
-            
-            console.log("Generate API - SDXL output received:", !!output);
-            
-            if (Array.isArray(output) && output.length > 0) {
-              fusionImageUrl = output[0];
-            } else if (typeof output === 'string') {
-              fusionImageUrl = output;
+          const sdxlModel = "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b";
+          const sdxlInput = {
+            prompt: `a fusion of two pokemon, one is ${name1} and the other is ${name2}, digital art, sharp, solid color, thick outline, game art style, official pokemon art style`,
+            negative_prompt: "garish, soft, ugly, broken, distorted, deformed, low quality, blurry",
+            width: 768,
+            height: 768,
+            refine: "expert_ensemble_refiner",
+            scheduler: "K_EULER",
+            lora_scale: 0.6,
+            num_outputs: 1,
+            guidance_scale: 7.5,
+            apply_watermark: false,
+            high_noise_frac: 0.8,
+            prompt_strength: 0.8,
+            num_inference_steps: 30
+          };
+          
+          const sdxlOutput = await callReplicateAPI(sdxlModel, sdxlInput);
+          
+          if (sdxlOutput) {
+            if (Array.isArray(sdxlOutput) && sdxlOutput.length > 0) {
+              fusionImageUrl = sdxlOutput[0];
+            } else if (typeof sdxlOutput === 'string') {
+              fusionImageUrl = sdxlOutput;
             }
-          } catch (sdxlError) {
-            console.error("Generate API - SDXL model error:", sdxlError);
           }
           
           // If SDXL failed, try the image-merger model
           if (!fusionImageUrl) {
             console.log("Generate API - SDXL failed, trying image-merger model");
             
-            try {
-              const output = await replicateInstance.run(
-                "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-                {
-                  input: {
-                    image_1: pokemon1,
-                    image_2: pokemon2,
-                    merge_mode: "left_right",
-                    upscale_2x: true,
-                    prompt: "a pokemon, digital art, sharp, solid color, thick outline",
-                    negative_prompt: "garish, soft, ugly, broken, distorted"
-                  }
-                }
-              );
-              
-              console.log("Generate API - Image-merger output received:", !!output);
-              
-              if (Array.isArray(output) && output.length > 0) {
-                fusionImageUrl = output[0];
-              } else if (typeof output === 'string') {
-                fusionImageUrl = output;
+            const mergerModel = "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867";
+            const mergerInput = {
+              image_1: pokemon1,
+              image_2: pokemon2,
+              merge_mode: "left_right",
+              upscale_2x: true,
+              prompt: "a pokemon, digital art, sharp, solid color, thick outline",
+              negative_prompt: "garish, soft, ugly, broken, distorted"
+            };
+            
+            const mergerOutput = await callReplicateAPI(mergerModel, mergerInput);
+            
+            if (mergerOutput) {
+              if (Array.isArray(mergerOutput) && mergerOutput.length > 0) {
+                fusionImageUrl = mergerOutput[0];
+              } else if (typeof mergerOutput === 'string') {
+                fusionImageUrl = mergerOutput;
               }
-            } catch (mergerError) {
-              console.error("Generate API - Image-merger model error:", mergerError);
             }
           }
         } catch (replicateError) {
           console.error("Generate API - Replicate API error:", replicateError);
         }
+      } else {
+        console.log("Generate API - Replicate token not available, using fallback");
       }
       
       // If Replicate failed or is not available, use local fallback

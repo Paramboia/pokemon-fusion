@@ -10,7 +10,7 @@ export function FavoritesAuthGate({ children }: FavoritesAuthGateProps) {
   return (
     <AuthGate
       title="Your Favorite Fusions"
-      message="Sign in to save and view your favorite Pokémon fusions in one place!"
+      message="Sign in to view and manage your favorite Pokémon fusions!"
     >
       {children}
     </AuthGate>

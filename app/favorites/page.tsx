@@ -7,6 +7,7 @@ import { Fusion } from "@/types";
 import FusionCard from "@/components/fusion-card";
 import { SparklesText } from "@/components/ui";
 import { Loader2, AlertCircle } from "lucide-react";
+import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
 
 export default function FavoritesPage() {
   const { userId, isLoaded, isSignedIn, getToken } = useAuth();
@@ -17,7 +18,6 @@ export default function FavoritesPage() {
   useEffect(() => {
     async function fetchFavorites() {
       if (!isLoaded || !isSignedIn) {
-        console.log("Favorites page - User not authenticated yet");
         return;
       }
 
@@ -25,11 +25,8 @@ export default function FavoritesPage() {
       setError(null);
       
       try {
-        console.log("Favorites page - Fetching favorites for user:", userId);
-        
         // Get the authentication token
         const token = await getToken();
-        console.log("Favorites page - Auth token obtained:", token ? "Yes" : "No");
         
         // Prepare headers with authentication
         const headers: HeadersInit = {
@@ -46,8 +43,6 @@ export default function FavoritesPage() {
           headers,
         });
         
-        console.log("Favorites page - API response status:", response.status);
-        
         if (!response.ok) {
           let errorMessage = "Failed to load favorites";
           
@@ -59,12 +54,7 @@ export default function FavoritesPage() {
             errorMessage = `${errorMessage}: ${response.statusText}`;
           }
           
-          console.error("Favorites page - Error fetching favorites:", errorMessage);
-          
-          if (response.status === 401) {
-            setError("You need to be signed in to view favorites");
-            toast.error("Authentication required to view favorites");
-          } else if (response.status === 404) {
+          if (response.status === 404) {
             setError("No favorites found. Your account may not be properly synced.");
             toast.error("User account not found in database");
           } else {
@@ -77,18 +67,15 @@ export default function FavoritesPage() {
         }
         
         const data = await response.json();
-        console.log("Favorites page - Received favorites data:", data);
         
         if (data.favorites && Array.isArray(data.favorites)) {
           setFavorites(data.favorites);
-          console.log("Favorites page - Set favorites count:", data.favorites.length);
         } else {
-          console.warn("Favorites page - Unexpected data format:", data);
           setFavorites([]);
           setError("Unexpected data format received from server");
         }
       } catch (err) {
-        console.error("Favorites page - Error in fetchFavorites:", err);
+        console.error("Error in fetchFavorites:", err);
         setError("An error occurred while fetching favorites");
         toast.error("Failed to load favorites");
       } finally {
@@ -137,20 +124,22 @@ export default function FavoritesPage() {
         </p>
       </div>
 
-      {favorites.length === 0 ? (
-        <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
-          <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">You don't have any favorites yet</p>
-          <p className="text-gray-600 dark:text-gray-400">
-            Start creating fusions and add them to your favorites!
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {favorites.map((fusion) => (
-            <FusionCard key={fusion.id} fusion={fusion} />
-          ))}
-        </div>
-      )}
+      <FavoritesAuthGate>
+        {favorites.length === 0 ? (
+          <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
+            <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">You don't have any favorites yet</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Start creating fusions and add them to your favorites!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {favorites.map((fusion) => (
+              <FusionCard key={fusion.id} fusion={fusion} />
+            ))}
+          </div>
+        )}
+      </FavoritesAuthGate>
     </div>
   );
 } 

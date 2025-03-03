@@ -4,13 +4,104 @@ import Replicate from 'replicate';
 import { auth } from '@clerk/nextjs/server';
 import { saveFusion, uploadImageFromUrl } from '@/lib/supabase-server-actions';
 
+// Log environment variables for debugging
+console.log('Generate API - Environment variables check:');
+console.log('REPLICATE_API_TOKEN exists:', !!process.env.REPLICATE_API_TOKEN);
+console.log('REPLICATE_API_TOKEN length:', process.env.REPLICATE_API_TOKEN ? process.env.REPLICATE_API_TOKEN.length : 0);
+console.log('REPLICATE_API_TOKEN first 5 chars:', process.env.REPLICATE_API_TOKEN ? process.env.REPLICATE_API_TOKEN.substring(0, 5) : 'none');
+
 // Initialize Replicate client
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
 console.log('Generate API - Replicate client initialized with token:', !!process.env.REPLICATE_API_TOKEN);
-console.log('Generate API - REPLICATE_API_TOKEN environment variable:', process.env.REPLICATE_API_TOKEN ? 'Present (starts with: ' + process.env.REPLICATE_API_TOKEN.substring(0, 5) + '...)' : 'Missing');
+
+// Direct API call function as a fallback
+async function callReplicateDirectly(pokemon1Url: string, pokemon2Url: string, name1: string, name2: string) {
+  console.log('Generate API - Attempting direct API call to Replicate');
+  
+  if (!process.env.REPLICATE_API_TOKEN) {
+    console.log('Generate API - No token available for direct API call');
+    return null;
+  }
+  
+  try {
+    // Create prediction
+    console.log('Generate API - Creating prediction via direct API call');
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        version: "db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+        input: {
+          image_1: pokemon1Url,
+          image_2: pokemon2Url,
+          merge_mode: "overlay",
+          prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
+          negative_prompt: "low quality, blurry, distorted",
+          upscale_2x: false
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Generate API - Direct API call failed:', errorData);
+      return null;
+    }
+    
+    const prediction = await response.json();
+    console.log('Generate API - Prediction created:', prediction.id);
+    
+    // Poll for completion
+    let attempts = 0;
+    const maxAttempts = 30;
+    
+    while (attempts < maxAttempts) {
+      console.log(`Generate API - Polling attempt ${attempts + 1}/${maxAttempts}`);
+      
+      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+        headers: {
+          'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!statusResponse.ok) {
+        console.error('Generate API - Failed to check prediction status');
+        break;
+      }
+      
+      const status = await statusResponse.json();
+      console.log('Generate API - Prediction status:', status.status);
+      
+      if (status.status === 'succeeded') {
+        console.log('Generate API - Prediction succeeded!');
+        console.log('Generate API - Output:', status.output);
+        return status.output;
+      }
+      
+      if (status.status === 'failed') {
+        console.error('Generate API - Prediction failed:', status.error);
+        return null;
+      }
+      
+      // Wait before polling again
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
+    }
+    
+    console.log('Generate API - Exceeded maximum polling attempts');
+    return null;
+  } catch (error) {
+    console.error('Generate API - Error in direct API call:', error);
+    return null;
+  }
+}
 
 // Set a longer timeout for the API route
 export const maxDuration = 60; // 60 seconds timeout for the API route
@@ -136,48 +227,41 @@ export async function POST(req: Request) {
         upscale_2x: false
       });
       
-      // Call the Replicate API to generate the fusion image using the image-merger model
-      console.log("Generate API - Starting Replicate API call...");
-      const output: any = await replicate.run(
-        "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-        {
-          input: {
-            image_1: pokemon1,
-            image_2: pokemon2,
-            merge_mode: "overlay",
-            prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
-            negative_prompt: "low quality, blurry, distorted",
-            upscale_2x: false
+      // Try using the Replicate client library first
+      let output: any = null;
+      let usedDirectApi = false;
+      
+      try {
+        console.log("Generate API - Starting Replicate API call using client library...");
+        output = await replicate.run(
+          "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+          {
+            input: {
+              image_1: pokemon1,
+              image_2: pokemon2,
+              merge_mode: "overlay",
+              prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
+              negative_prompt: "low quality, blurry, distorted",
+              upscale_2x: false
+            }
           }
-        }
-      );
+        );
+        console.log("Generate API - Replicate client library call completed");
+      } catch (clientError) {
+        console.error("Generate API - Error using client library:", clientError);
+        console.log("Generate API - Falling back to direct API call");
+        
+        // Try direct API call as fallback
+        output = await callReplicateDirectly(pokemon1, pokemon2, name1, name2);
+        usedDirectApi = true;
+      }
       
       console.log("Generate API - Replicate API call completed");
+      console.log("Generate API - Used direct API:", usedDirectApi);
       console.log("Generate API - Replicate API response type:", typeof output);
       console.log("Generate API - Replicate API response is array?", Array.isArray(output));
       
       // Handle different output types with proper type checking
-      if (Array.isArray(output)) {
-        console.log("Generate API - Replicate API response array length:", output.length);
-        if (output.length > 0) {
-          console.log("Generate API - First item type:", typeof output[0]);
-          if (typeof output[0] === 'string') {
-            console.log("Generate API - First item preview:", output[0].substring(0, 50) + "...");
-          } else {
-            console.log("Generate API - First item is not a string");
-          }
-        }
-      } else if (typeof output === 'string') {
-        console.log("Generate API - Output string preview:", output.substring(0, 50) + "...");
-      } else if (output === null) {
-        console.log("Generate API - Output is null");
-      } else if (output && typeof output === 'object') {
-        console.log("Generate API - Output keys:", Object.keys(output));
-      } else {
-        console.log("Generate API - Output is of unexpected type:", typeof output);
-      }
-      
-      // Check if we got a valid output
       if (Array.isArray(output) && output.length > 0 && typeof output[0] === 'string') {
         console.log("Generate API - Valid array output, returning first item");
         const fusionImageUrl = output[0];

@@ -1,99 +1,19 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import Replicate from 'replicate';
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { saveFusion, uploadImageFromUrl } from '@/lib/supabase-server-actions';
-import { createClient } from '@supabase/supabase-js';
+import { auth } from '@clerk/nextjs/server';
+import { saveFusion } from '@/lib/supabase-server-actions';
+import { getSupabaseAdminClient } from '@/lib/supabase-server';
 
 // Log environment variables for debugging
 console.log('Generate API - REPLICATE_API_TOKEN available:', !!process.env.REPLICATE_API_TOKEN);
 console.log('Generate API - NEXT_PUBLIC_SUPABASE_URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
 console.log('Generate API - SUPABASE_SERVICE_ROLE_KEY available:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-// Direct API call function as a fallback
-async function callReplicateDirectly(pokemon1Url: string, pokemon2Url: string, name1: string, name2: string) {
-  console.log('Generate API - Attempting direct API call to Replicate');
-  
-  if (!process.env.REPLICATE_API_TOKEN) {
-    console.log('Generate API - No token available for direct API call');
-    return null;
-  }
-  
-  try {
-    // Create prediction
-    console.log('Generate API - Creating prediction via direct API call');
-    const response = await fetch('https://api.replicate.com/v1/predictions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        version: "db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-        input: {
-          image_1: pokemon1Url,
-          image_2: pokemon2Url,
-          merge_mode: "full",
-          prompt: `a fusion of ${name1} and ${name2} pokemon, high quality, detailed`,
-          negative_prompt: "low quality, blurry, distorted",
-          upscale_2x: false
-        }
-      })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Generate API - Direct API call failed:', errorData);
-      return null;
-    }
-    
-    const prediction = await response.json();
-    console.log('Generate API - Prediction created:', prediction.id);
-    
-    // Poll for completion
-    let attempts = 0;
-    const maxAttempts = 30;
-    
-    while (attempts < maxAttempts) {
-      console.log(`Generate API - Polling attempt ${attempts + 1}/${maxAttempts}`);
-      
-      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers: {
-          'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      if (!statusResponse.ok) {
-        console.error('Generate API - Failed to check prediction status');
-        break;
-      }
-      
-      const status = await statusResponse.json();
-      console.log('Generate API - Prediction status:', status.status);
-      
-      if (status.status === 'succeeded') {
-        console.log('Generate API - Prediction succeeded!');
-        console.log('Generate API - Output:', status.output);
-        return status.output;
-      }
-      
-      if (status.status === 'failed') {
-        console.error('Generate API - Prediction failed:', status.error);
-        return null;
-      }
-      
-      // Wait before polling again
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      attempts++;
-    }
-    
-    console.log('Generate API - Exceeded maximum polling attempts');
-    return null;
-  } catch (error) {
-    console.error('Generate API - Error in direct API call:', error);
-    return null;
-  }
+// Function to get Pokémon image URL by ID
+function getPokemonImageUrl(id: number): string {
+  // Use the official Pokémon sprites from PokeAPI
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
 
 // Set a longer timeout for the API route
@@ -111,110 +31,190 @@ export async function POST(req: Request) {
     
     // Validate the input
     if (!pokemon1Id || !pokemon2Id || !fusionName) {
-      console.error("Generate API - Missing required fields");
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      console.error("Generate API - Missing required fields in request");
+      return NextResponse.json({ error: 'Missing required fields in request' }, { status: 400 });
     }
     
-    // For testing purposes, return a mock response
-    console.log("Generate API - Returning mock response for testing");
+    // Get the Supabase admin client
+    const supabase = await getSupabaseAdminClient();
+    if (!supabase) {
+      console.error('Generate API - Failed to get Supabase admin client');
+      return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
+    }
     
-    // Generate a random UUID for the fusion
-    const fusionId = uuidv4();
-    
-    // Get the user ID from the session or generate a test user ID
+    // Get the user ID from the session or create a test user
     let userId;
     try {
       const session = await auth();
       userId = session?.userId;
-      console.log('User ID from auth():', userId);
-    } catch (authError) {
-      console.error('Error getting user ID from auth():', authError);
-      // Generate a test user ID for testing
-      userId = uuidv4();
-      console.log('Generated test user ID:', userId);
-    }
-    
-    // Create a Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase credentials not available');
-      return NextResponse.json({ 
-        error: 'Supabase credentials not available',
-        supabaseUrlAvailable: !!supabaseUrl,
-        supabaseServiceKeyAvailable: !!supabaseServiceKey
-      }, { status: 500 });
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Create a test user if it doesn't exist
-    const testUserId = uuidv4();
-    console.log('Creating test user with ID:', testUserId);
-    
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .insert({
-        id: testUserId,
-        name: 'Test User',
-        email: `test-${Date.now()}@example.com`
-      })
-      .select();
-    
-    if (userError) {
-      console.error('Error creating test user:', userError);
-      return NextResponse.json({ 
-        error: 'Error creating test user',
-        details: userError
-      }, { status: 500 });
-    }
-    
-    console.log('Test user created successfully:', userData);
-    
-    // Save the fusion to the database
-    console.log('Saving fusion to database...');
-    try {
-      // Create a test image URL
-      const testImageUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png';
+      console.log('Generate API - User ID from auth():', userId);
       
-      // Save the fusion
+      if (!userId) {
+        // Create a test user if no authenticated user
+        console.log('Generate API - No authenticated user, creating test user');
+        const testUserId = uuidv4();
+        
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .insert({
+            id: testUserId,
+            name: 'Test User',
+            email: `test-${Date.now()}@example.com`
+          })
+          .select();
+        
+        if (userError) {
+          console.error('Generate API - Error creating test user:', userError);
+          return NextResponse.json({ 
+            error: 'Error creating test user',
+            details: userError
+          }, { status: 500 });
+        }
+        
+        userId = testUserId;
+        console.log('Generate API - Test user created with ID:', userId);
+      }
+    } catch (authError) {
+      console.error('Generate API - Error getting user ID from auth():', authError);
+      return NextResponse.json({ 
+        error: 'Authentication error',
+        details: authError instanceof Error ? authError.message : String(authError)
+      }, { status: 401 });
+    }
+    
+    // Get Pokémon data from the database
+    console.log('Generate API - Fetching Pokémon data from database');
+    const { data: pokemon1Data, error: pokemon1Error } = await supabase
+      .from('pokemon')
+      .select('id, name')
+      .eq('id', pokemon1Id)
+      .single();
+    
+    if (pokemon1Error || !pokemon1Data) {
+      console.error('Generate API - Error fetching Pokémon 1:', pokemon1Error);
+      return NextResponse.json({ 
+        error: 'Error fetching Pokémon 1',
+        details: pokemon1Error
+      }, { status: 404 });
+    }
+    
+    const { data: pokemon2Data, error: pokemon2Error } = await supabase
+      .from('pokemon')
+      .select('id, name')
+      .eq('id', pokemon2Id)
+      .single();
+    
+    if (pokemon2Error || !pokemon2Data) {
+      console.error('Generate API - Error fetching Pokémon 2:', pokemon2Error);
+      return NextResponse.json({ 
+        error: 'Error fetching Pokémon 2',
+        details: pokemon2Error
+      }, { status: 404 });
+    }
+    
+    console.log('Generate API - Pokémon data retrieved:', {
+      pokemon1: pokemon1Data,
+      pokemon2: pokemon2Data
+    });
+    
+    // Get image URLs for both Pokémon
+    const pokemon1ImageUrl = getPokemonImageUrl(pokemon1Data.id);
+    const pokemon2ImageUrl = getPokemonImageUrl(pokemon2Data.id);
+    
+    console.log('Generate API - Pokémon image URLs:', {
+      pokemon1ImageUrl,
+      pokemon2ImageUrl
+    });
+    
+    // Check if REPLICATE_API_TOKEN is available
+    if (!process.env.REPLICATE_API_TOKEN) {
+      console.error('Generate API - REPLICATE_API_TOKEN not available');
+      return NextResponse.json({ error: 'REPLICATE_API_TOKEN not available' }, { status: 500 });
+    }
+    
+    try {
+      console.log('Generate API - Initializing Replicate client');
+      const replicate = new Replicate({
+        auth: process.env.REPLICATE_API_TOKEN,
+      });
+      
+      console.log('Generate API - Running image-merger model');
+      const output = await replicate.run(
+        "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+        {
+          input: {
+            image_1: pokemon1ImageUrl,
+            image_2: pokemon2ImageUrl,
+            merge_mode: "full",
+            prompt: `a fusion of ${pokemon1Data.name} and ${pokemon2Data.name} pokemon, high quality, detailed`,
+            negative_prompt: "low quality, blurry, distorted",
+            upscale_2x: false
+          }
+        }
+      );
+      
+      console.log('Generate API - Replicate output:', output);
+      
+      if (!output || !Array.isArray(output) || output.length === 0) {
+        console.error('Generate API - No output from Replicate');
+        return NextResponse.json({ error: 'No output from Replicate' }, { status: 500 });
+      }
+      
+      // Get the first image from the output
+      const fusionImageUrl = output[0];
+      
+      // Save the fusion to the database
+      console.log('Generate API - Saving fusion to database');
       const result = await saveFusion({
-        userId: testUserId,
+        userId,
         pokemon1Id: parseInt(pokemon1Id),
         pokemon2Id: parseInt(pokemon2Id),
         fusionName,
-        fusionImage: testImageUrl
+        fusionImage: fusionImageUrl
       });
       
       if (result.error) {
-        console.error('Error saving fusion:', result.error);
+        console.error('Generate API - Error saving fusion:', result.error);
         return NextResponse.json({ 
           error: `Error saving fusion: ${result.error}`,
           details: result.error
         }, { status: 500 });
       }
       
-      console.log('Fusion saved successfully:', result.data);
+      console.log('Generate API - Fusion saved successfully:', result.data);
+      
+      // Safely access the fusion ID
+      let fusionId = uuidv4(); // Default to a new UUID
+      if (result.data && typeof result.data === 'object') {
+        // If result.data is an object with an id property
+        if ('id' in result.data) {
+          fusionId = String(result.data.id);
+        } 
+        // If result.data is an array with at least one object that has an id
+        else if (Array.isArray(result.data) && result.data.length > 0 && typeof result.data[0] === 'object' && 'id' in result.data[0]) {
+          fusionId = String(result.data[0].id);
+        }
+      }
       
       // Return the result
       return NextResponse.json({
         id: fusionId,
-        output: testImageUrl,
+        output: fusionImageUrl,
         fusionName,
         pokemon1Id,
         pokemon2Id,
         fusionData: result.data,
-        message: 'Fusion generated successfully (mock response)'
+        message: 'Fusion generated successfully'
       });
-    } catch (error) {
-      console.error('Error in generate route:', error);
+      
+    } catch (replicateError) {
+      console.error('Generate API - Error with Replicate:', replicateError);
       return NextResponse.json({ 
-        error: 'Error in generate route',
-        details: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
+        error: 'Error generating fusion with Replicate',
+        details: replicateError instanceof Error ? replicateError.message : String(replicateError)
       }, { status: 500 });
     }
+    
   } catch (error) {
     console.error("Generate API - Error in POST handler:", error);
     return NextResponse.json({ 

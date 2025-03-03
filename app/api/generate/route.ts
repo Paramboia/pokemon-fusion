@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Replicate from 'replicate';
 
 // Check if Replicate API key is available
-const replicateApiKey = process.env.REPLICATE_API_KEY || '';
+const replicateApiKey = process.env.REPLICATE_API_TOKEN || '';
 console.log('Generate API - Replicate API key available:', !!replicateApiKey);
 console.log('Generate API - Replicate API key length:', replicateApiKey ? replicateApiKey.length : 0);
 console.log('Generate API - Replicate API key first 4 chars:', replicateApiKey ? replicateApiKey.substring(0, 4) : 'none');

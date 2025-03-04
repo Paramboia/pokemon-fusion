@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { usePokemon, useFusion } from "@/hooks";
 import { PokemonSelector } from "@/components/pokemon-selector";
 import { Button, Card } from "@/components/ui";
-import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info, Share } from "lucide-react";
+import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info } from "lucide-react";
 import { SparklesText } from "@/components/ui";
 import type { Pokemon } from "@/types";
 import { toast } from "sonner";
@@ -189,19 +189,21 @@ export default function Home() {
                               toast.error('Failed to download image');
                             }
                           }}
-                          className="bg-white/20 hover:bg-white/40 rounded-full p-3 transition-colors"
+                          className="bg-gray-700/80 hover:bg-gray-800 rounded-full p-3 transition-colors shadow-lg flex items-center justify-center"
+                          style={{ width: '44px', height: '44px' }}
                           aria-label="Download fusion"
                         >
-                          <Download className="h-6 w-6 text-white" />
+                          <Download className="h-5 w-5 text-white" />
                         </button>
                         
                         {isSignedIn && (
                           <button 
                             onClick={() => setIsLiked(!isLiked)}
-                            className="bg-white/20 hover:bg-white/40 rounded-full p-3 transition-colors"
+                            className="bg-red-600/90 hover:bg-red-700 rounded-full p-3 transition-colors shadow-lg flex items-center justify-center"
+                            style={{ width: '44px', height: '44px' }}
                             aria-label="Like fusion"
                           >
-                            <Heart className={`h-6 w-6 text-white ${isLiked ? 'fill-red-500' : ''}`} />
+                            <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
                           </button>
                         )}
                         
@@ -251,10 +253,11 @@ export default function Home() {
                               });
                             }
                           }}
-                          className="bg-white/20 hover:bg-white/40 rounded-full p-3 transition-colors"
+                          className="bg-gray-700/80 hover:bg-gray-800 rounded-full p-3 transition-colors shadow-lg flex items-center justify-center"
+                          style={{ width: '44px', height: '44px' }}
                           aria-label="Share fusion"
                         >
-                          <Share className="h-6 w-6 text-white" />
+                          <Send className="h-5 w-5 text-white" />
                         </button>
                       </div>
                     </div>
@@ -360,7 +363,7 @@ export default function Home() {
                         });
                       }
                     }}>
-                      <Share className="mr-2 h-4 w-4" />
+                      <Send className="mr-2 h-4 w-4" />
                       Share
                     </Button>
                   </div>

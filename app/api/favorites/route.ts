@@ -116,17 +116,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserId(clerkUserId);
-    console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
-
-    if (!supabaseUserId) {
-      console.log('Favorites API - User not found in database and could not be created');
-      return NextResponse.json(
-        { error: 'User not found in database and could not be created' },
-        { status: 404 }
-      );
-    }
+    // IMPORTANT: Use the Clerk user ID directly instead of mapping to Supabase user ID
+    // This ensures consistency with how likes/favorites are stored
+    const supabaseUserId = clerkUserId;
+    console.log('Favorites API - Using Clerk ID directly for Supabase query:', supabaseUserId);
 
     // Get the fusion ID from the request body
     const { fusionId } = await req.json();
@@ -218,17 +211,10 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserId(clerkUserId);
-    console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
-
-    if (!supabaseUserId) {
-      console.log('Favorites API - User not found in database and could not be created');
-      return NextResponse.json(
-        { error: 'User not found in database and could not be created' },
-        { status: 404 }
-      );
-    }
+    // IMPORTANT: Use the Clerk user ID directly instead of mapping to Supabase user ID
+    // This ensures consistency with how likes/favorites are stored
+    const supabaseUserId = clerkUserId;
+    console.log('Favorites API - Using Clerk ID directly for Supabase query:', supabaseUserId);
 
     // Get the fusion ID from the URL
     const url = new URL(req.url);
@@ -249,26 +235,6 @@ export async function DELETE(req: Request) {
     if (!supabaseClient) {
       console.error('Favorites API - Failed to get Supabase admin client');
       return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
-    }
-
-    // Ensure the favorites table exists before deleting
-    try {
-      console.log('Favorites API - Checking if favorites table exists');
-      const { data, error } = await supabaseClient
-        .from('favorites')
-        .select('id')
-        .limit(1);
-      
-      if (error) {
-        console.log('Favorites API - Error checking favorites table:', error.message);
-        return NextResponse.json(
-          { error: 'Failed to check favorites table' },
-          { status: 500 }
-        );
-      }
-    } catch (tableError) {
-      console.log('Favorites API - Error in favorites table check:', tableError);
-      // Continue anyway, as the table might already exist
     }
 
     // Remove the fusion from favorites
@@ -355,17 +321,10 @@ export async function GET(req: Request) {
     const userIdToUse = clerkUserId || finalUserId;
     console.log('Favorites API - Using userId for lookup:', userIdToUse);
 
-    // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserId(userIdToUse);
-    console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
-
-    if (!supabaseUserId) {
-      console.log('Favorites API - User not found in database and could not be created');
-      return NextResponse.json(
-        { error: 'User not found in database and could not be created' },
-        { status: 404 }
-      );
-    }
+    // IMPORTANT: Use the Clerk user ID directly instead of mapping to Supabase user ID
+    // This ensures consistency with how likes/favorites are stored
+    const supabaseUserId = userIdToUse;
+    console.log('Favorites API - Using Clerk ID directly for Supabase query:', supabaseUserId);
     
     console.log('Favorites API - Fetching favorites for user:', supabaseUserId);
     

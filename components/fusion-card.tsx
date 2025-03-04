@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Heart, Download, Share } from 'lucide-react'
+import { Heart, Download, Send } from 'lucide-react'
 import { Card, Button } from '@/components/ui'
 import { downloadImage } from '@/lib/utils'
 import { dbService, FusionDB } from '@/lib/supabase-client'
@@ -111,21 +111,40 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         return;
       }
       
-      console.log('FusionCard - Calling dbService.likeFusion with fusion ID:', fusion.id, 'and user ID:', userId);
-      const success = await dbService.likeFusion(fusion.id, userId);
-      
-      if (success) {
-        console.log('FusionCard - Like successful, updating UI');
-        setLikeCount(prev => prev + 1);
-        setIsLiked(true);
-        onLike?.(fusion.id);
-        toast.success('Liked fusion!');
+      if (isLiked) {
+        // If already liked, unlike the fusion
+        console.log('FusionCard - Calling dbService.unlikeFusion with fusion ID:', fusion.id, 'and user ID:', userId);
+        const success = await dbService.unlikeFusion(fusion.id, userId);
+        
+        if (success) {
+          console.log('FusionCard - Unlike successful, updating UI');
+          setLikeCount(prev => Math.max(0, prev - 1)); // Ensure count doesn't go below 0
+          setIsLiked(false);
+          onLike?.(fusion.id);
+          toast.success('Removed like from fusion');
+        } else {
+          console.error('FusionCard - Unlike failed, success was false');
+          toast.error('Failed to remove like');
+        }
       } else {
-        console.error('FusionCard - Like failed, success was false');
+        // If not liked, like the fusion
+        console.log('FusionCard - Calling dbService.likeFusion with fusion ID:', fusion.id, 'and user ID:', userId);
+        const success = await dbService.likeFusion(fusion.id, userId);
+        
+        if (success) {
+          console.log('FusionCard - Like successful, updating UI');
+          setLikeCount(prev => prev + 1);
+          setIsLiked(true);
+          onLike?.(fusion.id);
+          toast.success('Liked fusion!');
+        } else {
+          console.error('FusionCard - Like failed, success was false');
+          toast.error('Failed to like fusion');
+        }
       }
     } catch (error) {
-      console.error('FusionCard - Error liking fusion:', error);
-      toast.error('Failed to like fusion');
+      console.error('FusionCard - Error toggling like:', error);
+      toast.error('Failed to update like status');
     }
   };
 
@@ -265,8 +284,8 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                 {/* Download button */}
                 <button 
                   onClick={() => downloadImage(getFusionImage(), getFusionName())}
-                  className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
-                  style={{ width: '40px', height: '40px' }}
+                  className="bg-gray-700/80 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center shadow-lg"
+                  style={{ width: '44px', height: '44px' }}
                   aria-label="Download fusion"
                 >
                   <Download className="h-5 w-5 text-white" />
@@ -278,21 +297,21 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                     e.stopPropagation();
                     handleLike();
                   }}
-                  className="bg-red-600 hover:bg-red-700 rounded-full p-3 transition-colors flex items-center justify-center"
-                  style={{ width: '40px', height: '40px' }}
+                  className="bg-red-600/90 hover:bg-red-700 rounded-full p-3 transition-colors flex items-center justify-center shadow-lg"
+                  style={{ width: '44px', height: '44px' }}
                   aria-label="Like fusion"
                 >
                   <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
                 </button>
                 
-                {/* Share button */}
+                {/* Share button (now using Send icon) */}
                 <button 
                   onClick={() => setShowShareOptions(!showShareOptions)}
-                  className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
-                  style={{ width: '40px', height: '40px' }}
+                  className="bg-gray-700/80 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center shadow-lg"
+                  style={{ width: '44px', height: '44px' }}
                   aria-label="Share fusion"
                 >
-                  <Share className="h-5 w-5 text-white" />
+                  <Send className="h-5 w-5 text-white" />
                 </button>
               </div>
             </div>
@@ -395,7 +414,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
               </Button>
               
               <Button variant="outline" onClick={handleMobileShare}>
-                <Share className="mr-2 h-4 w-4" />
+                <Send className="mr-2 h-4 w-4" />
                 Share
               </Button>
             </div>

@@ -258,6 +258,65 @@ export const dbService = {
     }
   },
   
+  async unlikeFusion(fusionId: string, userId: string): Promise<boolean> {
+    try {
+      if (!userId) {
+        console.error('Supabase Client - No user ID provided for unliking fusion');
+        return false;
+      }
+      
+      console.log('Supabase Client - Unliking fusion with ID:', fusionId, 'for user:', userId);
+      
+      // First, get the current fusion to check likes count
+      const { data: fusionData, error: fusionError } = await supabase
+        .from('fusions')
+        .select('likes')
+        .eq('id', fusionId)
+        .single();
+      
+      if (fusionError) {
+        console.error('Supabase Client - Error fetching fusion for unlike:', fusionError);
+        return false;
+      }
+      
+      // Calculate new likes count, ensuring it doesn't go below 0
+      const newLikesCount = Math.max((fusionData?.likes || 0) - 1, 0);
+      
+      // Update the likes count
+      const { error: updateError } = await supabase
+        .from('fusions')
+        .update({ likes: newLikesCount })
+        .eq('id', fusionId);
+      
+      if (updateError) {
+        console.error('Supabase Client - Error decrementing fusion likes:', updateError);
+        return false;
+      }
+      
+      console.log('Supabase Client - Successfully decremented likes count');
+      
+      // Remove from favorites table
+      const { error: favoriteError } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', userId)
+        .eq('fusion_id', fusionId);
+      
+      if (favoriteError) {
+        console.error('Supabase Client - Error removing from favorites:', favoriteError);
+        // We still return true because the likes were decremented successfully
+        // This is just an additional step that failed
+        return true;
+      }
+      
+      console.log('Supabase Client - Fusion unliked and removed from favorites successfully');
+      return true;
+    } catch (error) {
+      console.error('Supabase Client - Exception in unlikeFusion:', error);
+      return false;
+    }
+  },
+  
   async addFavorite(userId: string, fusionId: string, token?: string): Promise<boolean> {
     try {
       console.log('Supabase Client - Adding favorite for user:', userId, 'fusion:', fusionId);

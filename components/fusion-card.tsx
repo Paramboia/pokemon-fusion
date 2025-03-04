@@ -208,72 +208,103 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             }}
           />
           
-          {/* Dark overlay - visible on mobile or on hover for desktop */}
-          <div
-            className={`absolute inset-0 bg-black/70 ${
-              isMobile 
-                ? 'opacity-0' // Always hidden on mobile
-                : 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' // Show on hover for desktop
-            }`}
-            style={{ zIndex: 4 }}
-          />
+          {/* Desktop overlay - only visible on hover */}
+          {!isMobile && (
+            <div
+              className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center"
+              style={{ zIndex: 4 }}
+            >
+              <div className="flex gap-3">
+                {/* Download button */}
+                <button 
+                  onClick={() => downloadImage(getFusionImage(), getFusionName())}
+                  className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
+                  style={{ width: '40px', height: '40px' }}
+                  aria-label="Download fusion"
+                >
+                  <Download className="h-5 w-5 text-white" />
+                </button>
+                
+                {/* Like button */}
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLike();
+                  }}
+                  className="bg-red-600 hover:bg-red-700 rounded-full p-3 transition-colors flex items-center justify-center"
+                  style={{ width: '40px', height: '40px' }}
+                  aria-label="Like fusion"
+                >
+                  <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
+                </button>
+                
+                {/* Share button */}
+                <button 
+                  onClick={() => setShowShareOptions(!showShareOptions)}
+                  className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
+                  style={{ width: '40px', height: '40px' }}
+                  aria-label="Share fusion"
+                >
+                  <Share className="h-5 w-5 text-white" />
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* Mobile-specific action bar at bottom */}
           {isMobile && (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: '60px',
-                background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
-                zIndex: 4
-              }}
-            />
+            <>
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: '60px',
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                  zIndex: 4
+                }}
+              />
+              
+              {/* Mobile action buttons at bottom */}
+              <div 
+                className="absolute bottom-0 left-0 right-0 p-3 flex justify-center gap-3 z-10"
+              >
+                {/* Download button */}
+                <button 
+                  onClick={() => downloadImage(getFusionImage(), getFusionName())}
+                  className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
+                  style={{ width: '40px', height: '40px' }}
+                  aria-label="Download fusion"
+                >
+                  <Download className="h-5 w-5 text-white" />
+                </button>
+                
+                {/* Like button */}
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLike();
+                  }}
+                  className="bg-red-600 hover:bg-red-700 rounded-full p-3 transition-colors flex items-center justify-center"
+                  style={{ width: '40px', height: '40px' }}
+                  aria-label="Like fusion"
+                >
+                  <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
+                </button>
+                
+                {/* Share button */}
+                <button 
+                  onClick={() => setShowShareOptions(!showShareOptions)}
+                  className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
+                  style={{ width: '40px', height: '40px' }}
+                  aria-label="Share fusion"
+                >
+                  <Share className="h-5 w-5 text-white" />
+                </button>
+              </div>
+            </>
           )}
-          
-          {/* Action buttons - always visible at bottom on mobile, or on hover for desktop */}
-          <div 
-            className={`absolute bottom-0 left-0 right-0 p-3 flex justify-center gap-3 z-10 ${
-              isMobile 
-                ? 'opacity-100' // Always visible on mobile
-                : 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' // Show on hover for desktop
-            }`}
-          >
-            {/* Download button */}
-            <button 
-              onClick={() => downloadImage(getFusionImage(), getFusionName())}
-              className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
-              style={{ width: '40px', height: '40px' }}
-              aria-label="Download fusion"
-            >
-              <Download className="h-5 w-5 text-white" />
-            </button>
-            
-            {/* Like button */}
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleLike();
-              }}
-              className="bg-red-600 hover:bg-red-700 rounded-full p-3 transition-colors flex items-center justify-center"
-              style={{ width: '40px', height: '40px' }}
-              aria-label="Like fusion"
-            >
-              <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
-            </button>
-            
-            {/* Share button */}
-            <button 
-              onClick={() => setShowShareOptions(!showShareOptions)}
-              className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
-              style={{ width: '40px', height: '40px' }}
-              aria-label="Share fusion"
-            >
-              <Share className="h-5 w-5 text-white" />
-            </button>
-          </div>
           
           {/* Share options popup */}
           {showShareOptions && (

@@ -11,6 +11,8 @@ function logRequest(req: NextRequest) {
 const isPublicRoute = createRouteMatcher([
   '/',
   '/home',
+  '/favorites',
+  '/popular',
   '/api/webhooks(.*)',
   '/api/auth(.*)',
   '/sign-in(.*)',

@@ -9,6 +9,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
 import { useAuthContext } from "@/contexts/auth-context";
 import { useAuth } from "@clerk/nextjs";
+import { FusionDB } from "@/lib/supabase-client";
 
 export default function FavoritesPage() {
   const { user, isLoaded, isSignedIn } = useAuthContext();
@@ -94,7 +95,18 @@ export default function FavoritesPage() {
       const data = await response.json();
       
       if (data.favorites && Array.isArray(data.favorites)) {
-        setFavorites(data.favorites);
+        // Map the API response to our Fusion type
+        const mappedFavorites: Fusion[] = data.favorites.map((item: any) => ({
+          id: item.id,
+          pokemon1Name: item.pokemon1Name || item.pokemon_1_name,
+          pokemon2Name: item.pokemon2Name || item.pokemon_2_name,
+          fusionName: item.fusionName || item.fusion_name,
+          fusionImage: item.fusionImage || item.fusion_image,
+          createdAt: item.createdAt || item.created_at,
+          likes: item.likes,
+          isLocalFallback: item.isLocalFallback || false
+        }));
+        setFavorites(mappedFavorites);
       } else {
         // If we get an unexpected format, just show an empty list
         setFavorites([]);

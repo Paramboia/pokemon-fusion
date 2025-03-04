@@ -7,17 +7,31 @@ import FusionCard from "@/components/fusion-card";
 import { PopularAuthGate } from "@/components/popular-auth-gate";
 import { dbService, FusionDB } from "@/lib/supabase-client";
 import { toast } from "sonner";
+import { Fusion } from "@/types";
 
 export default function PopularPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [popularFusions, setPopularFusions] = useState<FusionDB[]>([]);
+  const [popularFusions, setPopularFusions] = useState<Fusion[]>([]);
 
   useEffect(() => {
     const fetchPopularFusions = async () => {
       try {
         setIsLoading(true);
         const fusions = await dbService.getPopularFusions(12); // Fetch top 12 fusions
-        setPopularFusions(fusions);
+        
+        // Map FusionDB objects to Fusion objects
+        const mappedFusions: Fusion[] = fusions.map(fusion => ({
+          id: fusion.id,
+          pokemon1Name: fusion.pokemon_1_name,
+          pokemon2Name: fusion.pokemon_2_name,
+          fusionName: fusion.fusion_name,
+          fusionImage: fusion.fusion_image,
+          createdAt: fusion.created_at,
+          likes: fusion.likes,
+          isLocalFallback: false
+        }));
+        
+        setPopularFusions(mappedFusions);
       } catch (error) {
         console.error('Error fetching popular fusions:', error);
         toast.error('Failed to load popular fusions');

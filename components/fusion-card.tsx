@@ -9,9 +9,13 @@ import { dbService, FusionDB } from '@/lib/supabase-client'
 import { useUser } from "@clerk/nextjs";
 import { toast } from 'sonner'
 import { useTheme } from 'next-themes'
+import { Fusion } from '@/types'
+
+// Create a union type that can be either Fusion or FusionDB
+type FusionCardData = Fusion | FusionDB;
 
 interface FusionCardProps {
-  fusion: FusionDB
+  fusion: FusionCardData
   onDelete?: (id: string) => void
   onLike?: (id: string) => void
   showActions?: boolean
@@ -20,11 +24,28 @@ interface FusionCardProps {
 export default function FusionCard({ fusion, onDelete, onLike, showActions = true }: FusionCardProps) {
   const [showShareOptions, setShowShareOptions] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
-  const [likeCount, setLikeCount] = useState(fusion.likes)
+  const [likeCount, setLikeCount] = useState(fusion.likes || 0)
   const [mounted, setMounted] = useState(false)
   const { theme } = useTheme()
   const { user } = useUser();
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
+
+  // Helper function to get properties regardless of type
+  const getFusionName = () => {
+    return 'fusionName' in fusion ? fusion.fusionName : fusion.fusion_name;
+  }
+
+  const getFusionImage = () => {
+    return 'fusionImage' in fusion ? fusion.fusionImage : fusion.fusion_image;
+  }
+
+  const getPokemon1Name = () => {
+    return 'pokemon1Name' in fusion ? fusion.pokemon1Name : fusion.pokemon_1_name;
+  }
+
+  const getPokemon2Name = () => {
+    return 'pokemon2Name' in fusion ? fusion.pokemon2Name : fusion.pokemon_2_name;
+  }
 
   // Wait for component to mount to access theme
   useEffect(() => {
@@ -55,7 +76,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   };
 
   const handleShare = (platform: string) => {
-    const text = `Check out this Pokemon fusion: ${fusion.fusion_name}`;
+    const text = `Check out this Pokemon fusion: ${getFusionName()}`;
     let url = '';
     
     switch (platform) {
@@ -90,8 +111,8 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           backgroundColor: isDarkTheme ? '#111827' : '#f9fafb' // Even darker for image background in dark mode
         }}>
           <Image
-            src={fusion.fusion_image}
-            alt={fusion.fusion_name}
+            src={getFusionImage()}
+            alt={getFusionName()}
             fill
             className="object-contain p-4"
           />
@@ -134,7 +155,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             
             {/* Download button */}
             <button 
-              onClick={() => downloadImage(fusion.fusion_image, fusion.fusion_name)}
+              onClick={() => downloadImage(getFusionImage(), getFusionName())}
               style={{ 
                 backgroundColor: 'rgba(255, 255, 255, 0.2)', 
                 borderRadius: '9999px',
@@ -240,22 +261,22 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         
         {/* Fusion details */}
         <div className="p-4">
-          <h3 className="text-lg font-bold mb-1">{fusion.fusion_name}</h3>
+          <h3 className="text-lg font-bold mb-1">{getFusionName()}</h3>
           
           {/* Display Pokémon names if available */}
-          {(fusion.pokemon_1_name || fusion.pokemon_2_name) && (
+          {(getPokemon1Name() || getPokemon2Name()) && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-              A fusion of {fusion.pokemon_1_name || 'Unknown'} and {fusion.pokemon_2_name || 'Unknown'}
+              A fusion of {getPokemon1Name() || 'Unknown'} and {getPokemon2Name() || 'Unknown'}
             </p>
           )}
           
           {/* Like count */}
           <div className="flex items-center mt-2">
-            <Heart className="w-4 h-4 mr-1 text-gray-500" />
-            <span className="text-sm text-gray-500">{likeCount || 0}</span>
+            <Heart className="w-4 h-4 mr-1 text-red-500" />
+            <span className="text-sm text-gray-500 dark:text-gray-400">{likeCount || 0} likes</span>
           </div>
         </div>
       </Card>
     </div>
-  )
+  );
 } 

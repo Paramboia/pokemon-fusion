@@ -10,13 +10,15 @@ interface AuthGateProps {
   fallback?: React.ReactNode;
   title?: string;
   message?: string;
+  blockContent?: boolean;
 }
 
 export function AuthGate({ 
   children, 
   fallback,
   title = "Authentication Required",
-  message = "Sign in to see amazing Pokémon fusions!"
+  message = "Sign in to see amazing Pokémon fusions!",
+  blockContent = false
 }: AuthGateProps) {
   const { isSignedIn, isLoaded, authError } = useAuthContext();
   const { signOut } = useClerk();
@@ -70,7 +72,8 @@ export function AuthGate({
     );
   }
 
-  if (!isSignedIn) {
+  // If not signed in and blockContent is true, show only the auth prompt
+  if (!isSignedIn && blockContent) {
     return fallback || (
       <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center">
         <div className="p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-md w-full">
@@ -87,6 +90,28 @@ export function AuthGate({
           </SignInButton>
         </div>
       </div>
+    );
+  }
+
+  // If not signed in but blockContent is false, show both the auth prompt and the content
+  if (!isSignedIn) {
+    return (
+      <>
+        <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              <p className="text-amber-800 dark:text-amber-200">{message}</p>
+            </div>
+            <SignInButton mode="modal">
+              <Button size="sm" className="whitespace-nowrap">
+                Sign In
+              </Button>
+            </SignInButton>
+          </div>
+        </div>
+        {children}
+      </>
     );
   }
 

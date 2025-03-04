@@ -71,9 +71,18 @@ export default function Home() {
       const pokemon1 = selectedPokemon.pokemon1;
       const pokemon2 = selectedPokemon.pokemon2;
       
-      // Get the official artwork URLs
+      // Get the official artwork URLs for display purposes
       const image1Url = pokemon1.sprites.other['official-artwork'].front_default;
       const image2Url = pokemon2.sprites.other['official-artwork'].front_default;
+      
+      // Log the parameters being passed to generateFusion
+      console.log('Generating fusion with parameters:', {
+        pokemon1Id: pokemon1.id,
+        pokemon2Id: pokemon2.id,
+        name1: pokemon1.name,
+        name2: pokemon2.name,
+        fusionName
+      });
       
       await generateFusion(
         image1Url,

@@ -67,12 +67,9 @@ export function useFusion() {
           },
           credentials: 'include', // Include cookies for session-based auth
           body: JSON.stringify({
-            pokemon1: image1Url,
-            pokemon2: image2Url,
-            name1,
-            name2,
             pokemon1Id,
-            pokemon2Id
+            pokemon2Id,
+            fusionName: `${name1}-${name2}`
           }),
           signal: controller.signal
         })
@@ -157,7 +154,7 @@ export function useFusion() {
 
         // Set the fusion data
         console.log('Fusion generated successfully:', data);
-        setFusionImage(data.fusionImage);
+        setFusionImage(data.output || data.fusionImage);
         setFusionId(data.id);
         
         // Create a fusion name if not provided

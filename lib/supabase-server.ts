@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { auth } from '@clerk/nextjs/server';
 import { cookies } from 'next/headers';
+import { clerkClient } from '@clerk/nextjs/server';
 
 // Validate environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -249,6 +250,145 @@ export async function saveFusion(fusion: Omit<FusionDB, 'created_at'>): Promise<
   } catch (error) {
     console.error('Error in saveFusion:', error);
     return null;
+  }
+}
+
+/**
+ * Helper function to get the Supabase user ID from a Clerk ID
+ * This function will:
+ * 1. Try to find the user by clerk_id
+ * 2. If not found, try to find by email and update with clerk_id
+ * 3. If still not found, create a new user with clerk_id
+ */
+export async function getSupabaseUserIdFromClerk(clerkId: string): Promise<string | null> {
+  try {
+    console.log('Supabase Server - Looking up Supabase user for Clerk ID:', clerkId);
+    
+    // Get the Supabase admin client
+    const supabaseClient = await getSupabaseAdminClient();
+    
+    // First, try to find the user directly by Clerk ID
+    const { data: userByClerkId, error: clerkIdError } = await supabaseClient
+      .from('users')
+      .select('id')
+      .eq('clerk_id', clerkId)
+      .maybeSingle();
+    
+    if (userByClerkId) {
+      console.log('Supabase Server - Found Supabase user by Clerk ID:', userByClerkId.id);
+      return userByClerkId.id;
+    }
+    
+    // If not found by Clerk ID, try to find by email
+    try {
+      const user = await clerkClient.users.getUser(clerkId);
+      console.log('Supabase Server - Clerk user found:', user ? 'Yes' : 'No');
+      
+      if (user && user.emailAddresses && user.emailAddresses.length > 0) {
+        // Get the primary email
+        const primaryEmailObj = user.emailAddresses.find(email => email.id === user.primaryEmailAddressId) || user.emailAddresses[0];
+        const email = primaryEmailObj.emailAddress;
+        console.log('Supabase Server - Using email for lookup:', email);
+        
+        // Query Supabase for the user ID by email
+        const { data: userByEmail, error: emailError } = await supabaseClient
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (userByEmail) {
+          console.log('Supabase Server - Found Supabase user by email:', userByEmail.id);
+          
+          // Update the user with the clerk_id for future lookups
+          const { error: updateError } = await supabaseClient
+            .from('users')
+            .update({ clerk_id: clerkId })
+            .eq('id', userByEmail.id);
+            
+          if (updateError) {
+            console.error('Supabase Server - Error updating user with clerk_id:', updateError);
+          } else {
+            console.log('Supabase Server - Updated user with clerk_id');
+          }
+          
+          return userByEmail.id;
+        }
+        
+        // If user not found, create a new user in Supabase
+        console.log('Supabase Server - User not found, creating new user with email');
+        
+        // Get user details from Clerk
+        const name = user.firstName && user.lastName 
+          ? `${user.firstName} ${user.lastName}`.trim() 
+          : 'Anonymous User';
+        
+        // Insert the user into Supabase with clerk_id field
+        const { data: newUser, error: insertError } = await supabaseClient
+          .from('users')
+          .insert({
+            clerk_id: clerkId,
+            name,
+            email
+          })
+          .select()
+          .single();
+        
+        if (insertError) {
+          console.error('Supabase Server - Error creating user in Supabase:', insertError);
+          
+          // If the error is about the clerk_id column not existing, try without it
+          if (insertError.message.includes('clerk_id')) {
+            console.log('Supabase Server - Trying to insert user without clerk_id field');
+            const { data: newUserNoClerkId, error: insertErrorNoClerkId } = await supabaseClient
+              .from('users')
+              .insert({
+                name,
+                email
+              })
+              .select()
+              .single();
+              
+            if (insertErrorNoClerkId) {
+              console.error('Supabase Server - Error creating user without clerk_id:', insertErrorNoClerkId);
+              
+              // Last resort: Create a minimal user record
+              console.log('Supabase Server - Creating minimal user record as last resort');
+              const { data: minimalUser, error: minimalError } = await supabaseClient
+                .from('users')
+                .insert({
+                  name: 'Temporary User',
+                  email: `${clerkId}@temporary.user`
+                })
+                .select()
+                .single();
+                
+              if (minimalError) {
+                console.error('Supabase Server - Error creating minimal user:', minimalError);
+              } else if (minimalUser) {
+                console.log('Supabase Server - Created minimal user:', minimalUser.id);
+                return minimalUser.id;
+              }
+            } else if (newUserNoClerkId) {
+              console.log('Supabase Server - Created new user in Supabase with Clerk ID as ID:', newUserNoClerkId.id);
+              return newUserNoClerkId.id;
+            }
+          }
+        } else if (newUser) {
+          console.log('Supabase Server - Created new user in Supabase with clerk_id:', newUser.id);
+          return newUser.id;
+        }
+      }
+    } catch (clerkError) {
+      console.error('Supabase Server - Error fetching user from Clerk:', clerkError);
+    }
+    
+    // If all else fails, return the Clerk ID as a last resort
+    console.log('Supabase Server - All lookup methods failed, returning Clerk ID as fallback');
+    return clerkId;
+  } catch (error) {
+    console.error('Supabase Server - Unexpected error in getSupabaseUserIdFromClerk:', error);
+    return clerkId; // Return the Clerk ID as a fallback
   }
 }
 

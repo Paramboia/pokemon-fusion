@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import { addFavorite, removeFavorite } from '@/lib/supabase-server-actions';
 import { createClient } from '@supabase/supabase-js';
-import { getSupabaseAdminClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
 // Create a Supabase client with fallback values for build time
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-value-replace-in-vercel.supabase.co';
@@ -15,122 +15,7 @@ console.log('Favorites API - Service Key available:', !!supabaseServiceKey);
 
 // Helper function to get the Supabase user ID from Clerk ID
 async function getSupabaseUserId(clerkId: string): Promise<string | null> {
-  try {
-    console.log('Favorites API - Looking up Supabase user for Clerk ID:', clerkId);
-    
-    // First, try to find the user directly by Clerk ID
-    const supabaseClient = await getSupabaseAdminClient();
-    const { data: userByClerkId, error: clerkIdError } = await supabaseClient
-      .from('users')
-      .select('id')
-      .eq('id', clerkId)
-      .maybeSingle();
-    
-    if (userByClerkId) {
-      console.log('Favorites API - Found Supabase user by Clerk ID:', userByClerkId.id);
-      return userByClerkId.id;
-    }
-    
-    // If not found by Clerk ID, try to find by email
-    try {
-      const user = await clerkClient.users.getUser(clerkId);
-      console.log('Favorites API - Clerk user found:', user ? 'Yes' : 'No');
-      
-      if (user && user.emailAddresses && user.emailAddresses.length > 0) {
-        // Get the primary email
-        const primaryEmailObj = user.emailAddresses.find(email => email.id === user.primaryEmailAddressId) || user.emailAddresses[0];
-        const email = primaryEmailObj.emailAddress;
-        console.log('Favorites API - Using email for lookup:', email);
-        
-        // Query Supabase for the user ID by email
-        const { data: userByEmail, error: emailError } = await supabaseClient
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
-        
-        if (userByEmail) {
-          console.log('Favorites API - Found Supabase user by email:', userByEmail.id);
-          return userByEmail.id;
-        }
-        
-        // If user not found, create a new user in Supabase
-        console.log('Favorites API - User not found, creating new user with email');
-        
-        // Get user details from Clerk
-        const name = user.firstName && user.lastName 
-          ? `${user.firstName} ${user.lastName}`.trim() 
-          : 'Anonymous User';
-        
-        // Insert the user into Supabase
-        const { data: newUser, error: insertError } = await supabaseClient
-          .from('users')
-          .insert({
-            id: clerkId, // Use Clerk ID as the Supabase user ID
-            name,
-            email
-          })
-          .select()
-          .single();
-        
-        if (insertError) {
-          console.error('Favorites API - Error creating user in Supabase:', insertError);
-          // Don't return null here, try the fallback approach below
-        } else if (newUser) {
-          console.log('Favorites API - Created new user in Supabase with email:', newUser.id);
-          return newUser.id;
-        }
-      }
-    } catch (clerkError) {
-      console.error('Favorites API - Error getting user from Clerk:', clerkError);
-      // Continue to fallback approach
-    }
-    
-    // Fallback: Create a minimal user record with Clerk ID
-    console.log('Favorites API - Attempting to create minimal user record with Clerk ID');
-    
-    try {
-      // Check if the users table exists
-      const { error: tableCheckError } = await supabaseClient
-        .from('users')
-        .select('id')
-        .limit(1);
-      
-      if (tableCheckError) {
-        console.error('Favorites API - Error checking users table:', tableCheckError);
-        return null;
-      }
-      
-      // Insert a minimal user record
-      const { data: minimalUser, error: minimalInsertError } = await supabaseClient
-        .from('users')
-        .insert({
-          id: clerkId,
-          name: 'Anonymous User',
-          email: `${clerkId}@example.com` // Placeholder email
-        })
-        .select()
-        .single();
-      
-      if (minimalInsertError) {
-        console.error('Favorites API - Error creating minimal user in Supabase:', minimalInsertError);
-        return null;
-      }
-      
-      if (minimalUser) {
-        console.log('Favorites API - Created minimal user in Supabase:', minimalUser.id);
-        return minimalUser.id;
-      }
-    } catch (fallbackError) {
-      console.error('Favorites API - Error in fallback user creation:', fallbackError);
-    }
-    
-    console.log('Favorites API - Failed to create or find user in Supabase');
-    return null;
-  } catch (error) {
-    console.error('Favorites API - Error in getSupabaseUserId:', error);
-    return null;
-  }
+  return getSupabaseUserIdFromClerk(clerkId);
 }
 
 export async function POST(req: Request) {

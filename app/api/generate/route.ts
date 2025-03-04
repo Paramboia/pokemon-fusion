@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Replicate from 'replicate';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { saveFusion } from '@/lib/supabase-server-actions';
-import { getSupabaseAdminClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
 // Log environment variables for debugging
 console.log('Generate API - REPLICATE_API_TOKEN available:', !!process.env.REPLICATE_API_TOKEN);
@@ -90,73 +90,18 @@ export async function POST(req: Request) {
         }, { status: 401 });
       }
       
-      // Get the user's email from Clerk
-      const user = await currentUser();
-      const email = user?.emailAddresses[0]?.emailAddress;
+      // Get the Supabase user ID from the Clerk ID
+      userId = await getSupabaseUserIdFromClerk(clerkUserId);
       
-      if (!email) {
-        console.error('Generate API - No email found for user');
-        return NextResponse.json({ 
-          error: 'User account not synced with database',
-          details: 'No email found for the authenticated user'
-        }, { status: 404 });
-      }
-      
-      console.log('Generate API - User email from Clerk:', email);
-      
-      // First try to find the user by email in Supabase
-      let { data: userExists, error: userError } = await supabase
-        .from('users')
-        .select('id, email, name')
-        .eq('email', email)
-        .maybeSingle();
-      
-      console.log('Generate API - User lookup by email result:', userExists);
-      
-      // If user not found by email, try to create the user
-      if (!userExists) {
-        console.log('Generate API - User not found in database, attempting to create');
-        
-        // Get user details from Clerk
-        const name = user.firstName && user.lastName 
-          ? `${user.firstName} ${user.lastName}` 
-          : user.firstName || user.lastName || 'Anonymous User';
-        
-        // Insert the user into Supabase
-        const { data: newUser, error: insertError } = await supabase
-          .from('users')
-          .insert({
-            name,
-            email
-          })
-          .select()
-          .single();
-        
-        if (insertError) {
-          console.error('Generate API - Error creating user in Supabase:', insertError);
-          return NextResponse.json({ 
-            error: 'Error creating user in database',
-            details: insertError.message
-          }, { status: 500 });
-        } else if (newUser) {
-          console.log('Generate API - User created successfully:', newUser);
-          userExists = newUser;
-        }
-      }
-      
-      // If we still don't have a user, return an error
-      if (!userExists) {
-        console.error('Generate API - User not found in database and could not be created');
+      if (!userId) {
+        console.error('Generate API - Failed to get Supabase user ID');
         return NextResponse.json({ 
           error: 'User not found in database',
           details: 'The authenticated user does not exist in the Supabase users table and could not be created automatically'
         }, { status: 404 });
       }
       
-      console.log('Generate API - User verified in Supabase:', userExists);
-      
-      // Use the Supabase user ID for the fusion
-      userId = userExists.id;
+      console.log('Generate API - User verified in Supabase:', userId);
     } catch (authError) {
       console.error('Generate API - Error getting user ID from auth():', authError);
       return NextResponse.json({ 

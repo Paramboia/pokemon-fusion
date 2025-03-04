@@ -208,6 +208,7 @@ I have already created the supabase project and the database, with the following
     This table stores user authentication and profile details.
     CREATE TABLE Users (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        clerk_id TEXT NOT NULL,
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()

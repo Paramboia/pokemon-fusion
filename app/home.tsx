@@ -12,11 +12,13 @@ import Image from "next/image";
 import { useAuthContext } from "@/contexts/auth-context";
 import { HomeAuthGate } from "@/components/home-auth-gate";
 import FusionCard from "@/components/fusion-card";
+import { useAuth } from "@clerk/nextjs";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
   const { generating, fusionImage, error, isPaymentRequired, isLocalFallback, generateFusion } = useFusion();
   const { isSignedIn } = useAuthContext();
+  const { getToken } = useAuth();
   const [selectedPokemon, setSelectedPokemon] = useState<{
     pokemon1: Pokemon | null;
     pokemon2: Pokemon | null;

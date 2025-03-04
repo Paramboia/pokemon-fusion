@@ -6,7 +6,7 @@ import { Heart, Download, Send } from 'lucide-react'
 import { Card, Button } from '@/components/ui'
 import { downloadImage } from '@/lib/utils'
 import { dbService, FusionDB } from '@/lib/supabase-client'
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { toast } from 'sonner'
 import { useTheme } from 'next-themes'
 import { Fusion } from '@/types'
@@ -29,6 +29,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   const [isMobile, setIsMobile] = useState(false)
   const { theme } = useTheme()
   const { user } = useUser();
+  const { getToken } = useAuth();
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
 
   // Helper function to get properties regardless of type
@@ -82,69 +83,136 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   useEffect(() => {
     const checkIfLiked = async () => {
       try {
-        if (!user?.id || !fusion.id) return;
+        // Skip API call for temporary fusions
+        if (fusion.id === 'temp-fusion') {
+          console.log('FusionCard - Skipping like check for temporary fusion');
+          return;
+        }
         
-        console.log('FusionCard - Checking if fusion is already liked by user:', user.id);
-        const isAlreadyLiked = await dbService.isFavorite(user.id, fusion.id);
+        if (!user) {
+          console.log('FusionCard - No user, skipping like check');
+          return;
+        }
+
+        console.log('FusionCard - Checking if fusion is liked:', fusion.id);
+        const token = await getToken();
         
-        console.log('FusionCard - Is fusion already liked:', isAlreadyLiked);
-        setIsLiked(isAlreadyLiked);
+        const response = await fetch(`/api/favorites/check?fusionId=${fusion.id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('FusionCard - Error checking if fusion is liked:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData
+          });
+          return;
+        }
+        
+        const data = await response.json();
+        console.log('FusionCard - Like check result:', data);
+        
+        if (data.isLiked) {
+          setIsLiked(true);
+        }
       } catch (error) {
-        console.error('FusionCard - Error checking if fusion is liked:', error);
+        console.error('FusionCard - Error in checkIfLiked:', error);
       }
     };
     
     if (user) {
       checkIfLiked();
     }
-  }, [user, fusion.id]);
+  }, [user, fusion.id, getToken]);
 
   const handleLike = async () => {
     try {
-      const userId = user?.id;
-      
-      console.log('FusionCard - handleLike called for fusion:', fusion.id);
-      console.log('FusionCard - User ID:', userId);
-      
-      if (!userId) {
-        toast.error('Please sign in to like fusions');
+      // Skip API call for temporary fusions
+      if (fusion.id === 'temp-fusion') {
+        console.log('FusionCard - Skipping API call for temporary fusion');
+        setIsLiked(!isLiked);
+        setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
+        toast.success(isLiked ? 'Removed like from fusion' : 'Liked fusion!');
+        
+        // Call the onLike callback if provided
+        if (onLike) {
+          onLike(fusion.id);
+        }
         return;
       }
       
+      if (!user) {
+        toast.error('Please sign in to like fusions');
+        return;
+      }
+
+      const token = await getToken();
+      
       if (isLiked) {
-        // If already liked, unlike the fusion
-        console.log('FusionCard - Calling dbService.unlikeFusion with fusion ID:', fusion.id, 'and user ID:', userId);
-        const success = await dbService.unlikeFusion(fusion.id, userId);
+        // Unlike the fusion
+        console.log('FusionCard - Unliking fusion:', fusion.id);
+        const response = await fetch(`/api/favorites?fusionId=${fusion.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
-        if (success) {
-          console.log('FusionCard - Unlike successful, updating UI');
-          setLikeCount(prev => Math.max(0, prev - 1)); // Ensure count doesn't go below 0
-          setIsLiked(false);
-          onLike?.(fusion.id);
-          toast.success('Removed like from fusion');
-        } else {
-          console.error('FusionCard - Unlike failed, success was false');
-          toast.error('Failed to remove like');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('FusionCard - Error unliking fusion:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData
+          });
+          toast.error('Failed to unlike fusion');
+          return;
         }
+        
+        setIsLiked(false);
+        setLikeCount(likeCount - 1);
+        toast.success('Removed like from fusion');
       } else {
-        // If not liked, like the fusion
-        console.log('FusionCard - Calling dbService.likeFusion with fusion ID:', fusion.id, 'and user ID:', userId);
-        const success = await dbService.likeFusion(fusion.id, userId);
+        // Like the fusion
+        console.log('FusionCard - Liking fusion:', fusion.id);
+        const response = await fetch(`/api/favorites?fusionId=${fusion.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
-        if (success) {
-          console.log('FusionCard - Like successful, updating UI');
-          setLikeCount(prev => prev + 1);
-          setIsLiked(true);
-          onLike?.(fusion.id);
-          toast.success('Liked fusion!');
-        } else {
-          console.error('FusionCard - Like failed, success was false');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('FusionCard - Error liking fusion:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData
+          });
           toast.error('Failed to like fusion');
+          return;
         }
+        
+        setIsLiked(true);
+        setLikeCount(likeCount + 1);
+        toast.success('Liked fusion!');
+      }
+      
+      // Call the onLike callback if provided
+      if (onLike) {
+        onLike(fusion.id);
       }
     } catch (error) {
-      console.error('FusionCard - Error toggling like:', error);
-      toast.error('Failed to update like status');
+      console.error('FusionCard - Error in handleLike:', error);
+      toast.error('An error occurred while processing your request');
     }
   };
 

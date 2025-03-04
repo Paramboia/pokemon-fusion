@@ -3,11 +3,9 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
 
 export function useFusion() {
-  const { getToken, isSignedIn, isLoaded } = useAuth()
-  const router = useRouter()
+  const { getToken } = useAuth()
   const [generating, setGenerating] = useState(false)
   const [fusionImage, setFusionImage] = useState<string | null>(null)
   const [fusionId, setFusionId] = useState<string | null>(null)
@@ -29,36 +27,9 @@ export function useFusion() {
 
       console.log('Generating fusion for:', { name1, name2, pokemon1Id, pokemon2Id })
 
-      // Check if user is signed in
-      if (!isLoaded) {
-        console.log('Clerk auth is still loading...')
-        // Wait for auth to load
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
-
-      if (!isSignedIn) {
-        console.error('User is not signed in')
-        toast.error('Please sign in to generate fusions')
-        setError('Authentication required')
-        setGenerating(false)
-        
-        // Don't redirect, just show error
-        return
-      }
-
-      // Get the Clerk session token
+      // Get the Clerk session token - AuthGate ensures the user is already signed in
       const token = await getToken()
       console.log('Got authentication token:', token ? 'Yes' : 'No')
-
-      if (!token) {
-        console.error('No authentication token available')
-        toast.error('Authentication required. Please sign in.')
-        setError('Authentication required')
-        setGenerating(false)
-        
-        // Don't redirect, just show error
-        return
-      }
 
       // Show a toast to indicate generation has started
       toast.loading('Starting Pokémon fusion generation...', {
@@ -111,18 +82,6 @@ export function useFusion() {
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
             console.error('Error details:', errorData.details);
-            
-            // Handle specific error cases
-            if (errorData.error === 'Authentication required' || 
-                errorData.error === 'User not found in database' ||
-                response.status === 401) {
-              toast.error('Authentication required. Please sign in again.');
-              setError('Authentication required');
-              
-              // Don't redirect, just show error
-              setGenerating(false);
-              return;
-            }
           } catch (parseError) {
             // If JSON parsing fails, use the status text
             errorMessage = `${errorMessage}: ${response.statusText}`;
@@ -134,10 +93,8 @@ export function useFusion() {
           toast.dismiss('fusion-generation')
           
           if (response.status === 401) {
-            toast.error('Authentication required. Please sign in again.');
-            setError('Authentication required');
-            
-            // Don't redirect, just show error
+            toast.error('Authentication error. Please refresh the page and try again.');
+            setError('Authentication error');
           } else if (response.status === 402) {
             setIsPaymentRequired(true);
             toast.error('Payment required to generate more fusions');
@@ -161,8 +118,6 @@ export function useFusion() {
             
             // Log the fallback approach
             console.log('Using fallback fusion approach due to server error');
-            setGenerating(false);
-            return;
           } else {
             toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
             setError(errorMessage);
@@ -245,8 +200,6 @@ export function useFusion() {
         
         // Use one of the original images as a fallback
         setFusionImage(image1Url);
-        
-        setGenerating(false);
       }
     } catch (err) {
       console.error('Error in generateFusion:', err);

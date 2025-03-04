@@ -10,7 +10,7 @@ import type { Pokemon } from "@/types";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/auth-context";
-import { FusionAuthGate } from "@/components/fusion-auth-gate";
+import { HomeAuthGate } from "@/components/home-auth-gate";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
@@ -125,7 +125,7 @@ export default function Home() {
           />
           
           <div className="mt-8 w-full flex justify-center">
-            <FusionAuthGate>
+            <HomeAuthGate>
               <Button
                 onClick={handleGenerateFusion}
                 disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
@@ -143,7 +143,7 @@ export default function Home() {
                   </>
                 )}
               </Button>
-            </FusionAuthGate>
+            </HomeAuthGate>
           </div>
         </div>
 
@@ -305,7 +305,7 @@ export default function Home() {
                       Download
                     </Button>
                     
-                    <FusionAuthGate>
+                    <HomeAuthGate>
                       <Button
                         variant={isLiked ? "default" : "outline"}
                         onClick={() => setIsLiked(!isLiked)}
@@ -313,7 +313,7 @@ export default function Home() {
                         <Heart className={`mr-2 h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
                         {isLiked ? "Liked" : "Like"}
                       </Button>
-                    </FusionAuthGate>
+                    </HomeAuthGate>
                     
                     <Button variant="outline" onClick={async () => {
                       const shareText = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;

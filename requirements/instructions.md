@@ -21,10 +21,7 @@ You will be using Next.js, Shadcn UI, Tailwind CSS, Lucid icon, Supabase and Cle
 #Data Structure:
 Relationships
 users → fusions (1:N) → Each user can create multiple fusions.
-pokemon → fusions (N:N) → Each fusion involves two Pokémon.
 users → favorites (1:N) → Users can save multiple favorite fusions.
-users → comments (1:N) → Users can comment on different fusions.
-users → social_shares (1:N) → Users can share fusions on social media.
 Bonus: API Endpoints
 Using Supabase REST API or PostgREST, your API endpoints could look like:
 

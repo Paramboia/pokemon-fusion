@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@supabase/supabase-js';
+import { useUser } from '@clerk/nextjs';
 
 // Validate environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -211,19 +212,41 @@ export const dbService = {
     }
   },
   
-  async likeFusion(fusionId: string): Promise<boolean> {
+  async likeFusion(fusionId: string, userId: string): Promise<boolean> {
     try {
-      console.log('Supabase Client - Liking fusion with ID:', fusionId);
-      const { error } = await supabase.rpc('increment_fusion_likes', {
-        fusion_id: fusionId
-      });
-      
-      if (error) {
-        console.error('Supabase Client - Error liking fusion:', error);
+      if (!userId) {
+        console.error('Supabase Client - No user ID provided for liking fusion');
         return false;
       }
       
-      console.log('Supabase Client - Fusion liked successfully');
+      console.log('Supabase Client - Liking fusion with ID:', fusionId, 'for user:', userId);
+      
+      // First, increment the likes count
+      const { error: likesError } = await supabase.rpc('increment_fusion_likes', {
+        fusion_id: fusionId
+      });
+
+      if (likesError) {
+        console.error('Supabase Client - Error incrementing fusion likes:', likesError);
+        return false;
+      }
+      
+      // Then, add to favorites table
+      const { error: favoriteError } = await supabase
+        .from('favorites')
+        .insert({
+          user_id: userId,
+          fusion_id: fusionId
+        });
+        
+      if (favoriteError) {
+        console.error('Supabase Client - Error adding to favorites:', favoriteError);
+        // We still return true because the likes were incremented successfully
+        // This is just an additional step that failed
+        return true;
+      }
+
+      console.log('Supabase Client - Fusion liked and added to favorites successfully');
       return true;
     } catch (error) {
       console.error('Supabase Client - Exception in likeFusion:', error);

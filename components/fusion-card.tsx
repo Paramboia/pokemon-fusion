@@ -61,7 +61,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         return;
       }
       
-      const success = await dbService.likeFusion(fusion.id);
+      const success = await dbService.likeFusion(fusion.id, userId);
       
       if (success) {
         setLikeCount(prev => prev + 1);

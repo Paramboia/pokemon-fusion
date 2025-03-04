@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/auth-context";
 import { HomeAuthGate } from "@/components/home-auth-gate";
+import FusionCard from "@/components/fusion-card";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
@@ -152,224 +153,33 @@ export default function Home() {
           <div className="mt-12 flex flex-col items-center">
             <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>Your Pokémon Fusion</h2>
             
-            <Card className="w-full max-w-md overflow-hidden">
-              <div className="p-4 flex flex-col items-center">
-                <div className="relative w-full aspect-square group">
-                  <Image
-                    src={fusionImage}
-                    alt={fusionName || "Pokémon Fusion"}
-                    fill
-                    className="object-contain"
-                  />
-                  
-                  {/* Hover overlay with actions for desktop */}
-                  {!isMobile && (
-                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <div className="flex gap-3">
-                        <button 
-                          onClick={async () => {
-                            try {
-                              // Fetch the image
-                              const response = await fetch(fusionImage);
-                              const blob = await response.blob();
-                              
-                              // Create a download link
-                              const url = window.URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `${fusionName || 'pokemon-fusion'}.png`;
-                              document.body.appendChild(a);
-                              a.click();
-                              
-                              // Clean up
-                              window.URL.revokeObjectURL(url);
-                              document.body.removeChild(a);
-                            } catch (error) {
-                              console.error('Download failed:', error);
-                              toast.error('Failed to download image');
-                            }
-                          }}
-                          className="bg-gray-700/80 hover:bg-gray-800 rounded-full p-3 transition-colors shadow-lg flex items-center justify-center"
-                          style={{ width: '44px', height: '44px' }}
-                          aria-label="Download fusion"
-                        >
-                          <Download className="h-5 w-5 text-white" />
-                        </button>
-                        
-                        {isSignedIn && (
-                          <button 
-                            onClick={() => setIsLiked(!isLiked)}
-                            className="bg-red-600/90 hover:bg-red-700 rounded-full p-3 transition-colors shadow-lg flex items-center justify-center"
-                            style={{ width: '44px', height: '44px' }}
-                            aria-label="Like fusion"
-                          >
-                            <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
-                          </button>
-                        )}
-                        
-                        <button 
-                          onClick={async () => {
-                            const shareText = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
-                            const shareUrl = window.location.origin;
-                            
-                            // Check if Web Share API is supported
-                            if (navigator.share) {
-                              try {
-                                // Try to share with image if possible
-                                const response = await fetch(fusionImage);
-                                const blob = await response.blob();
-                                const file = new File([blob], `${fusionName}.png`, { type: blob.type });
-                                
-                                await navigator.share({
-                                  title: 'Pokémon Fusion',
-                                  text: shareText,
-                                  url: shareUrl,
-                                  files: [file]
-                                }).catch(error => {
-                                  // If sharing with file fails, try without file
-                                  if (error.name !== 'AbortError') {
-                                    return navigator.share({
-                                      title: 'Pokémon Fusion',
-                                      text: shareText,
-                                      url: shareUrl
-                                    });
-                                  }
-                                  throw error;
-                                });
-                                
-                                toast.success('Shared successfully!');
-                              } catch (error) {
-                                if (error.name !== 'AbortError') {
-                                  console.error('Error sharing:', error);
-                                  toast.error('Failed to share');
-                                }
-                              }
-                            } else {
-                              // Fallback for browsers that don't support Web Share API
-                              navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
-                                toast.success('Share link copied to clipboard!');
-                              }).catch(() => {
-                                toast.error('Failed to copy link');
-                              });
-                            }
-                          }}
-                          className="bg-gray-700/80 hover:bg-gray-800 rounded-full p-3 transition-colors shadow-lg flex items-center justify-center"
-                          style={{ width: '44px', height: '44px' }}
-                          aria-label="Share fusion"
-                        >
-                          <Send className="h-5 w-5 text-white" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+            <div className="w-full max-w-md">
+              <FusionCard 
+                fusion={{
+                  id: "temp-fusion", // Temporary ID for the current fusion
+                  fusionName: fusionName || "Unnamed Fusion",
+                  fusionImage: fusionImage,
+                  pokemon1Name: selectedPokemon.pokemon1?.name || "",
+                  pokemon2Name: selectedPokemon.pokemon2?.name || "",
+                  isLocalFallback: isLocalFallback,
+                  likes: 0,
+                  createdAt: new Date().toISOString()
+                }}
+                showActions={true}
+                onLike={() => setIsLiked(!isLiked)}
+              />
+              
+              {/* Display fallback message if using local fallback */}
+              {isLocalFallback && (
+                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md text-sm text-blue-700 dark:text-blue-300">
+                  <div className="flex items-center">
+                    <Info className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <p>Using Simple Fusion</p>
+                  </div>
+                  <p className="mt-1 text-xs">The AI fusion service is currently unavailable. We're using a simplified fusion method instead.</p>
                 </div>
-                
-                <h3 className="text-xl font-bold mt-4 capitalize text-gray-800 dark:!text-white" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
-                  {fusionName || "Unnamed Fusion"}
-                </h3>
-                
-                {/* Display fallback message if using local fallback */}
-                {isLocalFallback && (
-                  <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md text-sm text-blue-700 dark:text-blue-300">
-                    <div className="flex items-center">
-                      <Info className="h-4 w-4 mr-2 flex-shrink-0" />
-                      <p>Using Simple Fusion</p>
-                    </div>
-                    <p className="mt-1 text-xs">The AI fusion service is currently unavailable. We're using a simplified fusion method instead.</p>
-                  </div>
-                )}
-                
-                {/* Action buttons - always visible on mobile, hidden on desktop */}
-                {isMobile && (
-                  <div className="flex mt-4 gap-2">
-                    <Button variant="outline" onClick={async () => {
-                      try {
-                        // Fetch the image
-                        const response = await fetch(fusionImage);
-                        const blob = await response.blob();
-                        
-                        // Create a download link
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${fusionName || 'pokemon-fusion'}.png`;
-                        document.body.appendChild(a);
-                        a.click();
-                        
-                        // Clean up
-                        window.URL.revokeObjectURL(url);
-                        document.body.removeChild(a);
-                      } catch (error) {
-                        console.error('Download failed:', error);
-                        toast.error('Failed to download image');
-                      }
-                    }}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Download
-                    </Button>
-                    
-                    <HomeAuthGate>
-                      <Button
-                        variant={isLiked ? "default" : "outline"}
-                        onClick={() => setIsLiked(!isLiked)}
-                      >
-                        <Heart className={`mr-2 h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
-                        {isLiked ? "Liked" : "Like"}
-                      </Button>
-                    </HomeAuthGate>
-                    
-                    <Button variant="outline" onClick={async () => {
-                      const shareText = `This new fusion pokemon ${fusionName} was generated with www.pokemon-fusion.com! Go and explore`;
-                      const shareUrl = window.location.origin;
-                      
-                      // Check if Web Share API is supported
-                      if (navigator.share) {
-                        try {
-                          // Try to share with image if possible
-                          const response = await fetch(fusionImage);
-                          const blob = await response.blob();
-                          const file = new File([blob], `${fusionName}.png`, { type: blob.type });
-                          
-                          await navigator.share({
-                            title: 'Pokémon Fusion',
-                            text: shareText,
-                            url: shareUrl,
-                            files: [file]
-                          }).catch(error => {
-                            // If sharing with file fails, try without file
-                            if (error.name !== 'AbortError') {
-                              return navigator.share({
-                                title: 'Pokémon Fusion',
-                                text: shareText,
-                                url: shareUrl
-                              });
-                            }
-                            throw error;
-                          });
-                          
-                          toast.success('Shared successfully!');
-                        } catch (error) {
-                          if (error.name !== 'AbortError') {
-                            console.error('Error sharing:', error);
-                            toast.error('Failed to share');
-                          }
-                        }
-                      } else {
-                        // Fallback for browsers that don't support Web Share API
-                        navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
-                          toast.success('Share link copied to clipboard!');
-                        }).catch(() => {
-                          toast.error('Failed to copy link');
-                        });
-                      }
-                    }}>
-                      <Send className="mr-2 h-4 w-4" />
-                      Share
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Card>
+              )}
+            </div>
           </div>
         )}
 

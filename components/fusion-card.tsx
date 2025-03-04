@@ -291,17 +291,17 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                   <Download className="h-5 w-5 text-white" />
                 </button>
                 
-                {/* Like button */}
+                {/* Like button - Same background as other buttons, only heart changes */}
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
                     handleLike();
                   }}
-                  className="bg-red-600/90 hover:bg-red-700 rounded-full p-3 transition-colors flex items-center justify-center shadow-lg"
+                  className="bg-gray-700/80 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center shadow-lg"
                   style={{ width: '44px', height: '44px' }}
                   aria-label="Like fusion"
                 >
-                  <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
+                  <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-red-400' : ''}`} />
                 </button>
                 
                 {/* Share button (now using Send icon) */}
@@ -405,11 +405,13 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                 Download
               </Button>
               
+              {/* Always use outline variant, change text color and fill heart when liked */}
               <Button
-                variant={isLiked ? "default" : "outline"}
+                variant="outline"
                 onClick={handleLike}
+                className={isLiked ? "text-red-600 border-red-600 hover:bg-red-50 dark:text-red-500 dark:border-red-500 dark:hover:bg-red-950/10" : ""}
               >
-                <Heart className={`mr-2 h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
+                <Heart className={`mr-2 h-4 w-4 ${isLiked ? "fill-red-600 text-red-600 dark:fill-red-500 dark:text-red-500" : ""}`} />
                 {isLiked ? "Liked" : "Like"}
               </Button>
               

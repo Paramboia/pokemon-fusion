@@ -220,37 +220,23 @@ export const dbService = {
       }
       
       console.log('Supabase Client - Liking fusion with ID:', fusionId, 'for user:', userId);
-      console.log('Supabase Client - User ID type:', typeof userId, 'length:', userId.length);
-      console.log('Supabase Client - Fusion ID type:', typeof fusionId, 'length:', fusionId.length);
       
-      // First, increment the likes count
-      const { error: likesError } = await supabase.rpc('increment_fusion_likes', {
-        fusion_id: fusionId
+      // Use the API endpoint instead of direct database access
+      const response = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fusionId }),
       });
-
-      if (likesError) {
-        console.error('Supabase Client - Error incrementing fusion likes:', likesError);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Supabase Client - Error liking fusion via API:', errorData.error || response.statusText);
         return false;
       }
-
-      console.log('Supabase Client - Successfully incremented likes count');
-
-      // Then, add to favorites table
-      const { error: favoriteError } = await supabase
-        .from('favorites')
-        .insert({
-          user_id: userId,
-          fusion_id: fusionId
-        });
-
-      if (favoriteError) {
-        console.error('Supabase Client - Error adding to favorites:', favoriteError);
-        // We still return true because the likes were incremented successfully
-        // This is just an additional step that failed
-        return true;
-      }
-
-      console.log('Supabase Client - Fusion liked and added to favorites successfully');
+      
+      console.log('Supabase Client - Fusion liked successfully via API');
       return true;
     } catch (error) {
       console.error('Supabase Client - Exception in likeFusion:', error);
@@ -267,49 +253,21 @@ export const dbService = {
       
       console.log('Supabase Client - Unliking fusion with ID:', fusionId, 'for user:', userId);
       
-      // First, get the current fusion to check likes count
-      const { data: fusionData, error: fusionError } = await supabase
-        .from('fusions')
-        .select('likes')
-        .eq('id', fusionId)
-        .single();
+      // Use the API endpoint instead of direct database access
+      const response = await fetch(`/api/favorites?fusionId=${fusionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       
-      if (fusionError) {
-        console.error('Supabase Client - Error fetching fusion for unlike:', fusionError);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Supabase Client - Error unliking fusion via API:', errorData.error || response.statusText);
         return false;
       }
       
-      // Calculate new likes count, ensuring it doesn't go below 0
-      const newLikesCount = Math.max((fusionData?.likes || 0) - 1, 0);
-      
-      // Update the likes count
-      const { error: updateError } = await supabase
-        .from('fusions')
-        .update({ likes: newLikesCount })
-        .eq('id', fusionId);
-      
-      if (updateError) {
-        console.error('Supabase Client - Error decrementing fusion likes:', updateError);
-        return false;
-      }
-      
-      console.log('Supabase Client - Successfully decremented likes count');
-      
-      // Remove from favorites table
-      const { error: favoriteError } = await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_id', userId)
-        .eq('fusion_id', fusionId);
-      
-      if (favoriteError) {
-        console.error('Supabase Client - Error removing from favorites:', favoriteError);
-        // We still return true because the likes were decremented successfully
-        // This is just an additional step that failed
-        return true;
-      }
-      
-      console.log('Supabase Client - Fusion unliked and removed from favorites successfully');
+      console.log('Supabase Client - Fusion unliked successfully via API');
       return true;
     } catch (error) {
       console.error('Supabase Client - Exception in unlikeFusion:', error);
@@ -437,27 +395,24 @@ export const dbService = {
     try {
       console.log('Supabase Client - Checking if fusion is favorite for user:', userId, 'fusion:', fusionId);
       
-      // Use authenticated client if token is provided
-      const client = token ? createAuthenticatedClient(token, userId) : supabase;
+      // Use the API endpoint to check if the fusion is in the user's favorites
+      const response = await fetch(`/api/favorites/check?fusionId=${fusionId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+      });
       
-      const { data, error } = await client
-        .from('favorites')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('fusion_id', fusionId)
-        .single();
-      
-      if (error) {
-        if (error.code === 'PGRST116') { // No rows returned
-          console.log('Supabase Client - Fusion is not a favorite');
-        } else {
-          console.error('Supabase Client - Error checking favorite status:', error);
-        }
+      if (!response.ok) {
+        console.error('Supabase Client - Error checking favorite status via API:', response.statusText);
         return false;
       }
       
-      console.log('Supabase Client - Fusion is a favorite');
-      return !!data;
+      const data = await response.json();
+      console.log('Supabase Client - Favorite check result:', data.isFavorite ? 'Is favorite' : 'Not favorite');
+      
+      return !!data.isFavorite;
     } catch (error) {
       console.error('Supabase Client - Exception in isFavorite:', error);
       return false;

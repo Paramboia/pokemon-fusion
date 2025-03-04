@@ -36,61 +36,93 @@ async function getSupabaseUserId(clerkId: string): Promise<string | null> {
       const user = await clerkClient.users.getUser(clerkId);
       console.log('Favorites API - Clerk user found:', user ? 'Yes' : 'No');
       
-      if (!user || !user.emailAddresses || user.emailAddresses.length === 0) {
-        console.log('Favorites API - No email addresses found for user');
+      if (user && user.emailAddresses && user.emailAddresses.length > 0) {
+        // Get the primary email
+        const primaryEmailObj = user.emailAddresses.find(email => email.id === user.primaryEmailAddressId) || user.emailAddresses[0];
+        const email = primaryEmailObj.emailAddress;
+        console.log('Favorites API - Using email for lookup:', email);
+        
+        // Query Supabase for the user ID by email
+        const { data: userByEmail, error: emailError } = await supabaseClient
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (userByEmail) {
+          console.log('Favorites API - Found Supabase user by email:', userByEmail.id);
+          return userByEmail.id;
+        }
+        
+        // If user not found, create a new user in Supabase
+        console.log('Favorites API - User not found, creating new user with email');
+        
+        // Get user details from Clerk
+        const name = user.firstName && user.lastName 
+          ? `${user.firstName} ${user.lastName}`.trim() 
+          : 'Anonymous User';
+        
+        // Insert the user into Supabase
+        const { data: newUser, error: insertError } = await supabaseClient
+          .from('users')
+          .insert({
+            id: clerkId, // Use Clerk ID as the Supabase user ID
+            name,
+            email
+          })
+          .select()
+          .single();
+        
+        if (insertError) {
+          console.error('Favorites API - Error creating user in Supabase:', insertError);
+          // Don't return null here, try the fallback approach below
+        } else if (newUser) {
+          console.log('Favorites API - Created new user in Supabase with email:', newUser.id);
+          return newUser.id;
+        }
+      }
+    } catch (clerkError) {
+      console.error('Favorites API - Error getting user from Clerk:', clerkError);
+      // Continue to fallback approach
+    }
+    
+    // Fallback: Create a minimal user record with Clerk ID
+    console.log('Favorites API - Attempting to create minimal user record with Clerk ID');
+    
+    try {
+      // Check if the users table exists
+      const { error: tableCheckError } = await supabaseClient
+        .from('users')
+        .select('id')
+        .limit(1);
+      
+      if (tableCheckError) {
+        console.error('Favorites API - Error checking users table:', tableCheckError);
         return null;
       }
       
-      // Get the primary email
-      const primaryEmailObj = user.emailAddresses.find(email => email.id === user.primaryEmailAddressId) || user.emailAddresses[0];
-      const email = primaryEmailObj.emailAddress;
-      console.log('Favorites API - Using email for lookup:', email);
-      
-      // Query Supabase for the user ID by email
-      const { data: userByEmail, error: emailError } = await supabaseClient
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-      
-      if (userByEmail) {
-        console.log('Favorites API - Found Supabase user by email:', userByEmail.id);
-        return userByEmail.id;
-      }
-      
-      // If user not found, create a new user in Supabase
-      console.log('Favorites API - User not found, creating new user');
-      
-      // Get user details from Clerk
-      const name = user.firstName && user.lastName 
-        ? `${user.firstName} ${user.lastName}`.trim() 
-        : 'Anonymous User';
-      
-      // Insert the user into Supabase
-      const { data: newUser, error: insertError } = await supabaseClient
+      // Insert a minimal user record
+      const { data: minimalUser, error: minimalInsertError } = await supabaseClient
         .from('users')
         .insert({
-          id: clerkId, // Use Clerk ID as the Supabase user ID
-          name,
-          email
+          id: clerkId,
+          name: 'Anonymous User',
+          email: `${clerkId}@example.com` // Placeholder email
         })
         .select()
         .single();
       
-      if (insertError) {
-        console.error('Favorites API - Error creating user in Supabase:', insertError);
+      if (minimalInsertError) {
+        console.error('Favorites API - Error creating minimal user in Supabase:', minimalInsertError);
         return null;
       }
       
-      if (newUser) {
-        console.log('Favorites API - Created new user in Supabase:', newUser.id);
-        return newUser.id;
+      if (minimalUser) {
+        console.log('Favorites API - Created minimal user in Supabase:', minimalUser.id);
+        return minimalUser.id;
       }
-    } catch (clerkError) {
-      console.error('Favorites API - Error getting user from Clerk:', clerkError);
-      // If we can't get the user from Clerk, just use the Clerk ID directly
-      console.log('Favorites API - Using Clerk ID directly as fallback');
-      return clerkId;
+    } catch (fallbackError) {
+      console.error('Favorites API - Error in fallback user creation:', fallbackError);
     }
     
     console.log('Favorites API - Failed to create or find user in Supabase');
@@ -116,10 +148,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // IMPORTANT: Use the Clerk user ID directly instead of mapping to Supabase user ID
-    // This ensures consistency with how likes/favorites are stored
-    const supabaseUserId = clerkUserId;
-    console.log('Favorites API - Using Clerk ID directly for Supabase query:', supabaseUserId);
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserId(clerkUserId);
+    console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
+
+    if (!supabaseUserId) {
+      console.log('Favorites API - User not found in database and could not be created');
+      return NextResponse.json(
+        { error: 'User not found in database and could not be created' },
+        { status: 404 }
+      );
+    }
 
     // Get the fusion ID from the request body
     const { fusionId } = await req.json();
@@ -211,10 +250,17 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // IMPORTANT: Use the Clerk user ID directly instead of mapping to Supabase user ID
-    // This ensures consistency with how likes/favorites are stored
-    const supabaseUserId = clerkUserId;
-    console.log('Favorites API - Using Clerk ID directly for Supabase query:', supabaseUserId);
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserId(clerkUserId);
+    console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
+
+    if (!supabaseUserId) {
+      console.log('Favorites API - User not found in database and could not be created');
+      return NextResponse.json(
+        { error: 'User not found in database and could not be created' },
+        { status: 404 }
+      );
+    }
 
     // Get the fusion ID from the URL
     const url = new URL(req.url);
@@ -235,6 +281,26 @@ export async function DELETE(req: Request) {
     if (!supabaseClient) {
       console.error('Favorites API - Failed to get Supabase admin client');
       return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
+    }
+
+    // Ensure the favorites table exists before deleting
+    try {
+      console.log('Favorites API - Checking if favorites table exists');
+      const { data, error } = await supabaseClient
+        .from('favorites')
+        .select('id')
+        .limit(1);
+      
+      if (error) {
+        console.log('Favorites API - Error checking favorites table:', error.message);
+        return NextResponse.json(
+          { error: 'Failed to check favorites table' },
+          { status: 500 }
+        );
+      }
+    } catch (tableError) {
+      console.log('Favorites API - Error in favorites table check:', tableError);
+      // Continue anyway, as the table might already exist
     }
 
     // Remove the fusion from favorites
@@ -321,10 +387,17 @@ export async function GET(req: Request) {
     const userIdToUse = clerkUserId || finalUserId;
     console.log('Favorites API - Using userId for lookup:', userIdToUse);
 
-    // IMPORTANT: Use the Clerk user ID directly instead of mapping to Supabase user ID
-    // This ensures consistency with how likes/favorites are stored
-    const supabaseUserId = userIdToUse;
-    console.log('Favorites API - Using Clerk ID directly for Supabase query:', supabaseUserId);
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserId(userIdToUse);
+    console.log('Favorites API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
+
+    if (!supabaseUserId) {
+      console.log('Favorites API - User not found in database and could not be created');
+      return NextResponse.json(
+        { error: 'User not found in database and could not be created' },
+        { status: 404 }
+      );
+    }
     
     console.log('Favorites API - Fetching favorites for user:', supabaseUserId);
     

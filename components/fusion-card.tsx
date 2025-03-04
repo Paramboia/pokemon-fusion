@@ -19,9 +19,10 @@ interface FusionCardProps {
   onDelete?: (id: string) => void
   onLike?: (id: string) => void
   showActions?: boolean
+  showFallbackWarning?: boolean
 }
 
-export default function FusionCard({ fusion, onDelete, onLike, showActions = true }: FusionCardProps) {
+export default function FusionCard({ fusion, onDelete, onLike, showActions = true, showFallbackWarning = true }: FusionCardProps) {
   const [showShareOptions, setShowShareOptions] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes || 0)
@@ -97,6 +98,11 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         console.log('FusionCard - Checking if fusion is liked:', fusion.id);
         const token = await getToken();
         
+        if (!token) {
+          console.error('FusionCard - No authentication token available for like check');
+          return;
+        }
+        
         const response = await fetch(`/api/favorites/check?fusionId=${fusion.id}`, {
           method: 'GET',
           headers: {
@@ -153,6 +159,11 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
       }
 
       const token = await getToken();
+      if (!token) {
+        console.error('FusionCard - No authentication token available');
+        toast.error('Authentication error. Please sign in again.');
+        return;
+      }
       
       if (isLiked) {
         // Unlike the fusion
@@ -166,13 +177,29 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
+          let errorMessage = 'Failed to unlike fusion';
+          let errorData: Record<string, any> = {};
+          
+          try {
+            errorData = await response.json();
+            if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+              errorMessage = errorData.error as string;
+            }
+          } catch (e) {
+            console.error('FusionCard - Error parsing error response:', e);
+          }
+          
           console.error('FusionCard - Error unliking fusion:', {
             status: response.status,
             statusText: response.statusText,
             errorData
           });
-          toast.error('Failed to unlike fusion');
+          
+          if (response.status === 401 || response.status === 403) {
+            toast.error('Authentication error. Please sign in again.');
+          } else {
+            toast.error(errorMessage);
+          }
           return;
         }
         
@@ -191,13 +218,29 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
+          let errorMessage = 'Failed to like fusion';
+          let errorData: Record<string, any> = {};
+          
+          try {
+            errorData = await response.json();
+            if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+              errorMessage = errorData.error as string;
+            }
+          } catch (e) {
+            console.error('FusionCard - Error parsing error response:', e);
+          }
+          
           console.error('FusionCard - Error liking fusion:', {
             status: response.status,
             statusText: response.statusText,
             errorData
           });
-          toast.error('Failed to like fusion');
+          
+          if (response.status === 401 || response.status === 403) {
+            toast.error('Authentication error. Please sign in again.');
+          } else {
+            toast.error(errorMessage);
+          }
           return;
         }
         
@@ -288,6 +331,9 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   // Determine background color based on theme
   const isDarkTheme = mounted && theme === 'dark'
   const backgroundColor = isDarkTheme ? '#1f2937' : '#ffffff' // dark gray for dark mode, white for light mode
+
+  // Check if the fusion is using a local fallback
+  const isLocalFallback = 'isLocalFallback' in fusion ? fusion.isLocalFallback : false;
 
   return (
     <div 
@@ -450,6 +496,20 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         
         {/* Fusion details */}
         <div className="p-4 flex-grow flex flex-col">
+          {/* Display fallback warning if using local fallback */}
+          {isLocalFallback && showFallbackWarning && (
+            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-md text-sm text-blue-700 dark:text-blue-300">
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 flex-shrink-0">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                <p>Using Simple Fusion</p>
+              </div>
+            </div>
+          )}
+          
           <h3 className="text-lg font-bold mb-1 capitalize text-gray-800 dark:text-white">{getFusionName()}</h3>
           
           {/* Display Pokémon names if available */}

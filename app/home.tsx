@@ -169,18 +169,8 @@ export default function Home() {
                 }}
                 showActions={true}
                 onLike={() => setIsLiked(!isLiked)}
+                showFallbackWarning={true}
               />
-              
-              {/* Display fallback message if using local fallback */}
-              {isLocalFallback && (
-                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md text-sm text-blue-700 dark:text-blue-300">
-                  <div className="flex items-center">
-                    <Info className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <p>Using Simple Fusion</p>
-                  </div>
-                  <p className="mt-1 text-xs">The AI fusion service is currently unavailable. We're using a simplified fusion method instead.</p>
-                </div>
-              )}
             </div>
           </div>
         )}

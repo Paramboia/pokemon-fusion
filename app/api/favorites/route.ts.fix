@@ -1,0 +1,32 @@
+// Query the favorites table for this user
+const { data: favoritesData, error: favoritesError } = await supabaseClient
+  .from('favorites')
+  .select(`
+    fusion_id,
+    fusions (
+      id,
+      pokemon_1_name,
+      pokemon_2_name,
+      fusion_name,
+      fusion_image,
+      created_at,
+      likes
+    )
+  `)
+  .eq('user_id', supabaseUserId);
+
+// Transform the data to a more usable format
+const favorites = favoritesData?.map(item => {
+  if (!item.fusions) return null;
+  
+  // Convert from Supabase format to our Fusion type format
+  return {
+    id: item.fusions.id,
+    pokemon1Name: item.fusions.pokemon_1_name,
+    pokemon2Name: item.fusions.pokemon_2_name,
+    fusionName: item.fusions.fusion_name,
+    fusionImage: item.fusions.fusion_image,
+    createdAt: item.fusions.created_at,
+    likes: item.fusions.likes || 0
+  };
+}).filter(Boolean) || []; 

@@ -74,6 +74,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   }, [user, fusion.id]);
 
   const handleLike = async () => {
+    console.log('CLICK DETECTED - handleLike function called');
     try {
       const userId = user?.id;
       
@@ -130,14 +131,24 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   const backgroundColor = isDarkTheme ? '#1f2937' : '#ffffff' // dark gray for dark mode, white for light mode
 
   return (
-    <div style={{ position: 'relative' }}>
-      <Card className="overflow-hidden" style={{ backgroundColor }}>
+    <div 
+      style={{ position: 'relative' }}
+      onClick={() => console.log('Outer div clicked')}
+    >
+      <Card 
+        className="overflow-hidden" 
+        style={{ backgroundColor }}
+        onClick={() => console.log('Card clicked')}
+      >
         {/* Image container */}
-        <div style={{ 
-          position: 'relative', 
-          aspectRatio: '1/1',
-          backgroundColor: isDarkTheme ? '#111827' : '#f9fafb' // Even darker for image background in dark mode
-        }}>
+        <div 
+          style={{
+            position: 'relative',
+            aspectRatio: '1/1',
+            backgroundColor: isDarkTheme ? '#111827' : '#f9fafb' // Even darker for image background in dark mode
+          }}
+          onClick={() => console.log('Image container clicked')}
+        >
           <Image
             src={getFusionImage()}
             alt={getFusionName()}
@@ -161,23 +172,28 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           >
             {/* Like button */}
             <button 
-              onClick={handleLike}
+              onClick={(e) => {
+                e.stopPropagation(); // Stop event propagation
+                console.log('Like button clicked directly');
+                handleLike();
+              }}
               style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+                backgroundColor: 'rgba(255, 0, 0, 0.4)', // Make it red to stand out
                 borderRadius: '9999px',
-                padding: '0.5rem',
-                border: 'none',
-                cursor: 'pointer'
+                padding: '0.75rem', // Make it bigger
+                border: '2px solid white', // Add a border
+                cursor: 'pointer',
+                zIndex: 100 // Ensure it's on top
               }}
               aria-label="Like fusion"
             >
               <Heart 
                 style={{ 
-                  width: '1.25rem', 
-                  height: '1.25rem', 
+                  width: '1.5rem', // Make it bigger
+                  height: '1.5rem', // Make it bigger
                   color: 'white',
                   fill: isLiked ? '#ef4444' : 'none'
-                }} 
+                }}
               />
             </button>
             

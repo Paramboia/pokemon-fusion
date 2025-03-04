@@ -13,7 +13,7 @@ console.log('Generate API - SUPABASE_SERVICE_ROLE_KEY available:', !!process.env
 // Function to get Pokémon image URL by ID
 function getPokemonImageUrl(id: number): string {
   // Use the official Pokémon sprites from PokeAPI
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 }
 
 // Set a longer timeout for the API route
@@ -65,56 +65,43 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
     }
     
-    // Get the user ID from the session or create a test user
+    // Get the user ID from Clerk auth
     let userId;
     try {
-      // For testing purposes, allow requests without authentication
       const session = await auth();
       userId = session?.userId;
       console.log('Generate API - User ID from auth():', userId);
       
-      // If no authenticated user, create a test user
       if (!userId) {
-        console.log('Generate API - No authenticated user, creating test user');
-        const testUserId = uuidv4();
-        
-        // Check if the users table exists
-        const { data: usersExist, error: usersError } = await supabase
-          .from('users')
-          .select('id')
-          .limit(1);
-          
-        if (usersError) {
-          console.error('Generate API - Error checking users table:', usersError);
-        }
-        
-        // Create the test user
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .insert({
-            id: testUserId,
-            name: 'Test User',
-            email: `test-${Date.now()}@example.com`
-          })
-          .select();
-        
-        if (userError) {
-          console.error('Generate API - Error creating test user:', userError);
-          
-          // For testing, use a hardcoded user ID if we can't create a new one
-          userId = '00000000-0000-0000-0000-000000000000';
-          console.log('Generate API - Using fallback test user ID:', userId);
-        } else {
-          userId = testUserId;
-          console.log('Generate API - Test user created with ID:', userId);
-        }
+        console.error('Generate API - No authenticated user');
+        return NextResponse.json({ 
+          error: 'Authentication required',
+          details: 'No user ID found in the session'
+        }, { status: 401 });
       }
+      
+      // Verify the user exists in the Supabase users table
+      const { data: userExists, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', userId)
+        .single();
+      
+      if (userError) {
+        console.error('Generate API - Error checking user in Supabase:', userError);
+        return NextResponse.json({ 
+          error: 'User not found in database',
+          details: 'The authenticated user does not exist in the Supabase users table'
+        }, { status: 404 });
+      }
+      
+      console.log('Generate API - User verified in Supabase:', userExists);
     } catch (authError) {
       console.error('Generate API - Error getting user ID from auth():', authError);
-      
-      // For testing purposes, use a hardcoded user ID
-      userId = '00000000-0000-0000-0000-000000000000';
-      console.log('Generate API - Using fallback test user ID for auth error:', userId);
+      return NextResponse.json({ 
+        error: 'Authentication error',
+        details: authError instanceof Error ? authError.message : String(authError)
+      }, { status: 401 });
     }
     
     // Get Pokémon data from the database
@@ -224,14 +211,15 @@ export async function POST(req: Request) {
       const modelInput = {
         image_1: pokemon1ImageUrl,
         image_2: pokemon2ImageUrl,
-        merge_mode: "full",
-        prompt: `a fusion of ${pokemon1Data.name} and ${pokemon2Data.name} pokemon, high quality, detailed`,
-        negative_prompt: "low quality, blurry, distorted",
-        upscale_2x: false
+        merge_mode: "full", // Options: full, left_right, up_down, center_square
+        prompt: `a fusion of ${pokemon1Data.name} and ${pokemon2Data.name} pokemon, high quality, detailed, digital art`,
+        negative_prompt: "low quality, blurry, distorted, ugly, broken",
+        upscale_2x: true // Enable upscaling for better quality
       };
       
       console.log('Generate API - Running image-merger model with input:', modelInput);
       
+      // Run the model
       const output = await replicate.run(
         "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
         { input: modelInput }
@@ -252,7 +240,7 @@ export async function POST(req: Request) {
       console.log('Generate API - Fusion image URL:', fusionImageUrl);
       
       // Save the fusion to the database
-      console.log('Generate API - Saving fusion to database');
+      console.log('Generate API - Saving fusion to database with user ID:', userId);
       const result = await saveFusion({
         userId,
         pokemon1Id,
@@ -297,10 +285,65 @@ export async function POST(req: Request) {
       
     } catch (replicateError) {
       console.error('Generate API - Error with Replicate:', replicateError);
-      return NextResponse.json({ 
-        error: 'Error generating fusion with Replicate',
-        details: replicateError instanceof Error ? replicateError.message : String(replicateError)
-      }, { status: 500 });
+      
+      // If there's an error with Replicate, use a fallback approach
+      console.log('Generate API - Using fallback fusion approach due to server error');
+      
+      // Create a simple fusion name if not provided
+      const fallbackName = fusionName || `${pokemon1Data.name}-${pokemon2Data.name}`;
+      
+      // Use one of the original images as a fallback
+      const fallbackImageUrl = pokemon1ImageUrl;
+      
+      // Try to save the fallback fusion
+      try {
+        const fallbackResult = await saveFusion({
+          userId,
+          pokemon1Id,
+          pokemon2Id,
+          fusionName: fallbackName,
+          fusionImage: fallbackImageUrl
+        });
+        
+        if (fallbackResult.error) {
+          console.error('Generate API - Error saving fallback fusion:', fallbackResult.error);
+          return NextResponse.json({ 
+            error: 'Error generating fusion with Replicate and fallback also failed',
+            details: replicateError instanceof Error ? replicateError.message : String(replicateError),
+            fallbackError: fallbackResult.error
+          }, { status: 500 });
+        }
+        
+        // Safely access the fusion ID
+        let fusionId = uuidv4(); // Default to a new UUID
+        if (fallbackResult.data && typeof fallbackResult.data === 'object') {
+          if ('id' in fallbackResult.data) {
+            fusionId = String(fallbackResult.data.id);
+          } else if (Array.isArray(fallbackResult.data) && fallbackResult.data.length > 0 && 
+                    typeof fallbackResult.data[0] === 'object' && 'id' in fallbackResult.data[0]) {
+            fusionId = String(fallbackResult.data[0].id);
+          }
+        }
+        
+        // Return the fallback result
+        return NextResponse.json({
+          id: fusionId,
+          output: fallbackImageUrl,
+          fusionName: fallbackName,
+          pokemon1Id,
+          pokemon2Id,
+          fusionData: fallbackResult.data,
+          isLocalFallback: true,
+          message: 'Fusion generated using fallback method due to AI service error'
+        });
+      } catch (fallbackError) {
+        console.error('Generate API - Error with fallback fusion:', fallbackError);
+        return NextResponse.json({ 
+          error: 'Error generating fusion with both Replicate and fallback',
+          details: replicateError instanceof Error ? replicateError.message : String(replicateError),
+          fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+        }, { status: 500 });
+      }
     }
     
   } catch (error) {

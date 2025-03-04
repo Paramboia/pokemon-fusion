@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '@clerk/nextjs'
+import { useRouter } from 'next/navigation'
 
 export function useFusion() {
-  const { getToken } = useAuth()
+  const { getToken, isSignedIn, isLoaded } = useAuth()
+  const router = useRouter()
   const [generating, setGenerating] = useState(false)
   const [fusionImage, setFusionImage] = useState<string | null>(null)
   const [fusionId, setFusionId] = useState<string | null>(null)
@@ -27,6 +29,24 @@ export function useFusion() {
 
       console.log('Generating fusion for:', { name1, name2, pokemon1Id, pokemon2Id })
 
+      // Check if user is signed in
+      if (!isLoaded) {
+        console.log('Clerk auth is still loading...')
+        // Wait for auth to load
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+
+      if (!isSignedIn) {
+        console.error('User is not signed in')
+        toast.error('Please sign in to generate fusions')
+        setError('Authentication required')
+        setGenerating(false)
+        
+        // Redirect to sign-in page
+        router.push('/sign-in')
+        return
+      }
+
       // Get the Clerk session token
       const token = await getToken()
       console.log('Got authentication token:', token ? 'Yes' : 'No')
@@ -36,6 +56,9 @@ export function useFusion() {
         toast.error('Authentication required. Please sign in.')
         setError('Authentication required')
         setGenerating(false)
+        
+        // Redirect to sign-in page
+        router.push('/sign-in')
         return
       }
 
@@ -58,6 +81,9 @@ export function useFusion() {
       const timeoutId = setTimeout(() => controller.abort(), 50000) // 50 second timeout
 
       try {
+        // Create a fusion name by combining parts of both Pokémon names
+        const generatedFusionName = `${name1.substring(0, Math.ceil(name1.length / 2))}${name2.substring(Math.floor(name2.length / 2))}`;
+        
         // Call the API endpoint to generate the fusion
         const response = await fetch('/api/generate', {
           method: 'POST',
@@ -69,7 +95,7 @@ export function useFusion() {
           body: JSON.stringify({
             pokemon1Id,
             pokemon2Id,
-            fusionName: `${name1}-${name2}`
+            fusionName: generatedFusionName
           }),
           signal: controller.signal
         })
@@ -86,6 +112,20 @@ export function useFusion() {
             // Try to parse the error response as JSON
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
+            console.error('Error details:', errorData.details);
+            
+            // Handle specific error cases
+            if (errorData.error === 'Authentication required' || 
+                errorData.error === 'User not found in database' ||
+                response.status === 401) {
+              toast.error('Authentication required. Please sign in again.');
+              setError('Authentication required');
+              
+              // Redirect to sign-in page
+              router.push('/sign-in');
+              setGenerating(false);
+              return;
+            }
           } catch (parseError) {
             // If JSON parsing fails, use the status text
             errorMessage = `${errorMessage}: ${response.statusText}`;
@@ -99,6 +139,9 @@ export function useFusion() {
           if (response.status === 401) {
             toast.error('Authentication required. Please sign in again.');
             setError('Authentication required');
+            
+            // Redirect to sign-in page
+            router.push('/sign-in');
           } else if (response.status === 402) {
             setIsPaymentRequired(true);
             toast.error('Payment required to generate more fusions');
@@ -137,6 +180,7 @@ export function useFusion() {
         let data;
         try {
           data = await response.json();
+          console.log('Fusion API response:', data);
         } catch (parseError) {
           console.error('Error parsing response:', parseError);
           
@@ -156,18 +200,18 @@ export function useFusion() {
         console.log('Fusion generated successfully:', data);
         setFusionImage(data.output || data.fusionImage);
         setFusionId(data.id);
+        setIsLocalFallback(data.isLocalFallback || false);
         
-        // Create a fusion name if not provided
+        // Set the fusion name
         if (data.fusionName) {
           setFusionName(data.fusionName);
         } else {
+          // Create a fusion name if not provided
           const firstHalf = name1.substring(0, Math.ceil(name1.length / 2));
           const secondHalf = name2.substring(Math.floor(name2.length / 2));
           const fallbackName = firstHalf + secondHalf;
           setFusionName(fallbackName);
         }
-        
-        setIsLocalFallback(data.isLocalFallback || false);
         
         // Show appropriate success message
         if (data.isLocalFallback) {
@@ -245,6 +289,6 @@ export function useFusion() {
     error,
     isPaymentRequired,
     isLocalFallback,
-    generateFusion,
+    generateFusion
   }
 } 

@@ -77,27 +77,17 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
     try {
       const userId = user?.id;
       
-      console.log('FusionCard - Handling like for fusion:', fusion.id);
+      console.log('FusionCard - handleLike called for fusion:', fusion.id);
       console.log('FusionCard - User ID:', userId);
-
+      
       if (!userId) {
-        console.log('FusionCard - No user ID available, showing sign-in toast');
         toast.error('Please sign in to like fusions');
         return;
       }
-
-      // If the fusion is already liked by this user, don't do anything
-      if (isLiked) {
-        console.log('FusionCard - Fusion already liked by this user');
-        toast.info('You already liked this fusion');
-        return;
-      }
-
+      
       console.log('FusionCard - Calling dbService.likeFusion with fusion ID:', fusion.id, 'and user ID:', userId);
       const success = await dbService.likeFusion(fusion.id, userId);
       
-      console.log('FusionCard - likeFusion result:', success);
-
       if (success) {
         console.log('FusionCard - Like successful, updating UI');
         setLikeCount(prev => prev + 1);
@@ -105,8 +95,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         onLike?.(fusion.id);
         toast.success('Liked fusion!');
       } else {
-        console.log('FusionCard - Like failed');
-        toast.error('Failed to like fusion');
+        console.error('FusionCard - Like failed, success was false');
       }
     } catch (error) {
       console.error('FusionCard - Error liking fusion:', error);

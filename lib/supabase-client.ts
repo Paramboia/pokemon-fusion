@@ -220,28 +220,10 @@ export const dbService = {
       }
       
       console.log('Supabase Client - Liking fusion with ID:', fusionId, 'for user:', userId);
+      console.log('Supabase Client - User ID type:', typeof userId, 'length:', userId.length);
+      console.log('Supabase Client - Fusion ID type:', typeof fusionId, 'length:', fusionId.length);
       
-      // First check if the user has already liked this fusion
-      console.log('Supabase Client - Checking if user has already liked this fusion...');
-      const { data: existingFavorite, error: checkError } = await supabase
-        .from('favorites')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('fusion_id', fusionId);
-        
-      if (checkError) {
-        console.error('Supabase Client - Error checking existing favorite:', checkError);
-        return false;
-      }
-      
-      // If the user has already liked this fusion, return true without doing anything
-      if (existingFavorite && existingFavorite.length > 0) {
-        console.log('Supabase Client - User has already liked this fusion, skipping');
-        return true;
-      }
-      
-      // If the user hasn't liked this fusion yet, increment the likes count
-      console.log('Supabase Client - Step 1: Incrementing likes count...');
+      // First, increment the likes count
       const { error: likesError } = await supabase.rpc('increment_fusion_likes', {
         fusion_id: fusionId
       });
@@ -250,21 +232,17 @@ export const dbService = {
         console.error('Supabase Client - Error incrementing fusion likes:', likesError);
         return false;
       }
-      
-      console.log('Supabase Client - Likes incremented successfully');
-      
+
+      console.log('Supabase Client - Successfully incremented likes count');
+
       // Then, add to favorites table
-      console.log('Supabase Client - Step 2: Adding to favorites table...');
-      
-      // Insert the favorite
-      console.log('Supabase Client - Inserting favorite...');
       const { error: favoriteError } = await supabase
         .from('favorites')
         .insert({
           user_id: userId,
           fusion_id: fusionId
         });
-        
+
       if (favoriteError) {
         console.error('Supabase Client - Error adding to favorites:', favoriteError);
         // We still return true because the likes were incremented successfully

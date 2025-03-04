@@ -42,8 +42,7 @@ export function useFusion() {
         setError('Authentication required')
         setGenerating(false)
         
-        // Redirect to sign-in page
-        router.push('/sign-in')
+        // Don't redirect, just show error
         return
       }
 
@@ -57,8 +56,7 @@ export function useFusion() {
         setError('Authentication required')
         setGenerating(false)
         
-        // Redirect to sign-in page
-        router.push('/sign-in')
+        // Don't redirect, just show error
         return
       }
 
@@ -121,8 +119,7 @@ export function useFusion() {
               toast.error('Authentication required. Please sign in again.');
               setError('Authentication required');
               
-              // Redirect to sign-in page
-              router.push('/sign-in');
+              // Don't redirect, just show error
               setGenerating(false);
               return;
             }
@@ -140,8 +137,7 @@ export function useFusion() {
             toast.error('Authentication required. Please sign in again.');
             setError('Authentication required');
             
-            // Redirect to sign-in page
-            router.push('/sign-in');
+            // Don't redirect, just show error
           } else if (response.status === 402) {
             setIsPaymentRequired(true);
             toast.error('Payment required to generate more fusions');

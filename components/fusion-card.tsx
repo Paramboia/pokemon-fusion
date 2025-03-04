@@ -26,6 +26,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes || 0)
   const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const { theme } = useTheme()
   const { user } = useUser();
   const shareUrl = `${window.location.origin}/fusion/${fusion.id}`
@@ -56,6 +57,22 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
     return 'pokemon2Name' in fusion ? fusion.pokemon2Name : fusion.pokemon_2_name;
   }
 
+  // Check if device is mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkIfMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
+
   // Wait for component to mount to access theme
   useEffect(() => {
     setMounted(true)
@@ -83,7 +100,6 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   }, [user, fusion.id]);
 
   const handleLike = async () => {
-    console.log('CLICK DETECTED - handleLike function called');
     try {
       const userId = user?.id;
       
@@ -150,9 +166,8 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
       >
         {/* Image container */}
         <div 
+          className={`relative aspect-square ${!isMobile ? 'group' : ''}`}
           style={{
-            position: 'relative',
-            aspectRatio: '1/1',
             backgroundColor: isDarkTheme ? '#111827' : '#f9fafb',
             flexGrow: 0,
             flexShrink: 0,
@@ -193,70 +208,70 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             }}
           />
           
-          {/* Dark overlay at the bottom of the image */}
+          {/* Dark overlay - visible on mobile or on hover for desktop */}
           <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: '60px',
-              background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
-              zIndex: 4
-            }}
+            className={`absolute inset-0 bg-black/70 ${
+              isMobile 
+                ? 'opacity-0' // Always hidden on mobile
+                : 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' // Show on hover for desktop
+            }`}
+            style={{ zIndex: 4 }}
           />
           
-          {/* Action buttons - always visible at the bottom */}
+          {/* Mobile-specific action bar at bottom */}
+          {isMobile && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '60px',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                zIndex: 4
+              }}
+            />
+          )}
+          
+          {/* Action buttons - always visible at bottom on mobile, or on hover for desktop */}
           <div 
-            style={{ 
-              position: 'absolute', 
-              bottom: 0, 
-              left: 0, 
-              right: 0, 
-              padding: '0.75rem',
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '0.75rem',
-              zIndex: 5
-            }}
+            className={`absolute bottom-0 left-0 right-0 p-3 flex justify-center gap-3 z-10 ${
+              isMobile 
+                ? 'opacity-100' // Always visible on mobile
+                : 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' // Show on hover for desktop
+            }`}
           >
+            {/* Download button */}
+            <button 
+              onClick={() => downloadImage(getFusionImage(), getFusionName())}
+              className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
+              style={{ width: '40px', height: '40px' }}
+              aria-label="Download fusion"
+            >
+              <Download className="h-5 w-5 text-white" />
+            </button>
+            
             {/* Like button */}
             <button 
               onClick={(e) => {
                 e.stopPropagation();
                 handleLike();
               }}
-              className="bg-red-600 hover:bg-red-700 rounded-full p-3 transition-colors"
-              style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              className="bg-red-600 hover:bg-red-700 rounded-full p-3 transition-colors flex items-center justify-center"
+              style={{ width: '40px', height: '40px' }}
               aria-label="Like fusion"
             >
-              <Heart 
-                className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`}
-              />
-            </button>
-            
-            {/* Download button */}
-            <button 
-              onClick={() => downloadImage(getFusionImage(), getFusionName())}
-              className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors"
-              style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              aria-label="Download fusion"
-            >
-              <Download 
-                className="h-5 w-5 text-white"
-              />
+              <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
             </button>
             
             {/* Share button */}
             <button 
               onClick={() => setShowShareOptions(!showShareOptions)}
-              className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors"
-              style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
+              style={{ width: '40px', height: '40px' }}
               aria-label="Share fusion"
             >
-              <Share 
-                className="h-5 w-5 text-white"
-              />
+              <Share className="h-5 w-5 text-white" />
             </button>
           </div>
           
@@ -274,7 +289,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.5rem',
-                zIndex: 10
+                zIndex: 20
               }}
             >
               <button 

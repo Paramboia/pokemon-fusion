@@ -20,8 +20,6 @@ export default function PopularPage() {
         setIsLoading(true);
         const fusions = await dbService.getPopularFusions(12); // Fetch top 12 fusions
         
-        console.log("Raw fusions from database:", fusions);
-        
         if (!fusions || fusions.length === 0) {
           console.warn("No fusions returned from the database");
           setError("No fusions found in the database");
@@ -34,8 +32,6 @@ export default function PopularPage() {
           // Validate fusion image URL
           if (!fusion.fusion_image) {
             console.error(`Missing fusion image for ${fusion.fusion_name || 'unnamed fusion'}`);
-          } else {
-            console.log(`Fusion image URL for ${fusion.fusion_name}:`, fusion.fusion_image);
           }
           
           // Check if the URL is valid
@@ -58,8 +54,6 @@ export default function PopularPage() {
             isLocalFallback: !isValidUrl // Mark as fallback if URL is invalid
           };
         });
-        
-        console.log("Mapped fusions:", mappedFusions);
         
         setPopularFusions(mappedFusions);
       } catch (error) {

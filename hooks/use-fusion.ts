@@ -72,6 +72,8 @@ export function useFusion() {
           body: JSON.stringify({
             pokemon1Id,
             pokemon2Id,
+            pokemon1Name: name1,
+            pokemon2Name: name2,
             fusionName: generatedFusionName
           }),
           signal: controller.signal

@@ -420,6 +420,8 @@ export async function GET(req: Request) {
           id,
           pokemon_1_id,
           pokemon_2_id,
+          pokemon_1_name,
+          pokemon_2_name,
           fusion_name,
           fusion_image,
           created_at
@@ -446,6 +448,8 @@ export async function GET(req: Request) {
         id: item.fusions.id,
         pokemon1Id: item.fusions.pokemon_1_id,
         pokemon2Id: item.fusions.pokemon_2_id,
+        pokemon1Name: item.fusions.pokemon_1_name || 'Unknown Pokémon',
+        pokemon2Name: item.fusions.pokemon_2_name || 'Unknown Pokémon',
         fusionName: item.fusions.fusion_name,
         fusionImage: item.fusions.fusion_image,
         createdAt: item.fusions.created_at

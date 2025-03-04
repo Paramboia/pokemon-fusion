@@ -215,28 +215,20 @@ I have already created the supabase project and the database, with the following
         created_at TIMESTAMP DEFAULT NOW()
     )
 
-    2. Create pokemon Table
-    Stores original Pokémon data, including names, images, and types.
-    CREATE TABLE pokemon (
-        id SERIAL PRIMARY KEY,
-        name TEXT UNIQUE NOT NULL,
-        created_at TIMESTAMP DEFAULT now()
-    );
-
-    3. Create fusions Table
+    2. Create fusions Table
     Stores AI-generated Pokémon fusions.
     CREATE TABLE fusions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        pokemon_1_id INT REFERENCES pokemon(id) ON DELETE CASCADE,
-        pokemon_2_id INT REFERENCES pokemon(id) ON DELETE CASCADE,
         fusion_name TEXT NOT NULL,
         fusion_image TEXT NOT NULL,
         likes INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT now()
+        created_at TIMESTAMP DEFAULT now(),
+        pokemon_1_name TEXT NOT NULL,
+        pokemon_2_name TEXT NOT NULL
     );
 
-    4. Create favorites Table
+    3. Create favorites Table
     Tracks user-favorite fusions.
     CREATE TABLE favorites (
         id SERIAL PRIMARY KEY,

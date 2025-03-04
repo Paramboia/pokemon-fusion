@@ -30,21 +30,29 @@ export async function POST(req: Request) {
     // Extract parameters with type conversion
     const pokemon1Id = body.pokemon1Id ? parseInt(body.pokemon1Id) : null;
     const pokemon2Id = body.pokemon2Id ? parseInt(body.pokemon2Id) : null;
+    const pokemon1Name = body.pokemon1Name || '';
+    const pokemon2Name = body.pokemon2Name || '';
     const fusionName = body.fusionName || '';
+    const pokemon1ImageUrl = body.pokemon1ImageUrl || '';
+    const pokemon2ImageUrl = body.pokemon2ImageUrl || '';
     
     console.log("Generate API - Parsed parameters:", { 
       pokemon1Id, 
-      pokemon2Id, 
+      pokemon2Id,
+      pokemon1Name,
+      pokemon2Name,
       fusionName,
-      pokemon1IdType: typeof body.pokemon1Id,
-      pokemon2IdType: typeof body.pokemon2Id
+      hasImage1: !!pokemon1ImageUrl,
+      hasImage2: !!pokemon2ImageUrl
     });
     
     // Validate the input
-    if (!pokemon1Id || !pokemon2Id || !fusionName) {
+    if (!pokemon1Id || !pokemon2Id || !fusionName || !pokemon1Name || !pokemon2Name) {
       console.error("Generate API - Missing required fields in request:", {
         hasPokemon1Id: !!pokemon1Id,
         hasPokemon2Id: !!pokemon2Id,
+        hasPokemon1Name: !!pokemon1Name,
+        hasPokemon2Name: !!pokemon2Name,
         hasFusionName: !!fusionName
       });
       return NextResponse.json({ 
@@ -52,6 +60,8 @@ export async function POST(req: Request) {
         details: {
           hasPokemon1Id: !!pokemon1Id,
           hasPokemon2Id: !!pokemon2Id,
+          hasPokemon1Name: !!pokemon1Name,
+          hasPokemon2Name: !!pokemon2Name,
           hasFusionName: !!fusionName,
           receivedBody: body
         }
@@ -155,95 +165,13 @@ export async function POST(req: Request) {
       }, { status: 401 });
     }
     
-    // Get Pokémon data from the database
-    console.log('Generate API - Fetching Pokémon data from database');
-    
-    // For Pokémon 1
-    let pokemon1Data;
-    try {
-      const { data, error } = await supabase
-        .from('pokemon')
-        .select('id, name')
-        .eq('id', pokemon1Id)
-        .limit(1);
-      
-      if (error) {
-        console.error('Generate API - Error fetching Pokémon 1:', error);
-        return NextResponse.json({ 
-          error: 'Error fetching Pokémon 1',
-          details: error,
-          pokemonId: pokemon1Id
-        }, { status: 404 });
-      }
-      
-      if (!data || data.length === 0) {
-        console.log('Generate API - Pokémon 1 not found, using default data');
-        // Use default data if not found
-        pokemon1Data = {
-          id: pokemon1Id,
-          name: 'Pokémon ' + pokemon1Id
-        };
-      } else {
-        pokemon1Data = data[0];
-      }
-    } catch (error) {
-      console.error('Generate API - Error fetching Pokémon 1:', error);
-      // Use default data if error
-      pokemon1Data = {
-        id: pokemon1Id,
-        name: 'Pokémon ' + pokemon1Id
-      };
-    }
-    
-    // For Pokémon 2
-    let pokemon2Data;
-    try {
-      const { data, error } = await supabase
-        .from('pokemon')
-        .select('id, name')
-        .eq('id', pokemon2Id)
-        .limit(1);
-      
-      if (error) {
-        console.error('Generate API - Error fetching Pokémon 2:', error);
-        return NextResponse.json({ 
-          error: 'Error fetching Pokémon 2',
-          details: error,
-          pokemonId: pokemon2Id
-        }, { status: 404 });
-      }
-      
-      if (!data || data.length === 0) {
-        console.log('Generate API - Pokémon 2 not found, using default data');
-        // Use default data if not found
-        pokemon2Data = {
-          id: pokemon2Id,
-          name: 'Pokémon ' + pokemon2Id
-        };
-      } else {
-        pokemon2Data = data[0];
-      }
-    } catch (error) {
-      console.error('Generate API - Error fetching Pokémon 2:', error);
-      // Use default data if error
-      pokemon2Data = {
-        id: pokemon2Id,
-        name: 'Pokémon ' + pokemon2Id
-      };
-    }
-    
-    console.log('Generate API - Pokémon data retrieved:', {
-      pokemon1: pokemon1Data,
-      pokemon2: pokemon2Data
-    });
-    
-    // Get image URLs for both Pokémon
-    const pokemon1ImageUrl = getPokemonImageUrl(pokemon1Data.id);
-    const pokemon2ImageUrl = getPokemonImageUrl(pokemon2Data.id);
+    // Use the provided image URLs or get them from the Pokemon ID
+    const image1 = pokemon1ImageUrl || getPokemonImageUrl(pokemon1Id);
+    const image2 = pokemon2ImageUrl || getPokemonImageUrl(pokemon2Id);
     
     console.log('Generate API - Pokémon image URLs:', {
-      pokemon1ImageUrl,
-      pokemon2ImageUrl
+      image1,
+      image2
     });
     
     // Check if REPLICATE_API_TOKEN is available
@@ -260,10 +188,10 @@ export async function POST(req: Request) {
       
       // Prepare the input for the image-merger model
       const modelInput = {
-        image_1: pokemon1ImageUrl,
-        image_2: pokemon2ImageUrl,
+        image_1: image1,
+        image_2: image2,
         merge_mode: "full", // Options: full, left_right, up_down, center_square
-        prompt: `a fusion of ${pokemon1Data.name} and ${pokemon2Data.name} pokemon, high quality, detailed, digital art`,
+        prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} pokemon, high quality, detailed, digital art`,
         negative_prompt: "low quality, blurry, distorted, ugly, broken",
         upscale_2x: true // Enable upscaling for better quality
       };
@@ -296,6 +224,8 @@ export async function POST(req: Request) {
         userId,
         pokemon1Id,
         pokemon2Id,
+        pokemon1Name,
+        pokemon2Name,
         fusionName,
         fusionImage: fusionImageUrl
       });
@@ -330,6 +260,8 @@ export async function POST(req: Request) {
         fusionName,
         pokemon1Id,
         pokemon2Id,
+        pokemon1Name,
+        pokemon2Name,
         fusionData: result.data,
         message: 'Fusion generated successfully'
       });
@@ -341,10 +273,10 @@ export async function POST(req: Request) {
       console.log('Generate API - Using fallback fusion approach due to server error');
       
       // Create a simple fusion name if not provided
-      const fallbackName = fusionName || `${pokemon1Data.name}-${pokemon2Data.name}`;
+      const fallbackName = fusionName || `${pokemon1Name}-${pokemon2Name}`;
       
       // Use one of the original images as a fallback
-      const fallbackImageUrl = pokemon1ImageUrl;
+      const fallbackImageUrl = image1;
       
       // Try to save the fallback fusion
       try {
@@ -352,6 +284,8 @@ export async function POST(req: Request) {
           userId,
           pokemon1Id,
           pokemon2Id,
+          pokemon1Name,
+          pokemon2Name,
           fusionName: fallbackName,
           fusionImage: fallbackImageUrl
         });
@@ -383,6 +317,8 @@ export async function POST(req: Request) {
           fusionName: fallbackName,
           pokemon1Id,
           pokemon2Id,
+          pokemon1Name,
+          pokemon2Name,
           fusionData: fallbackResult.data,
           isLocalFallback: true,
           message: 'Fusion generated using fallback method due to AI service error'

@@ -94,6 +94,8 @@ export interface FusionDB {
   user_id: string;
   pokemon_1_id: number;
   pokemon_2_id: number;
+  pokemon_1_name?: string;
+  pokemon_2_name?: string;
   fusion_name: string;
   fusion_image: string;
   likes: number;

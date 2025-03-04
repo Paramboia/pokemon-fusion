@@ -49,6 +49,8 @@ export interface FusionDB {
   user_id: string;
   pokemon_1_id: number;
   pokemon_2_id: number;
+  pokemon_1_name: string;
+  pokemon_2_name: string;
   fusion_name: string;
   fusion_image: string;
   likes: number;
@@ -101,12 +103,16 @@ export async function saveFusion({
   userId,
   pokemon1Id,
   pokemon2Id,
+  pokemon1Name,
+  pokemon2Name,
   fusionName,
   fusionImage,
 }: {
   userId: string;
   pokemon1Id: number;
   pokemon2Id: number;
+  pokemon1Name: string;
+  pokemon2Name: string;
   fusionName: string;
   fusionImage: string;
 }) {
@@ -114,6 +120,8 @@ export async function saveFusion({
     userId,
     pokemon1Id,
     pokemon2Id,
+    pokemon1Name,
+    pokemon2Name,
     fusionName,
     fusionImageLength: fusionImage ? fusionImage.length : 0,
   });
@@ -211,11 +219,9 @@ export async function saveFusion({
       }
     }
     
-    // Generate a UUID for the fusion
+    // Insert the fusion into the database
+    console.log('saveFusion - Inserting fusion into database');
     const fusionId = uuidv4();
-    
-    // Insert the fusion data
-    console.log('saveFusion - Inserting fusion data with ID:', fusionId);
     const { data, error } = await supabase
       .from('fusions')
       .insert({
@@ -223,9 +229,11 @@ export async function saveFusion({
         user_id: userId,
         pokemon_1_id: pokemon1Id,
         pokemon_2_id: pokemon2Id,
+        pokemon_1_name: pokemon1Name,
+        pokemon_2_name: pokemon2Name,
         fusion_name: fusionName,
         fusion_image: imageUrl,
-        likes: 0
+        likes: 0,
       })
       .select();
     

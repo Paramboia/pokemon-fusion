@@ -238,10 +238,22 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           )}
         </div>
         
-        {/* Pokemon name */}
-        <div className="p-3 text-center bg-muted">
-          <h3 className="font-bold text-lg">{fusion.fusion_name}</h3>
-          <p className="text-xs text-muted-foreground mt-1">{likeCount} likes</p>
+        {/* Fusion details */}
+        <div className="p-4">
+          <h3 className="text-lg font-bold mb-1">{fusion.fusion_name}</h3>
+          
+          {/* Display Pokémon names if available */}
+          {(fusion.pokemon_1_name || fusion.pokemon_2_name) && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+              A fusion of {fusion.pokemon_1_name || 'Unknown'} and {fusion.pokemon_2_name || 'Unknown'}
+            </p>
+          )}
+          
+          {/* Like count */}
+          <div className="flex items-center mt-2">
+            <Heart className="w-4 h-4 mr-1 text-gray-500" />
+            <span className="text-sm text-gray-500">{likeCount || 0}</span>
+          </div>
         </div>
       </Card>
     </div>

@@ -145,7 +145,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
       style={{ position: 'relative' }}
     >
       <Card 
-        className="overflow-hidden h-full flex flex-col" 
+        className="overflow-hidden h-full flex flex-col shadow-md border border-gray-200 dark:border-gray-800 rounded-lg" 
         style={{ backgroundColor }}
       >
         {/* Image container */}
@@ -153,9 +153,10 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           style={{
             position: 'relative',
             aspectRatio: '1/1',
-            backgroundColor: isDarkTheme ? '#111827' : '#f9fafb', // Even darker for image background in dark mode
+            backgroundColor: isDarkTheme ? '#111827' : '#f9fafb',
             flexGrow: 0,
-            flexShrink: 0
+            flexShrink: 0,
+            overflow: 'hidden'
           }}
         >
           {/* Add a fallback div in case the image fails to load */}
@@ -192,91 +193,72 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             }}
           />
           
+          {/* Dark overlay at the bottom of the image */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '60px',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+              zIndex: 4
+            }}
+          />
+          
           {/* Action buttons - always visible at the bottom */}
-          {showActions && (
-            <div 
-              style={{ 
-                position: 'absolute', 
-                bottom: 0, 
-                left: 0, 
-                right: 0, 
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                padding: '0.5rem 0',
-                display: 'flex',
-                justifyContent: 'center',
-                gap: '1rem',
-                zIndex: 4
+          <div 
+            style={{ 
+              position: 'absolute', 
+              bottom: 0, 
+              left: 0, 
+              right: 0, 
+              padding: '0.75rem',
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              zIndex: 5
+            }}
+          >
+            {/* Like button */}
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLike();
               }}
+              className="bg-red-600 hover:bg-red-700 rounded-full p-3 transition-colors"
+              style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              aria-label="Like fusion"
             >
-              {/* Like button */}
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation(); // Stop event propagation
-                  handleLike();
-                }}
-                style={{ 
-                  backgroundColor: 'rgba(255, 0, 0, 0.4)', // Make it red to stand out
-                  borderRadius: '9999px',
-                  padding: '0.75rem', // Make it bigger
-                  border: '2px solid white', // Add a border
-                  cursor: 'pointer',
-                  zIndex: 100 // Ensure it's on top
-                }}
-                aria-label="Like fusion"
-              >
-                <Heart 
-                  style={{ 
-                    width: '1.5rem', // Make it bigger
-                    height: '1.5rem', // Make it bigger
-                    color: 'white',
-                    fill: isLiked ? '#ef4444' : 'none'
-                  }}
-                />
-              </button>
-              
-              {/* Download button */}
-              <button 
-                onClick={() => downloadImage(getFusionImage(), getFusionName())}
-                style={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                  borderRadius: '9999px',
-                  padding: '0.5rem',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-                aria-label="Download fusion"
-              >
-                <Download 
-                  style={{ 
-                    width: '1.25rem', 
-                    height: '1.25rem', 
-                    color: 'white' 
-                  }} 
-                />
-              </button>
-              
-              {/* Share button */}
-              <button 
-                onClick={() => setShowShareOptions(!showShareOptions)}
-                style={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                  borderRadius: '9999px',
-                  padding: '0.5rem',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-                aria-label="Share fusion"
-              >
-                <Share 
-                  style={{ 
-                    width: '1.25rem', 
-                    height: '1.25rem', 
-                    color: 'white' 
-                  }} 
-                />
-              </button>
-            </div>
-          )}
+              <Heart 
+                className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`}
+              />
+            </button>
+            
+            {/* Download button */}
+            <button 
+              onClick={() => downloadImage(getFusionImage(), getFusionName())}
+              className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors"
+              style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              aria-label="Download fusion"
+            >
+              <Download 
+                className="h-5 w-5 text-white"
+              />
+            </button>
+            
+            {/* Share button */}
+            <button 
+              onClick={() => setShowShareOptions(!showShareOptions)}
+              className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors"
+              style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              aria-label="Share fusion"
+            >
+              <Share 
+                className="h-5 w-5 text-white"
+              />
+            </button>
+          </div>
           
           {/* Share options popup */}
           {showShareOptions && (

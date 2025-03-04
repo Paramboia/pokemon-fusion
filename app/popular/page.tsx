@@ -87,11 +87,9 @@ export default function PopularPage() {
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex flex-col items-center justify-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
-            <div className="text-gray-800 dark:!text-white" style={{ color: 'inherit', ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
-              <SparklesText text="Popular Fusions" />
-            </div>
+            <SparklesText text="Popular Fusions" />
           </h1>
-          <p className="text-lg text-center text-gray-600 dark:!text-white max-w-2xl" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
+          <p className="text-lg text-center text-gray-600 dark:text-gray-300 max-w-2xl">
             Check out the most popular Pokémon fusions created by our community
           </p>
         </div>
@@ -110,11 +108,9 @@ export default function PopularPage() {
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex flex-col items-center justify-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
-          <div className="text-gray-800 dark:!text-white" style={{ color: 'inherit', ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
-            <SparklesText text="Popular Fusions" />
-          </div>
+          <SparklesText text="Popular Fusions" />
         </h1>
-        <p className="text-lg text-center text-gray-600 dark:!text-white max-w-2xl" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
+        <p className="text-lg text-center text-gray-600 dark:text-gray-300 max-w-2xl">
           Check out the most popular Pokémon fusions created by our community
         </p>
       </div>
@@ -128,9 +124,9 @@ export default function PopularPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {popularFusions.map((fusion) => (
-              <div key={fusion.id} className="flex flex-col">
+              <div key={fusion.id}>
                 <FusionCard 
                   fusion={fusion}
                   showActions={true}

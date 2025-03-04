@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Heart, Download, Share } from 'lucide-react'
-import { Card } from '@/components/ui/card'
+import { Card, Button } from '@/components/ui'
 import { downloadImage } from '@/lib/utils'
 import { dbService, FusionDB } from '@/lib/supabase-client'
 import { useUser } from "@clerk/nextjs";
@@ -151,6 +151,53 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
     }
   };
 
+  // Handle mobile share
+  const handleMobileShare = async () => {
+    const shareText = `Check out this Pokemon fusion ${getFusionName()} on Pokemon Fusion!`;
+    const shareUrl = window.location.origin;
+    
+    // Check if Web Share API is supported
+    if (navigator.share) {
+      try {
+        // Try to share with image if possible
+        const response = await fetch(getFusionImage());
+        const blob = await response.blob();
+        const file = new File([blob], `${getFusionName()}.png`, { type: blob.type });
+        
+        await navigator.share({
+          title: 'Pokémon Fusion',
+          text: shareText,
+          url: shareUrl,
+          files: [file]
+        }).catch(error => {
+          // If sharing with file fails, try without file
+          if (error.name !== 'AbortError') {
+            return navigator.share({
+              title: 'Pokémon Fusion',
+              text: shareText,
+              url: shareUrl
+            });
+          }
+          throw error;
+        });
+        
+        toast.success('Shared successfully!');
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Error sharing:', error);
+          toast.error('Failed to share');
+        }
+      }
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
+        toast.success('Share link copied to clipboard!');
+      }).catch(() => {
+        toast.error('Failed to copy link');
+      });
+    }
+  };
+
   // Determine background color based on theme
   const isDarkTheme = mounted && theme === 'dark'
   const backgroundColor = isDarkTheme ? '#1f2937' : '#ffffff' // dark gray for dark mode, white for light mode
@@ -209,7 +256,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           />
           
           {/* Desktop overlay - only visible on hover */}
-          {!isMobile && (
+          {!isMobile && showActions && (
             <div
               className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center"
               style={{ zIndex: 4 }}
@@ -251,63 +298,8 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             </div>
           )}
           
-          {/* Mobile-specific action bar at bottom */}
-          {isMobile && (
-            <>
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: '60px',
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
-                  zIndex: 4
-                }}
-              />
-              
-              {/* Mobile action buttons at bottom */}
-              <div 
-                className="absolute bottom-0 left-0 right-0 p-3 flex justify-center gap-3 z-10"
-              >
-                {/* Download button */}
-                <button 
-                  onClick={() => downloadImage(getFusionImage(), getFusionName())}
-                  className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
-                  style={{ width: '40px', height: '40px' }}
-                  aria-label="Download fusion"
-                >
-                  <Download className="h-5 w-5 text-white" />
-                </button>
-                
-                {/* Like button */}
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleLike();
-                  }}
-                  className="bg-red-600 hover:bg-red-700 rounded-full p-3 transition-colors flex items-center justify-center"
-                  style={{ width: '40px', height: '40px' }}
-                  aria-label="Like fusion"
-                >
-                  <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
-                </button>
-                
-                {/* Share button */}
-                <button 
-                  onClick={() => setShowShareOptions(!showShareOptions)}
-                  className="bg-gray-700 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center"
-                  style={{ width: '40px', height: '40px' }}
-                  aria-label="Share fusion"
-                >
-                  <Share className="h-5 w-5 text-white" />
-                </button>
-              </div>
-            </>
-          )}
-          
           {/* Share options popup */}
-          {showShareOptions && (
+          {showShareOptions && !isMobile && (
             <div 
               style={{
                 position: 'absolute',
@@ -385,6 +377,29 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             <Heart className="w-4 h-4 mr-1 text-red-500" />
             <span className="text-sm text-gray-500 dark:text-gray-400">{likeCount || 0} likes</span>
           </div>
+          
+          {/* Mobile action buttons - displayed as full CTAs below the details */}
+          {isMobile && showActions && (
+            <div className="flex mt-4 gap-2">
+              <Button variant="outline" onClick={() => downloadImage(getFusionImage(), getFusionName())}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </Button>
+              
+              <Button
+                variant={isLiked ? "default" : "outline"}
+                onClick={handleLike}
+              >
+                <Heart className={`mr-2 h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
+                {isLiked ? "Liked" : "Like"}
+              </Button>
+              
+              <Button variant="outline" onClick={handleMobileShare}>
+                <Share className="mr-2 h-4 w-4" />
+                Share
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
     </div>

@@ -47,8 +47,6 @@ export async function checkSupabaseActionConnection() {
 export interface FusionDB {
   id: string;
   user_id: string;
-  pokemon_1_id: number;
-  pokemon_2_id: number;
   pokemon_1_name: string;
   pokemon_2_name: string;
   fusion_name: string;
@@ -109,8 +107,8 @@ export async function saveFusion({
   fusionImage,
 }: {
   userId: string;
-  pokemon1Id: number;
-  pokemon2Id: number;
+  pokemon1Id?: number;
+  pokemon2Id?: number;
   pokemon1Name: string;
   pokemon2Name: string;
   fusionName: string;
@@ -227,8 +225,6 @@ export async function saveFusion({
       .insert({
         id: fusionId,
         user_id: userId,
-        pokemon_1_id: pokemon1Id,
-        pokemon_2_id: pokemon2Id,
         pokemon_1_name: pokemon1Name,
         pokemon_2_name: pokemon2Name,
         fusion_name: fusionName,

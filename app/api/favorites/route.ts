@@ -418,8 +418,6 @@ export async function GET(req: Request) {
         fusion_id,
         fusions (
           id,
-          pokemon_1_id,
-          pokemon_2_id,
           pokemon_1_name,
           pokemon_2_name,
           fusion_name,
@@ -446,10 +444,8 @@ export async function GET(req: Request) {
       // Convert from Supabase format to our Fusion type format
       return {
         id: item.fusions.id,
-        pokemon1Id: item.fusions.pokemon_1_id,
-        pokemon2Id: item.fusions.pokemon_2_id,
-        pokemon1Name: item.fusions.pokemon_1_name || 'Unknown Pokémon',
-        pokemon2Name: item.fusions.pokemon_2_name || 'Unknown Pokémon',
+        pokemon1Name: item.fusions.pokemon_1_name,
+        pokemon2Name: item.fusions.pokemon_2_name,
         fusionName: item.fusions.fusion_name,
         fusionImage: item.fusions.fusion_image,
         createdAt: item.fusions.created_at

@@ -221,7 +221,27 @@ export const dbService = {
       
       console.log('Supabase Client - Liking fusion with ID:', fusionId, 'for user:', userId);
       
-      // First, increment the likes count
+      // First check if the user has already liked this fusion
+      console.log('Supabase Client - Checking if user has already liked this fusion...');
+      const { data: existingFavorite, error: checkError } = await supabase
+        .from('favorites')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('fusion_id', fusionId);
+        
+      if (checkError) {
+        console.error('Supabase Client - Error checking existing favorite:', checkError);
+        return false;
+      }
+      
+      // If the user has already liked this fusion, return true without doing anything
+      if (existingFavorite && existingFavorite.length > 0) {
+        console.log('Supabase Client - User has already liked this fusion, skipping');
+        return true;
+      }
+      
+      // If the user hasn't liked this fusion yet, increment the likes count
+      console.log('Supabase Client - Step 1: Incrementing likes count...');
       const { error: likesError } = await supabase.rpc('increment_fusion_likes', {
         fusion_id: fusionId
       });
@@ -231,7 +251,13 @@ export const dbService = {
         return false;
       }
       
+      console.log('Supabase Client - Likes incremented successfully');
+      
       // Then, add to favorites table
+      console.log('Supabase Client - Step 2: Adding to favorites table...');
+      
+      // Insert the favorite
+      console.log('Supabase Client - Inserting favorite...');
       const { error: favoriteError } = await supabase
         .from('favorites')
         .insert({

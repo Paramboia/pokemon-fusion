@@ -22,6 +22,7 @@ You will be using Next.js, Shadcn UI, Tailwind CSS, Lucid icon, Supabase and Cle
 Relationships
 users → fusions (1:N) → Each user can create multiple fusions.
 users → favorites (1:N) → Users can save multiple favorite fusions.
+users → likes (1:1) → Users can only give one like per fusion.
 Bonus: API Endpoints
 Using Supabase REST API or PostgREST, your API endpoints could look like:
 

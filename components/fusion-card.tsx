@@ -52,25 +52,64 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
     setMounted(true)
   }, [])
 
+  // Check if the user has already liked this fusion
+  useEffect(() => {
+    const checkIfLiked = async () => {
+      try {
+        if (!user?.id || !fusion.id) return;
+        
+        console.log('FusionCard - Checking if fusion is already liked by user:', user.id);
+        const isAlreadyLiked = await dbService.isFavorite(user.id, fusion.id);
+        
+        console.log('FusionCard - Is fusion already liked:', isAlreadyLiked);
+        setIsLiked(isAlreadyLiked);
+      } catch (error) {
+        console.error('FusionCard - Error checking if fusion is liked:', error);
+      }
+    };
+    
+    if (user) {
+      checkIfLiked();
+    }
+  }, [user, fusion.id]);
+
   const handleLike = async () => {
     try {
       const userId = user?.id;
       
+      console.log('FusionCard - Handling like for fusion:', fusion.id);
+      console.log('FusionCard - User ID:', userId);
+
       if (!userId) {
+        console.log('FusionCard - No user ID available, showing sign-in toast');
         toast.error('Please sign in to like fusions');
         return;
       }
-      
+
+      // If the fusion is already liked by this user, don't do anything
+      if (isLiked) {
+        console.log('FusionCard - Fusion already liked by this user');
+        toast.info('You already liked this fusion');
+        return;
+      }
+
+      console.log('FusionCard - Calling dbService.likeFusion with fusion ID:', fusion.id, 'and user ID:', userId);
       const success = await dbService.likeFusion(fusion.id, userId);
       
+      console.log('FusionCard - likeFusion result:', success);
+
       if (success) {
+        console.log('FusionCard - Like successful, updating UI');
         setLikeCount(prev => prev + 1);
         setIsLiked(true);
         onLike?.(fusion.id);
         toast.success('Liked fusion!');
+      } else {
+        console.log('FusionCard - Like failed');
+        toast.error('Failed to like fusion');
       }
     } catch (error) {
-      console.error('Error liking fusion:', error);
+      console.error('FusionCard - Error liking fusion:', error);
       toast.error('Failed to like fusion');
     }
   };

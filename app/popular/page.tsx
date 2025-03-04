@@ -12,6 +12,7 @@ import { Fusion } from "@/types";
 export default function PopularPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [popularFusions, setPopularFusions] = useState<Fusion[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPopularFusions = async () => {
@@ -19,21 +20,51 @@ export default function PopularPage() {
         setIsLoading(true);
         const fusions = await dbService.getPopularFusions(12); // Fetch top 12 fusions
         
+        console.log("Raw fusions from database:", fusions);
+        
+        if (!fusions || fusions.length === 0) {
+          console.warn("No fusions returned from the database");
+          setError("No fusions found in the database");
+          setPopularFusions([]);
+          return;
+        }
+        
         // Map FusionDB objects to Fusion objects
-        const mappedFusions: Fusion[] = fusions.map(fusion => ({
-          id: fusion.id,
-          pokemon1Name: fusion.pokemon_1_name,
-          pokemon2Name: fusion.pokemon_2_name,
-          fusionName: fusion.fusion_name,
-          fusionImage: fusion.fusion_image,
-          createdAt: fusion.created_at,
-          likes: fusion.likes,
-          isLocalFallback: false
-        }));
+        const mappedFusions: Fusion[] = fusions.map(fusion => {
+          // Validate fusion image URL
+          if (!fusion.fusion_image) {
+            console.error(`Missing fusion image for ${fusion.fusion_name || 'unnamed fusion'}`);
+          } else {
+            console.log(`Fusion image URL for ${fusion.fusion_name}:`, fusion.fusion_image);
+          }
+          
+          // Check if the URL is valid
+          const isValidUrl = fusion.fusion_image && 
+                            typeof fusion.fusion_image === 'string' && 
+                            fusion.fusion_image.startsWith('http');
+          
+          if (!isValidUrl) {
+            console.error(`Invalid fusion image URL for ${fusion.fusion_name}:`, fusion.fusion_image);
+          }
+          
+          return {
+            id: fusion.id,
+            pokemon1Name: fusion.pokemon_1_name,
+            pokemon2Name: fusion.pokemon_2_name,
+            fusionName: fusion.fusion_name,
+            fusionImage: fusion.fusion_image || '/placeholder-pokemon.svg', // Use fallback if missing
+            createdAt: fusion.created_at,
+            likes: fusion.likes,
+            isLocalFallback: !isValidUrl // Mark as fallback if URL is invalid
+          };
+        });
+        
+        console.log("Mapped fusions:", mappedFusions);
         
         setPopularFusions(mappedFusions);
       } catch (error) {
         console.error('Error fetching popular fusions:', error);
+        setError('Failed to load popular fusions');
         toast.error('Failed to load popular fusions');
       } finally {
         setIsLoading(false);
@@ -47,6 +78,29 @@ export default function PopularPage() {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center">
+        <div className="text-center mb-10">
+          <SparklesText 
+            text="Popular Fusions"
+            className="text-4xl md:text-5xl font-bold mb-4"
+          />
+          <p className="text-xl text-gray-600 dark:text-gray-300">
+            Check out the most popular Pokémon fusions created by our community
+          </p>
+        </div>
+        
+        <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
+          <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">Error loading fusions</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            {error}
+          </p>
+        </div>
       </div>
     );
   }

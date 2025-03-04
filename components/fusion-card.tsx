@@ -36,7 +36,16 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   }
 
   const getFusionImage = () => {
-    return 'fusionImage' in fusion ? fusion.fusionImage : fusion.fusion_image;
+    const imageUrl = 'fusionImage' in fusion ? fusion.fusionImage : fusion.fusion_image;
+    console.log('FusionCard - Image URL:', imageUrl);
+    
+    // Check if the URL is valid
+    if (!imageUrl || imageUrl === '' || imageUrl === 'null' || imageUrl === 'undefined') {
+      console.error('Invalid image URL:', imageUrl);
+      return '/placeholder-pokemon.svg'; // Fallback SVG image
+    }
+    
+    return imageUrl;
   }
 
   const getPokemon1Name = () => {
@@ -149,11 +158,38 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           }}
           onClick={() => console.log('Image container clicked')}
         >
+          {/* Add a fallback div in case the image fails to load */}
+          <div 
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: isDarkTheme ? '#111827' : '#f9fafb',
+              zIndex: 1
+            }}
+          >
+            <p className="text-gray-500">Loading fusion...</p>
+          </div>
+          
           <Image
             src={getFusionImage()}
             alt={getFusionName()}
             fill
             className="object-contain p-4"
+            style={{ zIndex: 2 }}
+            onError={(e) => {
+              console.error('Image failed to load:', getFusionImage());
+              e.currentTarget.style.display = 'none';
+            }}
+            onLoad={(e) => {
+              // Hide the fallback div when the image loads successfully
+              e.currentTarget.style.zIndex = '3';
+            }}
           />
           
           {/* Action buttons - always visible at the bottom */}

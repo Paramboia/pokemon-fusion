@@ -1,0 +1,6 @@
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#f0f0f0" />
+  <circle cx="100" cy="100" r="50" fill="#e0e0e0" stroke="#c0c0c0" stroke-width="2" />
+  <circle cx="100" cy="100" r="20" fill="#c0c0c0" stroke="#a0a0a0" stroke-width="2" />
+  <text x="100" y="160" font-family="Arial" font-size="16" text-anchor="middle" fill="#808080">Pokémon Fusion</text>
+</svg> 

@@ -25,7 +25,21 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: '**',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
+        port: '',
+        pathname: '/**',
+      },
     ],
+    // Temporarily allow unoptimized images to debug the issue
+    unoptimized: true,
   },
   webpack: (config) => {
     config.externals = [...config.externals, 'bcrypt'];

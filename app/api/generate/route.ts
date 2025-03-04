@@ -80,22 +80,80 @@ export async function POST(req: Request) {
         }, { status: 401 });
       }
       
-      // Verify the user exists in the Supabase users table
-      const { data: userExists, error: userError } = await supabase
+      // Check if the user exists in the Supabase users table
+      // First try with the exact Clerk ID
+      let { data: userExists, error: userError } = await supabase
         .from('users')
         .select('id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       
-      if (userError) {
-        console.error('Generate API - Error checking user in Supabase:', userError);
+      // If not found by ID, try to find by email
+      if (!userExists && session?.userId) {
+        // Get user details from Clerk
+        const email = body.email || ''; // Use email from request if available
+        console.log('Generate API - User not found by ID, trying email:', email);
+        
+        if (email) {
+          const { data: userByEmail, error: emailError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle();
+          
+          if (userByEmail) {
+            console.log('Generate API - User found by email:', userByEmail);
+            userExists = userByEmail;
+          } else if (emailError) {
+            console.error('Generate API - Error checking user by email:', emailError);
+          }
+        }
+      }
+      
+      // If user still not found, try to create the user
+      if (!userExists) {
+        console.log('Generate API - User not found in database, attempting to create');
+        
+        // Get user details from request or use defaults
+        const name = body.name || 'Anonymous User';
+        const email = body.email || '';
+        
+        if (email) {
+          // Insert the user into Supabase
+          const { data: newUser, error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: userId, // Use Clerk ID
+              name,
+              email
+            })
+            .select()
+            .single();
+          
+          if (insertError) {
+            console.error('Generate API - Error creating user in Supabase:', insertError);
+          } else if (newUser) {
+            console.log('Generate API - User created successfully:', newUser);
+            userExists = newUser;
+          }
+        } else {
+          console.error('Generate API - Cannot create user without email');
+        }
+      }
+      
+      // If we still don't have a user, return an error
+      if (!userExists) {
+        console.error('Generate API - User not found in database and could not be created');
         return NextResponse.json({ 
           error: 'User not found in database',
-          details: 'The authenticated user does not exist in the Supabase users table'
+          details: 'The authenticated user does not exist in the Supabase users table and could not be created automatically'
         }, { status: 404 });
       }
       
       console.log('Generate API - User verified in Supabase:', userExists);
+      
+      // Use the Supabase user ID for the fusion
+      userId = userExists.id;
     } catch (authError) {
       console.error('Generate API - Error getting user ID from auth():', authError);
       return NextResponse.json({ 

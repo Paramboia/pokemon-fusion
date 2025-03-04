@@ -30,6 +30,14 @@ export function useFusion() {
       // Get the Clerk session token - AuthGate ensures the user is already signed in
       const token = await getToken()
       console.log('Got authentication token:', token ? 'Yes' : 'No')
+      
+      if (!token) {
+        console.error('No authentication token available');
+        toast.error('Authentication error. Please refresh and try again.');
+        setError('Authentication error');
+        setGenerating(false);
+        return;
+      }
 
       // Show a toast to indicate generation has started
       toast.loading('Starting Pokémon fusion generation...', {
@@ -99,6 +107,10 @@ export function useFusion() {
             setIsPaymentRequired(true);
             toast.error('Payment required to generate more fusions');
             setError('Payment required to generate more fusions');
+          } else if (response.status === 404 && errorMessage.includes('User not found')) {
+            // Special handling for user not found in database
+            toast.error('Your account is not properly synced. Please refresh the page and try again.');
+            setError('User account not synced with database');
           } else if (response.status === 500 || response.status === 504) {
             // For server errors, use a more user-friendly message
             toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');

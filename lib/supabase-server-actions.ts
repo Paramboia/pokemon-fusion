@@ -125,11 +125,8 @@ export async function saveFusion({
       return { error: 'No user ID provided' };
     }
 
-    // Validate UUID format for user ID
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      console.log('saveFusion - User ID is not a valid UUID, will be treated as a Clerk ID');
-    }
+    // No need to validate UUID format - accept any user ID format
+    // The generate endpoint will ensure the user exists in the database
 
     // Create Supabase client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

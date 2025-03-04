@@ -8,9 +8,11 @@ import { SparklesText } from "@/components/ui";
 import { Loader2, AlertCircle } from "lucide-react";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
 import { useAuthContext } from "@/contexts/auth-context";
+import { useAuth } from "@clerk/nextjs";
 
 export default function FavoritesPage() {
   const { user, isLoaded, isSignedIn } = useAuthContext();
+  const { getToken } = useAuth();
   const [favorites, setFavorites] = useState<Fusion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,11 +29,22 @@ export default function FavoritesPage() {
     setError(null);
     
     try {
+      // Get the authentication token
+      const token = await getToken();
+      
+      if (!token) {
+        console.error('No authentication token available');
+        setError('Authentication required');
+        setLoading(false);
+        return;
+      }
+      
       // Make the API request
       const response = await fetch(`/api/favorites?userId=${user?.id}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
       });
       
@@ -39,6 +52,14 @@ export default function FavoritesPage() {
       if (response.status === 404) {
         setError("No favorites found. Your account may not be properly synced.");
         toast.error("User account not found in database");
+        setLoading(false);
+        return;
+      }
+      
+      // Handle 401 (unauthorized) as a special case
+      if (response.status === 401) {
+        setError("Authentication required. Please refresh the page and try again.");
+        toast.error("Authentication required");
         setLoading(false);
         return;
       }

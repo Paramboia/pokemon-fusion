@@ -173,13 +173,29 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get the fusion ID from the request body
-    const { fusionId } = await req.json();
+    // Get the fusion ID from the request body or URL parameters
+    let fusionId;
+    try {
+      // Try to get from body first
+      const body = await req.json().catch(() => ({}));
+      fusionId = body.fusionId;
+      
+      // If not in body, try URL parameters
+      if (!fusionId) {
+        const url = new URL(req.url);
+        fusionId = url.searchParams.get('fusionId');
+      }
+    } catch (error) {
+      // If JSON parsing fails, try URL parameters
+      const url = new URL(req.url);
+      fusionId = url.searchParams.get('fusionId');
+    }
+    
     console.log('Favorites API - Adding fusion to favorites:', fusionId);
 
     // Validate the request parameters
     if (!fusionId) {
-      console.log('Favorites API - Missing fusion ID in request body');
+      console.log('Favorites API - Missing fusion ID in request');
       return NextResponse.json(
         { error: 'Missing fusion ID' },
         { status: 400 }
@@ -226,6 +242,21 @@ export async function POST(req: Request) {
     } catch (tableError) {
       console.log('Favorites API - Error in favorites table check/creation:', tableError);
       // Continue anyway, as the table might already exist
+    }
+
+    // Check if the favorite already exists
+    const { data: existingFavorite, error: checkError } = await supabaseClient
+      .from('favorites')
+      .select('id')
+      .eq('user_id', supabaseUserId)
+      .eq('fusion_id', fusionId)
+      .maybeSingle();
+      
+    if (checkError) {
+      console.error('Favorites API - Error checking if favorite exists:', checkError);
+    } else if (existingFavorite) {
+      console.log('Favorites API - Favorite already exists, skipping insertion');
+      return NextResponse.json({ success: true, message: 'Already liked' });
     }
 
     // Add the fusion to favorites
@@ -314,6 +345,21 @@ export async function DELETE(req: Request) {
     } catch (tableError) {
       console.log('Favorites API - Error in favorites table check:', tableError);
       // Continue anyway, as the table might already exist
+    }
+
+    // Check if the favorite exists before trying to remove it
+    const { data: existingFavorite, error: checkError } = await supabaseClient
+      .from('favorites')
+      .select('id')
+      .eq('user_id', supabaseUserId)
+      .eq('fusion_id', fusionId)
+      .maybeSingle();
+      
+    if (checkError) {
+      console.error('Favorites API - Error checking if favorite exists:', checkError);
+    } else if (!existingFavorite) {
+      console.log('Favorites API - Favorite does not exist, nothing to remove');
+      return NextResponse.json({ success: true, message: 'Already unliked' });
     }
 
     // Remove the fusion from favorites

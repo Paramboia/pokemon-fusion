@@ -97,18 +97,20 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
 
         console.log('FusionCard - Checking if fusion is liked:', fusion.id);
         const token = await getToken();
-        
+         
         if (!token) {
           console.error('FusionCard - No authentication token available for like check');
           return;
         }
         
+        // Use fetch with credentials included
         const response = await fetch(`/api/favorites/check?fusionId=${fusion.id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          }
+          },
+          credentials: 'include' // Include cookies for session-based auth
         });
         
         if (!response.ok) {
@@ -173,7 +175,8 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          }
+          },
+          credentials: 'include' // Include cookies for session-based auth
         });
         
         if (!response.ok) {
@@ -214,7 +217,9 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          }
+          },
+          body: JSON.stringify({ fusionId: fusion.id }),
+          credentials: 'include' // Include cookies for session-based auth
         });
         
         if (!response.ok) {

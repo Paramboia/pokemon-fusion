@@ -153,7 +153,8 @@ export async function GET(req: Request) {
     console.log('Favorites Check API - Checking favorite status for fusion:', fusionId);
     
     // Get the user ID from the auth session
-    const { userId } = auth();
+    const session = await auth();
+    const userId = session?.userId;
     
     if (!userId) {
       console.error('Favorites Check API - No user ID found in session');
@@ -174,6 +175,12 @@ export async function GET(req: Request) {
     
     // Check if the fusion is a favorite for this user
     const supabaseClient = await getSupabaseAdminClient();
+    
+    if (!supabaseClient) {
+      console.error('Favorites Check API - Failed to get Supabase admin client');
+      return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
+    }
+    
     const { data, error } = await supabaseClient
       .from('favorites')
       .select('id')

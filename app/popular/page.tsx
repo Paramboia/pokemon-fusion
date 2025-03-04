@@ -76,7 +76,7 @@ export default function PopularPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="container mx-auto px-4 py-8 flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
@@ -84,13 +84,14 @@ export default function PopularPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center">
-        <div className="text-center mb-10">
-          <SparklesText 
-            text="Popular Fusions"
-            className="text-4xl md:text-5xl font-bold mb-4"
-          />
-          <p className="text-xl text-gray-600 dark:text-gray-300">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="flex flex-col items-center justify-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
+            <div className="text-gray-800 dark:!text-white" style={{ color: 'inherit', ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
+              <SparklesText text="Popular Fusions" />
+            </div>
+          </h1>
+          <p className="text-lg text-center text-gray-600 dark:!text-white max-w-2xl" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
             Check out the most popular Pokémon fusions created by our community
           </p>
         </div>
@@ -106,13 +107,14 @@ export default function PopularPage() {
   }
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="text-center mb-10">
-        <SparklesText 
-          text="Popular Fusions"
-          className="text-4xl md:text-5xl font-bold mb-4"
-        />
-        <p className="text-xl text-gray-600 dark:text-gray-300">
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="flex flex-col items-center justify-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
+          <div className="text-gray-800 dark:!text-white" style={{ color: 'inherit', ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
+            <SparklesText text="Popular Fusions" />
+          </div>
+        </h1>
+        <p className="text-lg text-center text-gray-600 dark:!text-white max-w-2xl" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
           Check out the most popular Pokémon fusions created by our community
         </p>
       </div>
@@ -126,13 +128,14 @@ export default function PopularPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {popularFusions.map((fusion) => (
-              <FusionCard 
-                key={fusion.id} 
-                fusion={fusion}
-                showActions={false}
-              />
+              <div key={fusion.id} className="flex flex-col">
+                <FusionCard 
+                  fusion={fusion}
+                  showActions={true}
+                />
+              </div>
             ))}
           </div>
         )}

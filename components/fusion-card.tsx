@@ -141,22 +141,22 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
 
   return (
     <div 
+      className="h-full"
       style={{ position: 'relative' }}
-      onClick={() => console.log('Outer div clicked')}
     >
       <Card 
-        className="overflow-hidden" 
+        className="overflow-hidden h-full flex flex-col" 
         style={{ backgroundColor }}
-        onClick={() => console.log('Card clicked')}
       >
         {/* Image container */}
         <div 
           style={{
             position: 'relative',
             aspectRatio: '1/1',
-            backgroundColor: isDarkTheme ? '#111827' : '#f9fafb' // Even darker for image background in dark mode
+            backgroundColor: isDarkTheme ? '#111827' : '#f9fafb', // Even darker for image background in dark mode
+            flexGrow: 0,
+            flexShrink: 0
           }}
-          onClick={() => console.log('Image container clicked')}
         >
           {/* Add a fallback div in case the image fails to load */}
           <div 
@@ -193,88 +193,90 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           />
           
           {/* Action buttons - always visible at the bottom */}
-          <div 
-            style={{ 
-              position: 'absolute', 
-              bottom: 0, 
-              left: 0, 
-              right: 0, 
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              padding: '0.5rem 0',
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '1rem'
-            }}
-          >
-            {/* Like button */}
-            <button 
-              onClick={(e) => {
-                e.stopPropagation(); // Stop event propagation
-                console.log('Like button clicked directly');
-                handleLike();
-              }}
+          {showActions && (
+            <div 
               style={{ 
-                backgroundColor: 'rgba(255, 0, 0, 0.4)', // Make it red to stand out
-                borderRadius: '9999px',
-                padding: '0.75rem', // Make it bigger
-                border: '2px solid white', // Add a border
-                cursor: 'pointer',
-                zIndex: 100 // Ensure it's on top
+                position: 'absolute', 
+                bottom: 0, 
+                left: 0, 
+                right: 0, 
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                padding: '0.5rem 0',
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '1rem',
+                zIndex: 4
               }}
-              aria-label="Like fusion"
             >
-              <Heart 
-                style={{ 
-                  width: '1.5rem', // Make it bigger
-                  height: '1.5rem', // Make it bigger
-                  color: 'white',
-                  fill: isLiked ? '#ef4444' : 'none'
+              {/* Like button */}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation(); // Stop event propagation
+                  handleLike();
                 }}
-              />
-            </button>
-            
-            {/* Download button */}
-            <button 
-              onClick={() => downloadImage(getFusionImage(), getFusionName())}
-              style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                borderRadius: '9999px',
-                padding: '0.5rem',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-              aria-label="Download fusion"
-            >
-              <Download 
                 style={{ 
-                  width: '1.25rem', 
-                  height: '1.25rem', 
-                  color: 'white' 
-                }} 
-              />
-            </button>
-            
-            {/* Share button */}
-            <button 
-              onClick={() => setShowShareOptions(!showShareOptions)}
-              style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                borderRadius: '9999px',
-                padding: '0.5rem',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-              aria-label="Share fusion"
-            >
-              <Share 
+                  backgroundColor: 'rgba(255, 0, 0, 0.4)', // Make it red to stand out
+                  borderRadius: '9999px',
+                  padding: '0.75rem', // Make it bigger
+                  border: '2px solid white', // Add a border
+                  cursor: 'pointer',
+                  zIndex: 100 // Ensure it's on top
+                }}
+                aria-label="Like fusion"
+              >
+                <Heart 
+                  style={{ 
+                    width: '1.5rem', // Make it bigger
+                    height: '1.5rem', // Make it bigger
+                    color: 'white',
+                    fill: isLiked ? '#ef4444' : 'none'
+                  }}
+                />
+              </button>
+              
+              {/* Download button */}
+              <button 
+                onClick={() => downloadImage(getFusionImage(), getFusionName())}
                 style={{ 
-                  width: '1.25rem', 
-                  height: '1.25rem', 
-                  color: 'white' 
-                }} 
-              />
-            </button>
-          </div>
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+                  borderRadius: '9999px',
+                  padding: '0.5rem',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                aria-label="Download fusion"
+              >
+                <Download 
+                  style={{ 
+                    width: '1.25rem', 
+                    height: '1.25rem', 
+                    color: 'white' 
+                  }} 
+                />
+              </button>
+              
+              {/* Share button */}
+              <button 
+                onClick={() => setShowShareOptions(!showShareOptions)}
+                style={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+                  borderRadius: '9999px',
+                  padding: '0.5rem',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                aria-label="Share fusion"
+              >
+                <Share 
+                  style={{ 
+                    width: '1.25rem', 
+                    height: '1.25rem', 
+                    color: 'white' 
+                  }} 
+                />
+              </button>
+            </div>
+          )}
           
           {/* Share options popup */}
           {showShareOptions && (
@@ -340,18 +342,18 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         </div>
         
         {/* Fusion details */}
-        <div className="p-4">
-          <h3 className="text-lg font-bold mb-1">{getFusionName()}</h3>
+        <div className="p-4 flex-grow flex flex-col">
+          <h3 className="text-lg font-bold mb-1 capitalize text-gray-800 dark:text-white">{getFusionName()}</h3>
           
           {/* Display Pokémon names if available */}
           {(getPokemon1Name() || getPokemon2Name()) && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-              A fusion of {getPokemon1Name() || 'Unknown'} and {getPokemon2Name() || 'Unknown'}
+              A fusion of <span className="capitalize">{getPokemon1Name() || 'Unknown'}</span> and <span className="capitalize">{getPokemon2Name() || 'Unknown'}</span>
             </p>
           )}
           
           {/* Like count */}
-          <div className="flex items-center mt-2">
+          <div className="flex items-center mt-auto pt-2">
             <Heart className="w-4 h-4 mr-1 text-red-500" />
             <span className="text-sm text-gray-500 dark:text-gray-400">{likeCount || 0} likes</span>
           </div>

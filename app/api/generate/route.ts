@@ -135,9 +135,9 @@ export async function POST(req: Request) {
       const modelInput = {
         image_1: image1,
         image_2: image2,
-        merge_mode: "full", // Options: full, left_right, up_down, center_square
-        prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} pokemon, high quality, detailed, digital art`,
-        negative_prompt: "low quality, blurry, distorted, ugly, broken",
+        merge_mode: "left_right", // Options: full, left_right, up_down, center_square
+        prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} a clean Pokémon-style digital illustration on a pure white background, cel-shaded, vibrant colors, thick black outline, game concept art`,
+        negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny",
         upscale_2x: true // Enable upscaling for better quality
       };
       

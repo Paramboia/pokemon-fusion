@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap location
-Sitemap: https://pokemonfusion.vercel.app/sitemap.xml 
+Sitemap: https://www.pokemon-fusion.com/sitemap.xml 

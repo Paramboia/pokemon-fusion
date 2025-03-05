@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://pokemonfusion.vercel.app';
+  const baseUrl = 'https://www.pokemon-fusion.com';
   const currentDate = new Date().toISOString();
 
   // Define your routes here

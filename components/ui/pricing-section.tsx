@@ -1,9 +1,61 @@
 "use client"
 
 import * as React from "react"
-import { PricingCard, type PricingTier } from "@/components/ui/pricing-card"
+import { PricingCard, PricingTier } from './pricing-card'
 import { Tab } from "@/components/ui/pricing-tab"
 import { SparklesText } from "@/components/ui/sparkles-text"
+
+// Fallback pricing tiers in case props are not provided
+const FALLBACK_TIERS: PricingTier[] = [
+  {
+    id: 'starter',
+    name: 'Starter Pack',
+    price: {
+      monthly: 1.50,
+      yearly: 1.50,
+    },
+    credits: 5,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_5_CREDITS || '',
+    featured: false,
+    pokemonImage: '/pokemon/charmander.png',
+    pokemonName: 'Charmander',
+    themeColor: 'from-orange-300 to-orange-400',
+    borderColor: 'border-orange-300',
+    bgColor: 'bg-orange-50 dark:bg-orange-950/40',
+  },
+  {
+    id: 'standard',
+    name: 'Standard Pack',
+    price: {
+      monthly: 5.00,
+      yearly: 5.00,
+    },
+    credits: 20,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_20_CREDITS || '',
+    featured: true,
+    pokemonImage: '/pokemon/charmeleon.png',
+    pokemonName: 'Charmeleon',
+    themeColor: 'from-orange-500 to-red-500',
+    borderColor: 'border-orange-500',
+    bgColor: 'bg-orange-50 dark:bg-red-950/40',
+  },
+  {
+    id: 'value',
+    name: 'Value Pack',
+    price: {
+      monthly: 10.00,
+      yearly: 10.00,
+    },
+    credits: 50,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_50_CREDITS || '',
+    featured: false,
+    pokemonImage: '/pokemon/charizard.png',
+    pokemonName: 'Charizard',
+    themeColor: 'from-red-600 to-orange-600',
+    borderColor: 'border-red-600',
+    bgColor: 'bg-red-50 dark:bg-red-950/40',
+  },
+];
 
 interface PricingSectionProps {
   title: string
@@ -17,7 +69,7 @@ interface PricingSectionProps {
 export function PricingSection({
   title,
   subtitle,
-  tiers,
+  tiers = FALLBACK_TIERS,
   frequencies,
   onPurchase,
   loadingPackageId

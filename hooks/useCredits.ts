@@ -21,16 +21,46 @@ export function useCredits() {
 
   // Fetch the user's credit balance
   const fetchBalance = useCallback(async () => {
-    if (!isSignedIn || !isLoaded) return;
+    if (!isSignedIn || !isLoaded) {
+      setBalance(0);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       setIsLoading(true);
-      const response = await axios.get('/api/credits/balance');
+      console.log('Fetching credit balance...');
+      const response = await axios.get('/api/credits/balance', { timeout: 5000 });
+      console.log('Credit balance response:', response.data);
       setBalance(response.data.balance);
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching credit balance:', err);
-      setError('Failed to fetch credit balance');
+      
+      // Provide more detailed error messages based on the error type
+      if (err.code === 'ECONNABORTED') {
+        setError('Request timed out. Server might be busy.');
+      } else if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (err.response.status === 401) {
+          setError('Authentication error. Please sign in again.');
+        } else if (err.response.status === 404) {
+          setError('API endpoint not found or user not found in database.');
+          console.log('User might not exist in Supabase database yet.');
+        } else {
+          setError(`Server error: ${err.response.status}`);
+        }
+      } else if (err.request) {
+        // The request was made but no response was received
+        setError('No response from server. Please check your connection.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setError('Failed to fetch credit balance');
+      }
+      
+      // Set a fallback balance of 0
+      setBalance(0);
     } finally {
       setIsLoading(false);
     }
@@ -38,20 +68,59 @@ export function useCredits() {
 
   // Fetch available credit packages
   const fetchPackages = useCallback(async () => {
-    if (!isSignedIn || !isLoaded) return;
+    if (!isLoaded) return;
 
     try {
       setIsLoading(true);
-      const response = await axios.get('/api/credits/packages');
-      setPackages(response.data.packages);
-      setError(null);
+      
+      // Try to fetch packages from the API
+      try {
+        const response = await axios.get('/api/credits/packages', { timeout: 5000 });
+        if (response.data.packages && response.data.packages.length > 0) {
+          setPackages(response.data.packages);
+          setError(null);
+          return;
+        }
+      } catch (apiErr) {
+        console.error('Error fetching credit packages from API:', apiErr);
+      }
+      
+      // If API fails, use environment variables as fallback
+      const fallbackPackages = [
+        {
+          id: 'starter',
+          name: 'Starter Pack',
+          credits: 5,
+          price: 1.50,
+          currency: 'EUR',
+          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_5_CREDITS || '',
+        },
+        {
+          id: 'standard',
+          name: 'Standard Pack',
+          credits: 20,
+          price: 5.00,
+          currency: 'EUR',
+          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_20_CREDITS || '',
+        },
+        {
+          id: 'value',
+          name: 'Value Pack',
+          credits: 50,
+          price: 10.00,
+          currency: 'EUR',
+          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_50_CREDITS || '',
+        }
+      ];
+      
+      setPackages(fallbackPackages);
     } catch (err) {
-      console.error('Error fetching credit packages:', err);
+      console.error('Error in fetchPackages:', err);
       setError('Failed to fetch credit packages');
     } finally {
       setIsLoading(false);
     }
-  }, [isSignedIn, isLoaded]);
+  }, [isLoaded]);
 
   // Use credits for a fusion
   const useCredits = useCallback(async (description?: string) => {
@@ -112,7 +181,7 @@ export function useCredits() {
 
   // Load initial data
   useEffect(() => {
-    if (isSignedIn && isLoaded) {
+    if (isLoaded) {
       fetchBalance();
       fetchPackages();
     }

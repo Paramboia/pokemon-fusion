@@ -7,6 +7,7 @@ import { Loader2, Wallet, Flame } from 'lucide-react';
 import { PricingSection } from '@/components/ui/pricing-section';
 import { PricingTier } from '@/components/ui/pricing-card';
 import { SparklesText } from "@/components/ui";
+import { useAuth } from '@clerk/nextjs';
 
 // Fallback data in case API calls fail
 const FALLBACK_PACKAGES = [
@@ -37,9 +38,11 @@ const FALLBACK_PACKAGES = [
 ];
 
 export default function CreditsPage() {
+  const { isSignedIn } = useAuth();
   const { balance, packages, isLoading, redirectToCheckout } = useCredits();
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
   const [displayPackages, setDisplayPackages] = useState(FALLBACK_PACKAGES);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Use fallback packages if API call fails
   useEffect(() => {
@@ -47,6 +50,30 @@ export default function CreditsPage() {
       setDisplayPackages(packages);
     }
   }, [packages]);
+
+  // Handle API errors
+  useEffect(() => {
+    const checkApiStatus = async () => {
+      if (!isSignedIn) {
+        setErrorMessage('Please sign in to view your credit balance');
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/health');
+        if (response.ok) {
+          console.log('API is working correctly');
+        } else {
+          setErrorMessage('API service is currently unavailable. Please try again later.');
+        }
+      } catch (error) {
+        console.error('Error checking API status:', error);
+        setErrorMessage('Unable to connect to the server. Please check your connection and try again.');
+      }
+    };
+
+    checkApiStatus();
+  }, [isSignedIn]);
 
   const handlePurchase = async (priceId: string, packageId: string) => {
     setLoadingPackageId(packageId);
@@ -121,6 +148,11 @@ export default function CreditsPage() {
               <div className="flex items-center justify-center bg-primary/10 rounded-full h-20 w-20 p-6">
                 {isLoading ? (
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                ) : errorMessage ? (
+                  <div className="text-xl font-bold text-primary flex items-center justify-center">
+                    <Flame className="h-5 w-5 mr-1" />
+                    ?
+                  </div>
                 ) : (
                   <div className="text-3xl font-bold text-primary flex items-center justify-center">
                     {balance || 0}
@@ -128,6 +160,16 @@ export default function CreditsPage() {
                 )}
               </div>
             </div>
+            {errorMessage && (
+              <div className="px-6 pb-6 pt-0">
+                <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 p-3 rounded-md text-sm">
+                  <p className="flex items-center">
+                    <Flame className="h-4 w-4 mr-2 flex-shrink-0" />
+                    {errorMessage}
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="bg-muted p-3 text-center text-sm text-muted-foreground">
               <span className="inline-flex items-center">
                 <Flame className="h-4 w-4 mr-1 text-orange-500" />

@@ -77,15 +77,6 @@ export function Header() {
               <Heart className="h-5 w-5" />
               <span>Favorites</span>
             </Link>
-            <Link
-              href="/credits"
-              className={cn(
-                "flex items-center space-x-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors",
-                isActive("/credits") && "text-gray-900 dark:text-white font-medium"
-              )}
-            >
-              <span>Credits</span>
-            </Link>
           </div>
           <div className="flex items-center space-x-4">
             <button 
@@ -146,16 +137,6 @@ export function Header() {
             >
               <Heart className="h-5 w-5 mr-2" />
               <span>Favorites</span>
-            </Link>
-            <Link
-              href="/credits"
-              className={cn(
-                "flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
-                isActive("/credits") && "text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700"
-              )}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <span>Credits</span>
             </Link>
           </div>
         )}

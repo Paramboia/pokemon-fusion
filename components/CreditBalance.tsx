@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { useCredits } from '@/hooks/useCredits';
 import { Button } from '@/components/ui/button';
-import { Coins, Loader2 } from 'lucide-react';
+import { Wallet, Loader2 } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -33,7 +33,7 @@ export function CreditBalance() {
             asChild
           >
             <Link href="/credits">
-              <Coins className="h-4 w-4 text-yellow-500" />
+              <Wallet className="h-4 w-4 text-primary" />
               {isLoading ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (

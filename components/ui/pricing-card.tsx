@@ -17,6 +17,10 @@ export interface PricingTier {
   priceId: string
   id: string
   pokemonImage: string
+  pokemonName?: string
+  themeColor?: string
+  borderColor?: string
+  bgColor?: string
 }
 
 interface PricingCardProps {
@@ -34,11 +38,15 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
     <Card
       className={cn(
         "flex flex-col overflow-hidden border",
-        tier.featured && "border-primary shadow-md"
+        tier.featured ? "border-primary shadow-lg" : tier.borderColor || "",
+        tier.bgColor || ""
       )}
     >
-      <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2", 
-        tier.featured && "bg-primary/10")}>
+      <div className={cn(
+        "h-2 w-full bg-gradient-to-r",
+        tier.themeColor || "from-primary to-primary/80"
+      )} />
+      <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2")}>
         <div className="relative h-32 w-32 mb-2">
           <Image
             src={tier.pokemonImage}
@@ -52,6 +60,11 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
         <CardDescription className="text-center">
           {tier.description}
         </CardDescription>
+        {tier.pokemonName && (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+            {tier.pokemonName} Tier
+          </span>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col items-center p-6">
         <div className="mb-4 flex items-baseline text-center">
@@ -79,7 +92,9 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
       </CardContent>
       <CardFooter className="mt-auto p-6 pt-0">
         <Button
-          className={cn("w-full", tier.featured ? "" : "bg-primary/90 hover:bg-primary")}
+          className={cn("w-full", 
+            tier.featured ? "" : "bg-gradient-to-r " + (tier.themeColor || "from-primary to-primary/80")
+          )}
           data-price-id={tier.priceId}
           data-package-id={tier.id}
           disabled={isLoading || !tier.priceId}

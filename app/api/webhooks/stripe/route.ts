@@ -8,6 +8,15 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if Stripe API key is available
+    if (!process.env.STRIPE_SECRET_KEY || !webhookSecret) {
+      console.error('Stripe API key or webhook secret is missing');
+      return NextResponse.json(
+        { error: 'Payment service is not configured' },
+        { status: 503 }
+      );
+    }
+
     const body = await req.text();
     const signature = req.headers.get('stripe-signature') as string;
 

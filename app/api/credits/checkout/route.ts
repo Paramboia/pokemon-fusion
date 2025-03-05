@@ -30,6 +30,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check if Stripe API key is available
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('Stripe API key is missing');
+      return NextResponse.json(
+        { error: 'Payment service is not configured' },
+        { status: 503 }
+      );
+    }
+
     // Get the Stripe instance
     const stripe = getStripe();
 

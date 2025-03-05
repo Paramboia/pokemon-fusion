@@ -5,7 +5,12 @@ import Stripe from 'stripe';
 let stripeInstance: Stripe | null = null;
 
 export function getStripe(): Stripe {
-  if (!stripeInstance && process.env.STRIPE_SECRET_KEY) {
+  // Only try to initialize Stripe in a runtime context, not during build
+  if (typeof process.env.STRIPE_SECRET_KEY !== 'string') {
+    throw new Error('Stripe API key is missing. Please check your environment variables.');
+  }
+  
+  if (!stripeInstance) {
     stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2023-10-16', // Use the latest API version
       appInfo: {
@@ -13,10 +18,6 @@ export function getStripe(): Stripe {
         version: '1.0.0',
       },
     });
-  }
-  
-  if (!stripeInstance) {
-    throw new Error('Failed to initialize Stripe. API key missing.');
   }
   
   return stripeInstance;

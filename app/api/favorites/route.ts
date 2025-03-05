@@ -387,7 +387,8 @@ export async function GET(req: Request) {
     // Get the URL and extract the userId query parameter
     const url = new URL(req.url);
     const clerkUserId = url.searchParams.get('userId');
-    console.log('Favorites API - GET request with userId:', clerkUserId);
+    const sortParam = url.searchParams.get('sort') || 'newest'; // Default to newest
+    console.log('Favorites API - GET request with userId:', clerkUserId, 'sort:', sortParam);
 
     // Verify the request is authenticated
     const session = await auth();
@@ -503,10 +504,11 @@ export async function GET(req: Request) {
     }
 
     // Query the favorites table for this user
-    const { data: favoritesData, error: favoritesError } = await supabaseClient
+    let query = supabaseClient
       .from('favorites')
       .select(`
         fusion_id,
+        created_at,
         fusions (
           id,
           pokemon_1_name,
@@ -518,6 +520,16 @@ export async function GET(req: Request) {
         )
       `)
       .eq('user_id', supabaseUserId);
+
+    // Apply sorting based on the sort parameter
+    if (sortParam === 'oldest') {
+      query = query.order('created_at', { ascending: true });
+    } else {
+      // Default to newest first
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data: favoritesData, error: favoritesError } = await query;
 
     if (favoritesError) {
       console.error('Favorites API - Error fetching favorites:', favoritesError.message);
@@ -541,7 +553,8 @@ export async function GET(req: Request) {
         fusionName: item.fusions.fusion_name,
         fusionImage: item.fusions.fusion_image,
         createdAt: item.fusions.created_at,
-        likes: item.fusions.likes || 0
+        likes: item.fusions.likes || 0,
+        favoriteCreatedAt: item.created_at // Include when the fusion was favorited
       };
     }).filter(Boolean) || [];
 

@@ -5,11 +5,22 @@ import { toast } from "sonner";
 import { Fusion } from "@/types";
 import FusionCard from "@/components/fusion-card";
 import { SparklesText } from "@/components/ui";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, ArrowUpDown } from "lucide-react";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
 import { useAuthContext } from "@/contexts/auth-context";
 import { useAuth } from "@clerk/nextjs";
 import { FusionDB } from "@/lib/supabase-client";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+
+// Define sort options
+type SortOption = "newest" | "oldest";
 
 export default function FavoritesPage() {
   const { user, isLoaded, isSignedIn } = useAuthContext();
@@ -17,13 +28,14 @@ export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<Fusion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
 
   useEffect(() => {
     // Only fetch favorites if the user is authenticated
     if (isLoaded && isSignedIn) {
       fetchFavorites();
     }
-  }, [user, isLoaded, isSignedIn]);
+  }, [user, isLoaded, isSignedIn, sortBy]);
 
   async function fetchFavorites() {
     setLoading(true);
@@ -40,8 +52,8 @@ export default function FavoritesPage() {
         return;
       }
       
-      // Make the API request
-      const response = await fetch(`/api/favorites?userId=${user?.id}`, {
+      // Make the API request with sort parameter
+      const response = await fetch(`/api/favorites?userId=${user?.id}&sort=${sortBy}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -158,16 +170,47 @@ export default function FavoritesPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {favorites.map((fusion) => (
-              <div key={fusion.id}>
-                <FusionCard 
-                  fusion={fusion}
-                  showActions={true}
-                />
+          <>
+            <div className="flex justify-end mb-6">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="sort-select" className="text-sm font-medium">
+                  Sort by:
+                </Label>
+                <Select
+                  value={sortBy}
+                  onValueChange={(value) => setSortBy(value as SortOption)}
+                >
+                  <SelectTrigger id="sort-select" className="w-[180px]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">
+                      <div className="flex items-center gap-2">
+                        <ArrowUpDown className="h-4 w-4" />
+                        <span>Newest first</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="oldest">
+                      <div className="flex items-center gap-2">
+                        <ArrowUpDown className="h-4 w-4" />
+                        <span>Oldest first</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            ))}
-          </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {favorites.map((fusion) => (
+                <div key={fusion.id}>
+                  <FusionCard 
+                    fusion={fusion}
+                    showActions={true}
+                  />
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </FavoritesAuthGate>
     </div>

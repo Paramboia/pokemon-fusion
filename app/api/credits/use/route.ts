@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase-server';
 
 // Cost in credits for generating a fusion
 const FUSION_COST = 1;
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const { description = 'Fusion generation' } = body;
 
     // Use the credits
-    const supabase = createClient();
+    const supabase = createServerClient();
     const { data, error } = await supabase.rpc('use_credits', {
       user_id: userId,
       credits_to_use: FUSION_COST,

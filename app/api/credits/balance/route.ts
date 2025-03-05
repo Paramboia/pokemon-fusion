@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get the user's credit balance from Supabase
-    const supabase = createClient();
+    const supabase = createServerClient();
     const { data, error } = await supabase
       .from('users')
       .select('credits_balance')

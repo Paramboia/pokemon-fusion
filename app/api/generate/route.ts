@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import Replicate from 'replicate';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { auth } from '@clerk/nextjs';
 import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
@@ -116,7 +115,8 @@ export async function POST(req: Request) {
     }
     
     // Get the authenticated user
-    const { userId } = auth();
+    const authResult = await auth();
+    const userId = authResult.userId;
     if (!userId) {
       console.error('Generate API - No authenticated user found');
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

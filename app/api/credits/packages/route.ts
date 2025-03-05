@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
 import { CREDIT_PACKAGES } from '@/lib/stripe';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get the credit packages from Supabase
-    const supabase = createClient();
+    const supabase = createServerClient();
     const { data, error } = await supabase
       .from('credit_packages')
       .select('*')

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, getCreditPackageByPriceId } from '@/lib/stripe';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase-server';
 import Stripe from 'stripe';
 
 // This is your Stripe webhook secret for testing your endpoint locally.
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Add credits to the user's account
-        const supabase = createClient();
+        const supabase = await createServerClient();
         
         // Call the add_credits function in Supabase
         const { data, error } = await supabase.rpc('add_credits', {

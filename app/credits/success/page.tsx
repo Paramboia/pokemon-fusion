@@ -1,12 +1,30 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2 } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 
-export default function SuccessPage() {
+// Loading component to display while the page is loading
+function LoadingState() {
+  return (
+    <div className="container max-w-md py-16">
+      <div className="bg-muted p-8 rounded-lg text-center">
+        <div className="flex justify-center mb-4">
+          <div className="h-16 w-16 rounded-full border-4 border-green-500 border-t-transparent animate-spin" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Processing Payment...</h1>
+        <p className="text-muted-foreground mb-6">
+          Please wait while we confirm your payment.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// The actual success content
+function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
@@ -46,5 +64,14 @@ export default function SuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <SuccessContent />
+    </Suspense>
   );
 } 

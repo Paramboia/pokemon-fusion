@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Fusion } from "@/types";
 import FusionCard from "@/components/fusion-card";
 import { SparklesText } from "@/components/ui";
-import { Loader2, AlertCircle, ArrowUpDown, ThumbsUp } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
 import { useAuthContext } from "@/contexts/auth-context";
 import { useAuth } from "@clerk/nextjs";
@@ -189,44 +189,32 @@ export default function FavoritesPage() {
                       value="newest" 
                       className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900">
-                          <ArrowUpDown className="h-3 w-3 text-blue-600 dark:text-blue-300" />
-                        </div>
-                        <span>Newest first</span>
+                      <div className="py-1 px-2 rounded-md bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
+                        Newest first
                       </div>
                     </SelectItem>
                     <SelectItem 
                       value="oldest" 
                       className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 dark:bg-green-900">
-                          <ArrowUpDown className="h-3 w-3 text-green-600 dark:text-green-300" />
-                        </div>
-                        <span>Oldest first</span>
+                      <div className="py-1 px-2 rounded-md bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
+                        Oldest first
                       </div>
                     </SelectItem>
                     <SelectItem 
                       value="most_likes" 
                       className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-red-100 dark:bg-red-900">
-                          <ThumbsUp className="h-3 w-3 text-red-600 dark:text-red-300" />
-                        </div>
-                        <span>Most likes first</span>
+                      <div className="py-1 px-2 rounded-md bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
+                        Most likes first
                       </div>
                     </SelectItem>
                     <SelectItem 
                       value="less_likes" 
                       className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900">
-                          <ThumbsUp className="h-3 w-3 text-purple-600 dark:text-purple-300" />
-                        </div>
-                        <span>Less likes first</span>
+                      <div className="py-1 px-2 rounded-md bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
+                        Less likes first
                       </div>
                     </SelectItem>
                   </SelectContent>

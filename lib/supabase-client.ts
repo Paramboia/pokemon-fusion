@@ -164,21 +164,37 @@ export const dbService = {
     }
   },
   
-  async getPopularFusions(limit = 10): Promise<FusionDB[]> {
+  async getPopularFusions(limit = 10, sortBy = 'most_likes'): Promise<FusionDB[]> {
     try {
-      console.log('Supabase Client - Fetching popular fusions with limit:', limit);
-      const { data, error } = await supabase
-        .from('fusions')
-        .select('*')
-        .order('likes', { ascending: false })
-        .limit(limit);
+      console.log('Supabase Client - Fetching popular fusions with limit:', limit, 'sortBy:', sortBy);
+      let query = supabase.from('fusions').select('*');
+      
+      // Apply sorting based on the sort parameter
+      switch (sortBy) {
+        case 'oldest':
+          query = query.order('created_at', { ascending: true });
+          break;
+        case 'newest':
+          query = query.order('created_at', { ascending: false });
+          break;
+        case 'less_likes':
+          query = query.order('likes', { ascending: true });
+          break;
+        case 'most_likes':
+        default:
+          // Default to most likes first
+          query = query.order('likes', { ascending: false });
+          break;
+      }
+      
+      const { data, error } = await query.limit(limit);
       
       if (error) {
         console.error('Supabase Client - Error fetching popular fusions:', error);
         return [];
       }
       
-      console.log(`Supabase Client - Fetched ${data?.length || 0} popular fusions`);
+      console.log(`Supabase Client - Fetched ${data?.length || 0} fusions with sort: ${sortBy}`);
       return data || [];
     } catch (error) {
       console.error('Supabase Client - Exception in getPopularFusions:', error);

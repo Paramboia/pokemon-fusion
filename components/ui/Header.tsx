@@ -88,7 +88,6 @@ export function Header() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <CreditBalance />
             <button 
               className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               onClick={toggleTheme}
@@ -102,6 +101,7 @@ export function Header() {
                 )
               )}
             </button>
+            <CreditBalance />
             <UserButton />
             <button
               className="md:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"

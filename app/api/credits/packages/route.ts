@@ -1,16 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { CREDIT_PACKAGES } from '@/lib/stripe';
-import { createServerClient } from '@/lib/supabase-server';
+import { createServerClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   try {
-    // Get the authenticated user
-    const { userId } = auth();
-    if (!userId) {
+    // Get the authenticated user from Clerk
+    const { userId: clerkUserId } = auth();
+    if (!clerkUserId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserIdFromClerk(clerkUserId);
+    if (!supabaseUserId) {
+      console.error('Failed to find Supabase user ID for Clerk user:', clerkUserId);
+      return NextResponse.json(
+        { error: 'User not found in database' },
+        { status: 404 }
       );
     }
 

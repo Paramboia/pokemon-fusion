@@ -53,12 +53,13 @@ export async function POST(req: NextRequest) {
         }
 
         // Get the metadata
-        const { userId, credits } = session.metadata as { 
-          userId: string;
+        const { clerkUserId, supabaseUserId, credits } = session.metadata as { 
+          clerkUserId: string;
+          supabaseUserId: string;
           credits: string;
         };
 
-        if (!userId || !credits) {
+        if (!supabaseUserId || !credits) {
           console.error('Missing metadata in session:', session.id);
           break;
         }
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
         
         // Call the add_credits function in Supabase
         const { data, error } = await supabase.rpc('add_credits', {
-          user_id: userId,
+          user_id: supabaseUserId,
           credits_to_add: parseInt(credits, 10),
           transaction_type: 'purchase',
           payment_id: session.id,
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        console.log(`Added ${credits} credits to user ${userId}`);
+        console.log(`Added ${credits} credits to user ${supabaseUserId} (Clerk ID: ${clerkUserId})`);
         break;
       }
       

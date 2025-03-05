@@ -1,16 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getStripe, CREDIT_PACKAGES } from '@/lib/stripe';
-import { createServerClient } from '@/lib/supabase-server';
+import { createServerClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
-    // Get the authenticated user
-    const { userId } = auth();
-    if (!userId) {
+    // Get the authenticated user from Clerk
+    const { userId: clerkUserId } = auth();
+    if (!clerkUserId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserIdFromClerk(clerkUserId);
+    if (!supabaseUserId) {
+      console.error('Failed to find Supabase user ID for Clerk user:', clerkUserId);
+      return NextResponse.json(
+        { error: 'User not found in database' },
+        { status: 404 }
       );
     }
 
@@ -55,7 +65,8 @@ export async function POST(req: NextRequest) {
       success_url: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/credits/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/credits/cancel`,
       metadata: {
-        userId,
+        clerkUserId,
+        supabaseUserId,
         credits: creditPackage.credits.toString(),
         packageType: Object.keys(CREDIT_PACKAGES).find(
           (key) => CREDIT_PACKAGES[key as keyof typeof CREDIT_PACKAGES].stripe_price_id === priceId

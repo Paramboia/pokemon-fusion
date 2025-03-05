@@ -3,18 +3,30 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useCredits } from '@/hooks/useCredits';
-import { Button } from '@/components/ui/button';
 import { Wallet, Loader2 } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
+import { cn } from '@/lib/utils';
 
 export function CreditBalance() {
   const { isSignedIn, isLoaded } = useAuth();
-  const { balance, isLoading, fetchBalance } = useCredits();
+  const { balance, isLoading, fetchBalance, error } = useCredits();
 
+  // Fetch balance when component mounts and when auth state changes
   useEffect(() => {
     if (isSignedIn && isLoaded) {
       fetchBalance();
     }
+  }, [isSignedIn, isLoaded, fetchBalance]);
+
+  // Refresh balance every 30 seconds
+  useEffect(() => {
+    if (!isSignedIn || !isLoaded) return;
+    
+    const intervalId = setInterval(() => {
+      fetchBalance();
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(intervalId);
   }, [isSignedIn, isLoaded, fetchBalance]);
 
   if (!isSignedIn || !isLoaded) {
@@ -22,20 +34,20 @@ export function CreditBalance() {
   }
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="h-8 gap-1 px-2"
-      asChild
+    <Link 
+      href="/credits"
+      className={cn(
+        "flex items-center gap-1 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
+        error ? "text-red-500" : ""
+      )}
+      title={error ? "Error loading credits" : "Your credit balance"}
     >
-      <Link href="/credits">
-        <Wallet className="h-4 w-4 text-primary" />
-        {isLoading ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          <span className="font-medium">{balance}</span>
-        )}
-      </Link>
-    </Button>
+      <Wallet className={cn("h-4 w-4", error ? "text-red-500" : "text-primary")} />
+      {isLoading ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <span className="font-medium text-sm">{balance !== null ? balance : '?'}</span>
+      )}
+    </Link>
   );
 } 

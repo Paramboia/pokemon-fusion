@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '@clerk/nextjs'
+import { useRouter } from 'next/navigation'
 
 export function useFusion() {
+  const router = useRouter()
   const { getToken } = useAuth()
   const [generating, setGenerating] = useState(false)
   const [fusionImage, setFusionImage] = useState<string | null>(null)
@@ -252,6 +254,11 @@ export function useFusion() {
     error,
     isPaymentRequired,
     isLocalFallback,
-    generateFusion
+    generateFusion,
+    handlePaymentRequired: () => {
+      if (isPaymentRequired) {
+        router.push('/credits')
+      }
+    }
   }
 } 

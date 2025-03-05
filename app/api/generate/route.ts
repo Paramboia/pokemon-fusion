@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import Replicate from 'replicate';
 import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs';
 import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
@@ -114,46 +115,75 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
     
+    // Get the authenticated user
+    const { userId } = auth();
+    if (!userId) {
+      console.error('Generate API - No authenticated user found');
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    
+    // Check and use credits before generating the fusion
+    try {
+      const creditResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/credits/use`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': req.headers.get('Authorization') || '',
+        },
+        body: JSON.stringify({
+          description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`
+        })
+      });
+      
+      if (!creditResponse.ok) {
+        const creditError = await creditResponse.json();
+        console.error('Generate API - Credit usage error:', creditError);
+        
+        // If the user doesn't have enough credits, return a payment required error
+        if (creditResponse.status === 402) {
+          return NextResponse.json({ 
+            error: 'Insufficient credits',
+            paymentRequired: true
+          }, { status: 402 });
+        }
+        
+        return NextResponse.json({ 
+          error: 'Failed to use credits',
+          details: creditError
+        }, { status: creditResponse.status });
+      }
+      
+      console.log('Generate API - Credits used successfully');
+    } catch (creditError) {
+      console.error('Generate API - Error using credits:', creditError);
+      return NextResponse.json({ 
+        error: 'Error processing credits',
+        details: creditError instanceof Error ? creditError.message : String(creditError)
+      }, { status: 500 });
+    }
+    
     // Get the Supabase admin client
     const supabase = await getSupabaseAdminClient();
     if (!supabase) {
       console.error('Generate API - Failed to get Supabase admin client');
+      
+      // Since we already used credits, we should refund them if we can't proceed
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/credits/refund`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': req.headers.get('Authorization') || '',
+          },
+          body: JSON.stringify({
+            description: `Refund for failed fusion of ${pokemon1Name} and ${pokemon2Name}`
+          })
+        });
+      } catch (refundError) {
+        console.error('Generate API - Failed to refund credits:', refundError);
+      }
+      
       return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
-    }
-    
-    // Get the user ID from Clerk auth
-    let userId;
-    try {
-      const session = await auth();
-      const clerkUserId = session?.userId;
-      console.log('Generate API - User ID from auth():', clerkUserId);
-      
-      if (!clerkUserId) {
-        console.error('Generate API - No authenticated user');
-        return NextResponse.json({ 
-          error: 'Authentication required',
-          details: 'No user ID found in the session'
-        }, { status: 401 });
-      }
-      
-      // Get the Supabase user ID from the Clerk ID
-      userId = await getSupabaseUserIdFromClerk(clerkUserId);
-      
-      if (!userId) {
-        console.error('Generate API - Failed to get Supabase user ID');
-        return NextResponse.json({ 
-          error: 'User not found in database',
-          details: 'The authenticated user does not exist in the Supabase users table and could not be created automatically'
-        }, { status: 404 });
-      }
-      
-      console.log('Generate API - User verified in Supabase:', userId);
-    } catch (authError) {
-      console.error('Generate API - Error getting user ID from auth():', authError);
-      return NextResponse.json({ 
-        error: 'Authentication error',
-        details: authError instanceof Error ? authError.message : String(authError)
-      }, { status: 401 });
     }
     
     // Use the provided image URLs or get them from the Pokemon ID

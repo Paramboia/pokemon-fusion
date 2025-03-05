@@ -65,15 +65,33 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center p-6">
-        <p className="text-2xl font-bold mb-4">
-          {tier.credits} credits
-        </p>
-        <div className="mb-2 flex items-baseline text-center">
-          <span className="text-4xl font-bold">€{price.toFixed(2)}</span>
+        <div className="flex flex-col items-center space-y-4 w-full">
+          {/* Credits display */}
+          <div className="flex items-center justify-center w-full">
+            <div className={cn(
+              "px-4 py-2 rounded-full",
+              tier.borderColor ? tier.borderColor.replace('border-', 'bg-') + '/20' : "bg-primary/20",
+              "text-center"
+            )}>
+              <span className="text-2xl font-bold">
+                {tier.credits} credits
+              </span>
+            </div>
+          </div>
+          
+          {/* Price display */}
+          <div className="flex flex-col items-center">
+            <span className={cn(
+              "text-4xl font-bold",
+              tier.themeColor ? `text-gradient bg-gradient-to-r ${tier.themeColor} bg-clip-text text-transparent` : ""
+            )}>
+              €{price.toFixed(2)}
+            </span>
+            <span className="text-sm mt-1 text-muted-foreground font-medium">
+              €{pricePerCredit} per credit
+            </span>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          €{pricePerCredit} per credit
-        </p>
       </CardContent>
       <CardFooter className="mt-auto p-6 pt-0">
         <Button

@@ -126,7 +126,7 @@ export default function PopularPage() {
         <div className="flex justify-end mb-6">
           <div className="flex items-center gap-2">
             <Label htmlFor="sort-select" className="text-sm font-medium">
-              Sort by:
+              Sort by first:
             </Label>
             <Select
               value={sortBy}
@@ -140,25 +140,25 @@ export default function PopularPage() {
                   value="most_likes" 
                   className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                 >
-                  Most likes first
+                  Most likes
                 </SelectItem>
                 <SelectItem 
                   value="less_likes" 
                   className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                 >
-                  Less likes first
+                  Less likes
                 </SelectItem>
                 <SelectItem 
                   value="newest" 
                   className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                 >
-                  Newest first
+                  Newest
                 </SelectItem>
                 <SelectItem 
                   value="oldest" 
                   className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                 >
-                  Oldest first
+                  Oldest
                 </SelectItem>
               </SelectContent>
             </Select>

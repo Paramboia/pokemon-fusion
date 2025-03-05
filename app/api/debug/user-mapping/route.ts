@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import { clerkClient } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   try {
     // Get the authenticated user from Clerk
-    const { userId: clerkUserId } = auth();
+    const { userId: clerkUserId } = await auth();
     if (!clerkUserId) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'You must be signed in to use this endpoint' },

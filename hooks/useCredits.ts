@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { useAuth } from '@clerk/nextjs';
+import { useAuthContext } from '@/contexts/auth-context';
 import { toast } from 'sonner';
 
 export type CreditPackage = {
@@ -13,7 +13,7 @@ export type CreditPackage = {
 };
 
 export function useCredits() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded } = useAuthContext();
   const [balance, setBalance] = useState<number | null>(null);
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);

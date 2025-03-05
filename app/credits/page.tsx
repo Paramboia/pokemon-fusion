@@ -7,7 +7,8 @@ import { Loader2, Wallet, Flame } from 'lucide-react';
 import { PricingSection } from '@/components/ui/pricing-section';
 import { PricingTier } from '@/components/ui/pricing-card';
 import { SparklesText } from "@/components/ui";
-import { useAuth } from '@clerk/nextjs';
+import { useAuthContext } from '@/contexts/auth-context';
+import { AuthGate } from '@/components/auth-gate';
 
 // Fallback data in case API calls fail
 const FALLBACK_PACKAGES = [
@@ -38,7 +39,7 @@ const FALLBACK_PACKAGES = [
 ];
 
 export default function CreditsPage() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuthContext();
   const { balance, packages, isLoading, redirectToCheckout } = useCredits();
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
   const [displayPackages, setDisplayPackages] = useState(FALLBACK_PACKAGES);
@@ -55,15 +56,12 @@ export default function CreditsPage() {
   useEffect(() => {
     const checkApiStatus = async () => {
       if (!isSignedIn) {
-        setErrorMessage('Please sign in to view your credit balance');
-        return;
+        return; // Don't show error message if not signed in - AuthGate will handle this
       }
       
       try {
         const response = await fetch('/api/health');
-        if (response.ok) {
-          console.log('API is working correctly');
-        } else {
+        if (!response.ok) {
           setErrorMessage('API service is currently unavailable. Please try again later.');
         }
       } catch (error) {
@@ -72,8 +70,10 @@ export default function CreditsPage() {
       }
     };
 
-    checkApiStatus();
-  }, [isSignedIn]);
+    if (isLoaded) {
+      checkApiStatus();
+    }
+  }, [isSignedIn, isLoaded]);
 
   const handlePurchase = async (priceId: string, packageId: string) => {
     setLoadingPackageId(packageId);
@@ -130,108 +130,112 @@ export default function CreditsPage() {
 
   return (
     <div className="flex flex-col items-center">
-      {/* Credit Balance */}
-      <div className="container max-w-4xl mb-12 mt-6">
-        <Card className="overflow-hidden border-0 shadow-md bg-white dark:bg-gray-800">
-          <div className="bg-gradient-to-r from-primary/80 to-primary p-1"></div>
-          <CardContent className="p-0">
-            <div className="flex flex-col md:flex-row items-center justify-between p-6 gap-4">
-              <div>
-                <h2 className="text-2xl font-bold mb-2 flex items-center">
-                  <Wallet className="h-6 w-6 mr-2 text-primary" />
-                  Your Credit Balance
-                </h2>
-                <p className="text-muted-foreground">
-                  Use credits to generate unique Pokémon fusions
-                </p>
+      <AuthGate
+        title="Purchase Credits"
+        message="Sign in to purchase and manage your Pokémon fusion credits!"
+      >
+        {/* Credit Balance */}
+        <div className="container max-w-4xl mb-12 mt-6">
+          <Card className="overflow-hidden border-0 shadow-md bg-white dark:bg-gray-800">
+            <div className="bg-gradient-to-r from-primary/80 to-primary p-1"></div>
+            <CardContent className="p-0">
+              <div className="flex flex-col md:flex-row items-center justify-between p-6 gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2 flex items-center">
+                    <Wallet className="h-6 w-6 mr-2 text-primary" />
+                    Your Credit Balance
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Use credits to generate unique Pokémon fusions
+                  </p>
+                </div>
+                <div className="flex items-center justify-center bg-primary/10 rounded-full h-20 w-20 p-6">
+                  {isLoading ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  ) : errorMessage ? (
+                    <div className="text-xl font-bold text-primary flex items-center justify-center">
+                      <Flame className="h-5 w-5 mr-1" />
+                      ?
+                    </div>
+                  ) : (
+                    <div className="text-3xl font-bold text-primary flex items-center justify-center">
+                      {balance || 0}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center justify-center bg-primary/10 rounded-full h-20 w-20 p-6">
-                {isLoading ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                ) : errorMessage ? (
-                  <div className="text-xl font-bold text-primary flex items-center justify-center">
-                    <Flame className="h-5 w-5 mr-1" />
-                    ?
+              {errorMessage && (
+                <div className="px-6 pb-6 pt-0">
+                  <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 p-3 rounded-md text-sm">
+                    <p className="flex items-center">
+                      <Flame className="h-4 w-4 mr-2 flex-shrink-0" />
+                      {errorMessage}
+                    </p>
                   </div>
-                ) : (
-                  <div className="text-3xl font-bold text-primary flex items-center justify-center">
-                    {balance || 0}
-                  </div>
-                )}
+                </div>
+              )}
+              <div className="bg-muted p-3 text-center text-sm text-muted-foreground">
+                <span className="inline-flex items-center">
+                  <Flame className="h-4 w-4 mr-1 text-amber-500" />
+                  Each fusion costs 1 credit. Purchase more credits below.
+                </span>
               </div>
-            </div>
-            {errorMessage && (
-              <div className="px-6 pb-6 pt-0">
-                <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 p-3 rounded-md text-sm">
-                  <p className="flex items-center">
-                    <Flame className="h-4 w-4 mr-2 flex-shrink-0" />
-                    {errorMessage}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Pricing Section */}
+        <div className="container max-w-6xl mb-12">
+          <PricingSection
+            title="Choose Your Tier"
+            subtitle="Purchase credits to generate Pokémon fusions"
+            tiers={tiers}
+            frequencies={['monthly']}
+            onPurchase={handlePurchase}
+            loadingPackageId={loadingPackageId}
+          />
+        </div>
+
+        {/* FAQ Section */}
+        <div className="container max-w-4xl mb-12">
+          <Card className="overflow-hidden border-0 shadow-md bg-white dark:bg-gray-800">
+            <div className="bg-gradient-to-r from-primary/80 to-primary p-1"></div>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-6">Frequently Asked Questions</h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">What are credits?</h3>
+                  <p className="text-muted-foreground">
+                    Credits are used to generate unique Pokémon fusions. Each fusion costs 1 credit.
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">How do I purchase credits?</h3>
+                  <p className="text-muted-foreground">
+                    Select one of the packages above and follow the checkout process. Credits will be added to your account immediately after payment.
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Do credits expire?</h3>
+                  <p className="text-muted-foreground">
+                    No, your credits never expire and will remain in your account until used.
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Can I get a refund?</h3>
+                  <p className="text-muted-foreground">
+                    Refunds are available for unused credits within 30 days of purchase. Please contact support for assistance.
                   </p>
                 </div>
               </div>
-            )}
-            <div className="bg-muted p-3 text-center text-sm text-muted-foreground">
-              <span className="inline-flex items-center">
-                <Flame className="h-4 w-4 mr-1 text-orange-500" />
-                Each fusion costs 1 credit. Purchase more credits below.
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Pricing Section */}
-      <div className="container max-w-6xl">
-        <PricingSection
-          title="Choose Your Tier"
-          subtitle="Purchase credits to generate Pokémon fusions"
-          tiers={tiers}
-          frequencies={['monthly']} // We only have one-time purchases, not subscriptions
-          onPurchase={handlePurchase}
-          loadingPackageId={loadingPackageId}
-        />
-      </div>
-
-      {/* FAQ Section */}
-      <div className="text-center my-12">
-        <SparklesText 
-          text="Frequently Asked Questions"
-          className="text-3xl md:text-4xl font-bold mb-4"
-        />
-        <p className="text-xl text-gray-600 dark:text-gray-200 mb-6">
-          Everything you need to know about our credit system
-        </p>
-      </div>
-
-      <div className="max-w-3xl w-full space-y-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-12">
-        <section>
-          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">How do credits work?</h2>
-          <p className="text-gray-600 dark:text-gray-200">
-            Each credit allows you to generate one unique Pokémon fusion. Credits are deducted from your account when you create a fusion.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Do credits expire?</h2>
-          <p className="text-gray-600 dark:text-gray-200">
-            No, your purchased credits never expire and will remain in your account until used.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Can I get a refund?</h2>
-          <p className="text-gray-600 dark:text-gray-200">
-            We do not offer refunds for purchased credits. All sales are final.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">How do I contact support?</h2>
-          <p className="text-gray-600 dark:text-gray-200">
-            This is a one-person show, so I cannot really provide much support - but try to reach out on Twitter if anything serious happens. You can find me at <a href="https://x.com/Mr__Parente" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">@Miguel Parente</a>.
-          </p>
-        </section>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      </AuthGate>
     </div>
   );
 } 

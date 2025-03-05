@@ -19,6 +19,52 @@ function getPokemonImageUrl(id: number): string {
 // Set a longer timeout for the API route
 export const maxDuration = 60; // 60 seconds timeout for the API route
 
+// Function to convert transparent background to white background
+async function convertTransparentToWhite(imageUrl: string): Promise<string> {
+  try {
+    console.log(`Converting transparent background to white for: ${imageUrl}`);
+    
+    // Check if we have the API token
+    if (!process.env.REPLICATE_API_TOKEN) {
+      console.error('REPLICATE_API_TOKEN not available for background conversion');
+      return imageUrl; // Return original if no API token
+    }
+    
+    const replicate = new Replicate({
+      auth: process.env.REPLICATE_API_TOKEN,
+    });
+    
+    // Use the rembg model to remove background and add white background
+    const output = await replicate.run(
+      "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+      { 
+        input: {
+          image: imageUrl,
+          return_mask: false,
+          alpha_matting: true, // Enable alpha matting for better edge detection
+          alpha_matting_foreground_threshold: 240, // Higher threshold to ensure white background
+          alpha_matting_background_threshold: 10, // Lower threshold to ensure no black
+          alpha_matting_erode_size: 10, // Increase erode size to remove more of the black edges
+          background_color: "white" // Set white background
+        }
+      }
+    );
+    
+    if (!output || typeof output !== 'string') {
+      console.error('Failed to convert image background:', output);
+      return imageUrl; // Return original if conversion fails
+    }
+    
+    // At this point, output is confirmed to be a string
+    const outputStr: string = output;
+    console.log(`Successfully converted background to white: ${outputStr.substring(0, 100)}...`);
+    return outputStr;
+  } catch (error) {
+    console.error('Error converting image background:', error);
+    return imageUrl; // Return original if conversion fails
+  }
+}
+
 export async function POST(req: Request) {
   try {
     console.log("Generate API - POST request received");
@@ -119,6 +165,32 @@ export async function POST(req: Request) {
       image2
     });
     
+    // Pre-process images to convert transparent backgrounds to white
+    console.log('Generate API - Starting background conversion for Pokemon images');
+    let processedImage1 = image1;
+    let processedImage2 = image2;
+    
+    try {
+      console.log('Generate API - Converting background for Pokemon 1');
+      processedImage1 = await convertTransparentToWhite(image1);
+      
+      console.log('Generate API - Converting background for Pokemon 2');
+      processedImage2 = await convertTransparentToWhite(image2);
+      
+      console.log('Generate API - Background conversion completed successfully');
+    } catch (conversionError) {
+      console.error('Generate API - Error during background conversion:', conversionError);
+      // Continue with original images if conversion fails
+      processedImage1 = image1;
+      processedImage2 = image2;
+    }
+    
+    console.log('Generate API - Processed image URLs:', {
+      processedImage1,
+      processedImage2,
+      usingProcessedImages: processedImage1 !== image1 || processedImage2 !== image2
+    });
+    
     // Check if REPLICATE_API_TOKEN is available
     if (!process.env.REPLICATE_API_TOKEN) {
       console.error('Generate API - REPLICATE_API_TOKEN not available');
@@ -133,16 +205,16 @@ export async function POST(req: Request) {
       
       // Prepare the input for the image-merger model
       const modelInput = {
-        image_1: image1,
-        image_2: image2,
-        control_image: image1,
+        image_1: processedImage1,
+        image_2: processedImage2,
+        control_image: processedImage1,
         merge_mode: "left_right", // Options: full, left_right, up_down, center_square
-        prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} in a single new Pokemon, clean Pokémon-style illustration with a pure white background, solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style`,
-        negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, soft, ugly, broken, distorted, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting",
+        prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} in a single new Pokemon, clean Pokémon-style illustration with a pure white background, solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, completely white background with no black or gray, transparent background`,
+        negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, soft, ugly, broken, distorted, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting, any background other than white",
         upscale_2x: true // Enable upscaling for better quality
       };
       
-      console.log('Generate API - Running image-merger model with input:', modelInput);
+      console.log('Generate API - Running image-merger model with processed images');
       
       // Run the model
       const output = await replicate.run(
@@ -221,8 +293,9 @@ export async function POST(req: Request) {
       // Create a simple fusion name if not provided
       const fallbackName = fusionName || `${pokemon1Name}-${pokemon2Name}`;
       
-      // Use one of the original images as a fallback
-      const fallbackImageUrl = image1;
+      // Use one of the processed original images as a fallback
+      const fallbackImageUrl = processedImage1;
+      console.log('Generate API - Using processed image as fallback:', fallbackImageUrl);
       
       // Try to save the fallback fusion
       try {

@@ -42,10 +42,6 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
         tier.bgColor || ""
       )}
     >
-      <div className={cn(
-        "h-2 w-full bg-gradient-to-r",
-        tier.themeColor || "from-primary to-primary/80"
-      )} />
       <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2")}>
         <div className="relative h-32 w-32 mb-2">
           <Image
@@ -57,24 +53,27 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
             priority
           />
         </div>
-        <CardTitle className="text-xl">{tier.name}</CardTitle>
+        <CardTitle 
+          className={cn(
+            "text-xl font-bold tracking-tight",
+            tier.themeColor ? `bg-gradient-to-r ${tier.themeColor} bg-clip-text text-transparent` : 
+            "bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent",
+            "drop-shadow-sm"
+          )}
+        >
+          {tier.name}
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center p-6">
-        <div className="mb-4 flex items-baseline text-center">
+        <p className="text-2xl font-bold mb-4">
+          {tier.credits} credits
+        </p>
+        <div className="mb-2 flex items-baseline text-center">
           <span className="text-4xl font-bold">€{price.toFixed(2)}</span>
         </div>
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-sm text-muted-foreground">
           €{pricePerCredit} per credit
         </p>
-        <div className="w-full">
-          <div className={cn(
-            "flex items-center justify-center gap-2 rounded-md p-2 font-medium",
-            "bg-gradient-to-r", tier.themeColor || "from-primary/20 to-primary/10",
-            "text-gray-800 dark:text-white"
-          )}>
-            <span>{tier.credits} credits</span>
-          </div>
-        </div>
       </CardContent>
       <CardFooter className="mt-auto p-6 pt-0">
         <Button

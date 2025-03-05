@@ -1,6 +1,9 @@
 "use client";
 
 import { SparklesText } from "@/components/ui";
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -15,7 +18,7 @@ export default function AboutPage() {
         </p>
       </div>
 
-      <div className="max-w-3xl w-full space-y-8 p-6 bg-white dark:bg-gray-800 dark:bg-opacity-50 rounded-lg shadow-sm">
+      <div className="max-w-3xl w-full space-y-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
         <section>
           <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">What is Pokémon Fusion?</h2>
           <p className="text-gray-600 dark:text-gray-200">
@@ -41,23 +44,68 @@ export default function AboutPage() {
             Each fusion generation costs 1 credit. We offer several affordable packages to suit your needs:
           </p>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 border border-purple-200 dark:border-purple-800 rounded-lg bg-purple-50 dark:bg-purple-900 dark:bg-opacity-30">
-              <h3 className="font-bold text-lg text-purple-700 dark:text-purple-300">Starter Pack</h3>
+            <div className="p-4 border border-orange-300 dark:border-orange-700 rounded-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/40 dark:to-orange-900/20 shadow-sm hover:shadow-md transition-all duration-300 hover:translate-y-[-2px]">
+              <div className="flex items-center mb-1">
+                <div className="w-6 h-6 mr-2 relative">
+                  <Image 
+                    src="/pokemon/charmander.png" 
+                    alt="Charmander" 
+                    width={24} 
+                    height={24} 
+                    className="object-contain"
+                  />
+                </div>
+                <h3 className="font-bold text-lg text-orange-600 dark:text-orange-300">Starter Pack</h3>
+              </div>
               <p className="text-2xl font-bold my-2">5 Credits</p>
               <p className="text-xl">€1.50</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">€0.30 per credit</p>
+              <Link href="/credits" className="mt-3 inline-flex items-center text-sm text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300">
+                <span>Get started</span>
+                <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
             </div>
-            <div className="p-4 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30">
-              <h3 className="font-bold text-lg text-blue-700 dark:text-blue-300">Standard Pack</h3>
+            <div className="p-4 border border-orange-500 dark:border-red-700 rounded-lg bg-gradient-to-br from-orange-50 to-red-100 dark:from-red-950/40 dark:to-orange-900/20 shadow-sm hover:shadow-md transition-all duration-300 hover:translate-y-[-2px]">
+              <div className="flex items-center mb-1">
+                <div className="w-6 h-6 mr-2 relative">
+                  <Image 
+                    src="/pokemon/charmeleon.png" 
+                    alt="Charmeleon" 
+                    width={24} 
+                    height={24} 
+                    className="object-contain"
+                  />
+                </div>
+                <h3 className="font-bold text-lg text-red-600 dark:text-orange-300">Standard Pack</h3>
+              </div>
               <p className="text-2xl font-bold my-2">20 Credits</p>
               <p className="text-xl">€5.00</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">€0.25 per credit</p>
+              <Link href="/credits" className="mt-3 inline-flex items-center text-sm text-red-600 hover:text-red-700 dark:text-orange-400 dark:hover:text-orange-300">
+                <span>Get started</span>
+                <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
             </div>
-            <div className="p-4 border border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-900 dark:bg-opacity-30">
-              <h3 className="font-bold text-lg text-green-700 dark:text-green-300">Value Pack</h3>
+            <div className="p-4 border border-red-500 dark:border-red-700 rounded-lg bg-gradient-to-br from-red-50 to-orange-100 dark:from-red-950/40 dark:to-red-900/20 shadow-sm hover:shadow-md transition-all duration-300 hover:translate-y-[-2px]">
+              <div className="flex items-center mb-1">
+                <div className="w-6 h-6 mr-2 relative">
+                  <Image 
+                    src="/pokemon/charizard.png" 
+                    alt="Charizard" 
+                    width={24} 
+                    height={24} 
+                    className="object-contain"
+                  />
+                </div>
+                <h3 className="font-bold text-lg text-red-700 dark:text-red-300">Value Pack</h3>
+              </div>
               <p className="text-2xl font-bold my-2">50 Credits</p>
               <p className="text-xl">€10.00</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">€0.20 per credit</p>
+              <Link href="/credits" className="mt-3 inline-flex items-center text-sm text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                <span>Get started</span>
+                <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
             </div>
           </div>
           <p className="text-gray-600 dark:text-gray-200 mt-4">

@@ -6,12 +6,12 @@ import { cn } from "@/lib/utils"
 
 export interface PricingTier {
   name: string
-  description: string
+  description?: string
   price: {
     monthly: number
     yearly: number
   }
-  features: string[]
+  features?: string[]
   featured?: boolean
   credits: number
   priceId: string
@@ -37,8 +37,8 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
   return (
     <Card
       className={cn(
-        "flex flex-col overflow-hidden border",
-        tier.featured ? "border-primary shadow-lg" : tier.borderColor || "",
+        "flex flex-col overflow-hidden border transition-all duration-300 hover:shadow-lg",
+        tier.featured ? "border-primary shadow-md scale-105" : tier.borderColor || "",
         tier.bgColor || ""
       )}
     >
@@ -53,41 +53,27 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
             alt={tier.name}
             width={200}
             height={200}
-            className="object-contain"
+            className="object-contain drop-shadow-md hover:scale-110 transition-transform duration-300"
+            priority
           />
         </div>
         <CardTitle className="text-xl">{tier.name}</CardTitle>
-        <CardDescription className="text-center">
-          {tier.description}
-        </CardDescription>
-        {tier.pokemonName && (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-            {tier.pokemonName} Tier
-          </span>
-        )}
       </CardHeader>
       <CardContent className="flex flex-col items-center p-6">
         <div className="mb-4 flex items-baseline text-center">
           <span className="text-4xl font-bold">€{price.toFixed(2)}</span>
-          <span className="ml-1 text-muted-foreground">
-            {paymentFrequency === "monthly" ? "" : "/year"}
-          </span>
         </div>
         <p className="text-sm text-muted-foreground mb-6">
           €{pricePerCredit} per credit
         </p>
-        <div className="w-full space-y-2">
-          <div className="flex items-center justify-center gap-2 rounded-md bg-primary/10 p-2 font-medium text-primary">
-            <span>{tier.credits} Credits</span>
+        <div className="w-full">
+          <div className={cn(
+            "flex items-center justify-center gap-2 rounded-md p-2 font-medium",
+            "bg-gradient-to-r", tier.themeColor || "from-primary/20 to-primary/10",
+            "text-gray-800 dark:text-white"
+          )}>
+            <span>{tier.credits} credits</span>
           </div>
-          <ul className="space-y-2.5 text-sm leading-tight">
-            {tier.features.map((feature) => (
-              <li key={feature} className="flex items-center">
-                <Check className="mr-2 h-4 w-4 text-primary" />
-                <span>{feature}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </CardContent>
       <CardFooter className="mt-auto p-6 pt-0">

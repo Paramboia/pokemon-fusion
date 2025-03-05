@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCredits } from '@/hooks/useCredits';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Wallet, Flame } from 'lucide-react';
@@ -8,9 +8,45 @@ import { PricingSection } from '@/components/ui/pricing-section';
 import { PricingTier } from '@/components/ui/pricing-card';
 import { SparklesText } from "@/components/ui";
 
+// Fallback data in case API calls fail
+const FALLBACK_PACKAGES = [
+  {
+    id: 'starter',
+    name: 'Starter Pack',
+    credits: 5,
+    price: 1.50,
+    currency: 'EUR',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_5_CREDITS || '',
+  },
+  {
+    id: 'standard',
+    name: 'Standard Pack',
+    credits: 20,
+    price: 5.00,
+    currency: 'EUR',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_20_CREDITS || '',
+  },
+  {
+    id: 'value',
+    name: 'Value Pack',
+    credits: 50,
+    price: 10.00,
+    currency: 'EUR',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_50_CREDITS || '',
+  }
+];
+
 export default function CreditsPage() {
   const { balance, packages, isLoading, redirectToCheckout } = useCredits();
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
+  const [displayPackages, setDisplayPackages] = useState(FALLBACK_PACKAGES);
+
+  // Use fallback packages if API call fails
+  useEffect(() => {
+    if (packages && packages.length > 0) {
+      setDisplayPackages(packages);
+    }
+  }, [packages]);
 
   const handlePurchase = async (priceId: string, packageId: string) => {
     setLoadingPackageId(packageId);
@@ -19,7 +55,7 @@ export default function CreditsPage() {
   };
 
   // Map packages to pricing tiers
-  const tiers: PricingTier[] = packages.map((pkg, index) => {
+  const tiers: PricingTier[] = displayPackages.map((pkg, index) => {
     // Use placeholder SVG for all tiers with different colors
     const placeholderImage = '/pokemon/placeholder.svg';
     
@@ -87,7 +123,7 @@ export default function CreditsPage() {
     <div className="flex flex-col items-center">
       {/* Credit Balance */}
       <div className="container max-w-4xl mb-12 mt-6">
-        <Card className="overflow-hidden border-0 shadow-md">
+        <Card className="overflow-hidden border-0 shadow-md bg-white dark:bg-gray-800">
           <div className="bg-gradient-to-r from-primary/80 to-primary p-1"></div>
           <CardContent className="p-0">
             <div className="flex flex-col md:flex-row items-center justify-between p-6 gap-4">
@@ -105,7 +141,7 @@ export default function CreditsPage() {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 ) : (
                   <div className="text-3xl font-bold text-primary flex items-center justify-center">
-                    {balance}
+                    {balance || 0}
                   </div>
                 )}
               </div>
@@ -121,22 +157,16 @@ export default function CreditsPage() {
       </div>
 
       {/* Pricing Section */}
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      ) : (
-        <div className="container max-w-6xl">
-          <PricingSection
-            title="Choose Your Plan"
-            subtitle="Purchase credits to generate Pokémon fusions"
-            tiers={tiers}
-            frequencies={['monthly']} // We only have one-time purchases, not subscriptions
-            onPurchase={handlePurchase}
-            loadingPackageId={loadingPackageId}
-          />
-        </div>
-      )}
+      <div className="container max-w-6xl">
+        <PricingSection
+          title="Choose Your Plan"
+          subtitle="Purchase credits to generate Pokémon fusions"
+          tiers={tiers}
+          frequencies={['monthly']} // We only have one-time purchases, not subscriptions
+          onPurchase={handlePurchase}
+          loadingPackageId={loadingPackageId}
+        />
+      </div>
 
       {/* FAQ Section */}
       <div className="text-center my-12">

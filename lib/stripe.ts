@@ -31,17 +31,17 @@ export const CREDIT_PACKAGES = {
   STARTER: {
     credits: 5,
     price_cents: 150,
-    stripe_price_id: process.env.STRIPE_PRICE_ID_5_CREDITS,
+    stripe_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_5_CREDITS,
   },
   STANDARD: {
     credits: 20,
     price_cents: 500,
-    stripe_price_id: process.env.STRIPE_PRICE_ID_20_CREDITS,
+    stripe_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_20_CREDITS,
   },
   VALUE: {
     credits: 50,
     price_cents: 1000,
-    stripe_price_id: process.env.STRIPE_PRICE_ID_50_CREDITS,
+    stripe_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_50_CREDITS,
   },
 };
 

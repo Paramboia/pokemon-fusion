@@ -1,13 +1,29 @@
 import Stripe from 'stripe';
 
 // Initialize Stripe with the secret key from environment variables
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16', // Use the latest API version
-  appInfo: {
-    name: 'Pokemon Fusion',
-    version: '1.0.0',
-  },
-});
+// Use a function to create the Stripe instance to avoid initialization errors during build
+let stripeInstance: Stripe | null = null;
+
+export function getStripe(): Stripe {
+  if (!stripeInstance && process.env.STRIPE_SECRET_KEY) {
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2023-10-16', // Use the latest API version
+      appInfo: {
+        name: 'Pokemon Fusion',
+        version: '1.0.0',
+      },
+    });
+  }
+  
+  if (!stripeInstance) {
+    throw new Error('Failed to initialize Stripe. API key missing.');
+  }
+  
+  return stripeInstance;
+}
+
+// For backward compatibility
+export const stripe = typeof window === 'undefined' ? getStripe() : null as any;
 
 // Credit package IDs in Stripe (to be created in Stripe dashboard)
 export const CREDIT_PACKAGES = {

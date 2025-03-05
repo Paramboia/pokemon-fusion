@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
-import { stripe, CREDIT_PACKAGES } from '@/lib/stripe';
-import { createClient } from '@/lib/supabase/server';
+import { auth } from '@clerk/nextjs/server';
+import { getStripe, CREDIT_PACKAGES } from '@/lib/stripe';
+import { createServerClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +29,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get the Stripe instance
+    const stripe = getStripe();
 
     // Create a Stripe checkout session
     const session = await stripe.checkout.sessions.create({

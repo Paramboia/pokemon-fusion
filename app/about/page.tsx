@@ -35,6 +35,39 @@ export default function AboutPage() {
         </section>
 
         <section>
+          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Credit System</h2>
+          <p className="text-gray-600 dark:text-gray-200">
+            PokéFusion operates on a credit-based system, allowing you to generate fusions at your own pace. 
+            Each fusion generation costs 1 credit. We offer several affordable packages to suit your needs:
+          </p>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 border border-purple-200 dark:border-purple-800 rounded-lg bg-purple-50 dark:bg-purple-900 dark:bg-opacity-30">
+              <h3 className="font-bold text-lg text-purple-700 dark:text-purple-300">Starter Pack</h3>
+              <p className="text-2xl font-bold my-2">5 Credits</p>
+              <p className="text-xl">€1.50</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">€0.30 per credit</p>
+            </div>
+            <div className="p-4 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30">
+              <h3 className="font-bold text-lg text-blue-700 dark:text-blue-300">Standard Pack</h3>
+              <p className="text-2xl font-bold my-2">20 Credits</p>
+              <p className="text-xl">€5.00</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">€0.25 per credit</p>
+            </div>
+            <div className="p-4 border border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-900 dark:bg-opacity-30">
+              <h3 className="font-bold text-lg text-green-700 dark:text-green-300">Value Pack</h3>
+              <p className="text-2xl font-bold my-2">50 Credits</p>
+              <p className="text-xl">€10.00</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">€0.20 per credit</p>
+            </div>
+          </div>
+          <p className="text-gray-600 dark:text-gray-200 mt-4">
+            To purchase credits, simply navigate to the Credits page from your account dashboard. 
+            We use Stripe for secure payment processing, accepting all major credit cards. 
+            Once your payment is processed, credits are instantly added to your account and ready to use.
+          </p>
+        </section>
+
+        <section>
           <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Our Mission</h2>
           <p className="text-gray-600 dark:text-gray-200">
             We aim to provide a creative and entertaining platform for Pokémon fans to explore 

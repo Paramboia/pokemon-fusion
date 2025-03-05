@@ -522,11 +522,22 @@ export async function GET(req: Request) {
       .eq('user_id', supabaseUserId);
 
     // Apply sorting based on the sort parameter
-    if (sortParam === 'oldest') {
-      query = query.order('created_at', { ascending: true });
-    } else {
-      // Default to newest first
-      query = query.order('created_at', { ascending: false });
+    switch (sortParam) {
+      case 'oldest':
+        query = query.order('created_at', { ascending: true });
+        break;
+      case 'most_likes':
+        // Sort by the likes count in the fusions table
+        query = query.order('fusions(likes)', { ascending: false, nullsFirst: false });
+        break;
+      case 'less_likes':
+        // Sort by the likes count in the fusions table (ascending)
+        query = query.order('fusions(likes)', { ascending: true, nullsFirst: true });
+        break;
+      default:
+        // Default to newest first
+        query = query.order('created_at', { ascending: false });
+        break;
     }
 
     const { data: favoritesData, error: favoritesError } = await query;

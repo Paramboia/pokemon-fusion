@@ -189,33 +189,25 @@ export default function FavoritesPage() {
                       value="newest" 
                       className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                     >
-                      <div className="py-1 px-2 rounded-md bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
-                        Newest first
-                      </div>
+                      Newest first
                     </SelectItem>
                     <SelectItem 
                       value="oldest" 
                       className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                     >
-                      <div className="py-1 px-2 rounded-md bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
-                        Oldest first
-                      </div>
+                      Oldest first
                     </SelectItem>
                     <SelectItem 
                       value="most_likes" 
                       className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                     >
-                      <div className="py-1 px-2 rounded-md bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
-                        Most likes first
-                      </div>
+                      Most likes first
                     </SelectItem>
                     <SelectItem 
                       value="less_likes" 
                       className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
                     >
-                      <div className="py-1 px-2 rounded-md bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
-                        Less likes first
-                      </div>
+                      Less likes first
                     </SelectItem>
                   </SelectContent>
                 </Select>

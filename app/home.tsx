@@ -13,6 +13,7 @@ import { useAuthContext } from "@/contexts/auth-context";
 import { HomeAuthGate } from "@/components/home-auth-gate";
 import FusionCard from "@/components/fusion-card";
 import { useAuth } from "@clerk/nextjs";
+import { AlternatingText } from "@/components/ui";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
@@ -138,7 +139,14 @@ export default function Home() {
                 {generating ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Generating Fusion...
+                    <AlternatingText 
+                      messages={[
+                        "Generating Fusion...", 
+                        "It might take a few minutes...",
+                        "Please do not refresh..."
+                      ]} 
+                      interval={3000} 
+                    />
                   </>
                 ) : (
                   <>

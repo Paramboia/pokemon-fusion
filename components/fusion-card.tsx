@@ -512,6 +512,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                 </svg>
                 <p>Using Simple Fusion</p>
               </div>
+              <p className="mt-1 text-xs pl-6">The AI fusion service is currently unavailable. We're using a simplified fusion method instead for free.</p>
             </div>
           )}
           

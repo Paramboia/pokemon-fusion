@@ -18,4 +18,5 @@ export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 export { Skeleton } from './skeleton';
 export { Switch } from './switch';
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
+export { AlternatingText } from './alternating-text';
 // Add other UI components as needed 

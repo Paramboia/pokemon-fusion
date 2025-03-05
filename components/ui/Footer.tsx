@@ -24,8 +24,8 @@ export function Footer() {
           </div>
 
           <div className="text-gray-500 dark:text-gray-300 text-sm text-center flex flex-col">
-            <p>&copy; {new Date().getFullYear()} Pokémon Fusion.</p>
-            <p className="mt-1">Fan-made project.</p>
+            <p>&copy; {new Date().getFullYear()} Pokémon Fusion</p>
+            <p className="mt-1">Fan-made project</p>
           </div>
           
           <div className="flex items-center gap-2">

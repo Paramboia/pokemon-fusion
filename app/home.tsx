@@ -17,7 +17,7 @@ import { AlternatingText } from "@/components/ui";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
-  const { generating, fusionImage, error, isPaymentRequired, isLocalFallback, generateFusion } = useFusion();
+  const { generating, fusionImage, fusionId, error, isPaymentRequired, isLocalFallback, generateFusion } = useFusion();
   const { isSignedIn } = useAuthContext();
   const { getToken } = useAuth();
   const [selectedPokemon, setSelectedPokemon] = useState<{
@@ -143,7 +143,10 @@ export default function Home() {
                       messages={[
                         "Generating Fusion...", 
                         "It might take a few minutes...",
-                        "Please do not refresh..."
+                        "Please do not refresh...",
+                        "Please do not close the page...",
+                        "AI is still cooking...",
+                        "Thank you for your patience..."
                       ]} 
                       interval={3000} 
                     />
@@ -166,7 +169,7 @@ export default function Home() {
             <div className="w-full max-w-md">
               <FusionCard 
                 fusion={{
-                  id: "temp-fusion", // Temporary ID for the current fusion
+                  id: fusionId || "temp-fusion", // Use the actual fusion ID if available
                   fusionName: fusionName || "Unnamed Fusion",
                   fusionImage: fusionImage,
                   pokemon1Name: selectedPokemon.pokemon1?.name || "",

@@ -230,7 +230,7 @@ I have already created the supabase project and the database, with the following
     3. Create favorites Table
     Tracks user-favorite fusions.
     CREATE TABLE favorites (
-        id SERIAL PRIMARY KEY,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         fusion_id UUID REFERENCES fusions(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT now()

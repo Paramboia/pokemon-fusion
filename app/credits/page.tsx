@@ -9,6 +9,7 @@ import { PricingTier } from '@/components/ui/pricing-card';
 import { SparklesText } from "@/components/ui";
 import { useAuthContext } from '@/contexts/auth-context';
 import { AuthGate } from '@/components/auth-gate';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 
 // Fallback data in case API calls fail
 const FALLBACK_PACKAGES = [
@@ -205,36 +206,35 @@ export default function CreditsPage() {
 
         {/* FAQ Section */}
         <div className="container max-w-4xl mb-12">
+          <h2 className="text-2xl font-bold mb-6">Frequently Asked Questions</h2>
           <Card className="overflow-hidden border-0 shadow-md bg-white dark:bg-gray-800">
             <div className="bg-gradient-to-r from-primary/80 to-primary p-1"></div>
             <CardContent className="p-6">
-              <h2 className="text-2xl font-bold mb-6">Frequently Asked Questions</h2>
-              
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">What are credits?</h3>
-                  <p className="text-muted-foreground">
+                  <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">What are credits?</h2>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                     Credits are used to generate unique Pokémon fusions. Each fusion costs 1 credit.
                   </p>
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">How do I purchase credits?</h3>
-                  <p className="text-muted-foreground">
+                  <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">How do I purchase credits?</h2>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                     Select one of the packages above and follow the checkout process. Credits will be added to your account immediately after payment.
                   </p>
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Do credits expire?</h3>
-                  <p className="text-muted-foreground">
+                  <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Do credits expire?</h2>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                     No, your credits never expire and will remain in your account until used.
                   </p>
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Can I get a refund?</h3>
-                  <p className="text-muted-foreground">
+                  <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Can I get a refund?</h2>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                     Refunds are available for unused credits within 30 days of purchase. Please contact support for assistance.
                   </p>
                 </div>

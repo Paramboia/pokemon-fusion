@@ -219,9 +219,9 @@ Each fusion generation costs 1 credit.
 The fusion generation process has been updated to require credits:
 
 1. Before generating a fusion, the system checks if the user has sufficient credits
-2. If sufficient, it deducts 1 credit and proceeds with generation
+2. If sufficient, proceeds with generation and if successful it deducts 1 credit  
 3. If insufficient, it returns a 402 Payment Required status
-4. If generation fails after deducting credits, it automatically refunds the credit
+4. If the fusion generation uses the "Simple fusion" model we should not deduct credits
 
 ## Stripe Integration
 

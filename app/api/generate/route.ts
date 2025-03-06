@@ -228,8 +228,8 @@ export async function POST(req: Request) {
         image_2: processedImage2,
         control_image: processedImage1,
         merge_mode: "left_right",
-        prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with a pure white background, solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
-        negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, soft, ugly, broken, distorted, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting, any background other than white",
+        prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
+        negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, soft, ugly, broken, distorted, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting",
         upscale_2x: false
       };
       

@@ -39,7 +39,7 @@ const FALLBACK_PACKAGES = [
 
 export default function CreditsPage() {
   const { isLoaded } = useUser();
-  const { balance, isLoading, error: balanceError, fetchBalance } = useCredits();
+  const { balance, isLoading, error: balanceError, fetchBalance, redirectToCheckout } = useCredits();
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
   const [displayPackages] = useState(FALLBACK_PACKAGES);
 
@@ -52,9 +52,14 @@ export default function CreditsPage() {
   }, [isLoaded, fetchBalance]);
 
   const handlePurchase = async (priceId: string, packageId: string) => {
-    setLoadingPackageId(packageId);
-    // Implement Stripe checkout here
-    setLoadingPackageId(null);
+    try {
+      setLoadingPackageId(packageId);
+      await redirectToCheckout(priceId);
+    } catch (error) {
+      console.error('Error during checkout:', error);
+    } finally {
+      setLoadingPackageId(null);
+    }
   };
 
   return (

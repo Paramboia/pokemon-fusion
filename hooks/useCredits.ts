@@ -31,14 +31,27 @@ export function useCredits() {
       let headers = {};
       if (isSignedIn && isLoaded) {
         const token = await getToken();
+        console.log('Got auth token:', token ? 'Yes' : 'No');
         if (token) {
-          headers = { 'Authorization': `Bearer ${token}` };
+          headers = { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          };
+        } else {
+          console.log('No auth token available');
+          setBalance(null);
+          return;
         }
+      } else {
+        console.log('User not signed in or not loaded');
+        setBalance(null);
+        return;
       }
       
       const response = await axios.get('/api/credits/balance', { 
-        timeout: 8000, // Increased timeout
-        headers
+        timeout: 8000,
+        headers,
+        withCredentials: true
       });
       
       console.log('Credit balance response:', response.data);
@@ -52,13 +65,13 @@ export function useCredits() {
         setError('Request timed out. Server might be busy.');
       } else if (err.response) {
         setError(`Server error: ${err.response.status}`);
+        console.error('Response data:', err.response.data);
       } else if (err.request) {
         setError('No response from server. Please check your connection.');
       } else {
         setError('Failed to fetch credit balance');
       }
       
-      // Keep balance as null to display "?" instead of 0
       setBalance(null);
     } finally {
       setIsLoading(false);

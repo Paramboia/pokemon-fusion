@@ -16,8 +16,8 @@ function getPokemonImageUrl(id: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 }
 
-// Set a longer timeout for the API route
-export const maxDuration = 300; // 5 minutes timeout for the API route
+// Set timeout for the API route within Vercel's limits
+export const maxDuration = 60; // 60 seconds timeout for the API route (Vercel hobby plan limit)
 
 // Function to convert transparent background to white background
 async function convertTransparentToWhite(imageUrl: string): Promise<string> {
@@ -213,11 +213,11 @@ export async function POST(req: Request) {
       console.log('Generate API - Initializing Replicate client');
       const replicate = new Replicate({
         auth: process.env.REPLICATE_API_TOKEN,
-        // Add timeout configuration
+        // Add timeout configuration within Vercel's limits
         fetch: (url, options = {}) => {
           return fetch(url, {
             ...options,
-            signal: AbortSignal.timeout(240000) // 4 minute timeout for each request
+            signal: AbortSignal.timeout(50000) // 50 second timeout for each request to leave buffer for other operations
           });
         }
       });
@@ -230,15 +230,15 @@ export async function POST(req: Request) {
         merge_mode: "left_right",
         prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with a pure white background, solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
         negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, soft, ugly, broken, distorted, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting, any background other than white",
-        upscale_2x: true
+        upscale_2x: false
       };
       
       console.log('Generate API - Running image-merger model with processed images');
       
-      // Run the model with retries
+      // Run the model with retries and shorter timeouts
       let output;
       let retryCount = 0;
-      const maxRetries = 3;
+      const maxRetries = 2; // Reduced retries to fit within time limit
       
       while (retryCount < maxRetries) {
         try {
@@ -253,8 +253,8 @@ export async function POST(req: Request) {
           if (retryCount === maxRetries) {
             throw retryError; // Re-throw if all retries failed
           }
-          // Wait before retrying (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+          // Wait before retrying (shorter backoff)
+          await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
         }
       }
       

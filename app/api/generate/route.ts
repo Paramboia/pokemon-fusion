@@ -122,39 +122,69 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     
+    // Get the Supabase admin client
+    const supabase = await getSupabaseAdminClient();
+    if (!supabase) {
+      console.error('Generate API - Failed to get Supabase admin client');
+      return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
+    }
+    
     // Check and use credits before generating the fusion
     try {
       // Only use credits for AI-generated fusions
       const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
       
       if (!isSimpleFusion) {
-        const creditResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/credits/use`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': req.headers.get('Authorization') || '',
-          },
-          body: JSON.stringify({
-            description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`
-          })
-        });
-        
-        if (!creditResponse.ok) {
-          const creditError = await creditResponse.json();
-          console.error('Generate API - Credit usage error:', creditError);
-          
-          // If the user doesn't have enough credits, return a payment required error
-          if (creditResponse.status === 402) {
-            return NextResponse.json({ 
-              error: 'Insufficient credits',
-              paymentRequired: true
-            }, { status: 402 });
-          }
-          
+        // Get user's current credit balance
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('credits_balance')
+          .eq('clerk_id', userId)
+          .single();
+
+        if (userError) {
+          console.error('Generate API - Error fetching user credits:', userError);
+          return NextResponse.json({ 
+            error: 'Failed to verify credits',
+            details: userError
+          }, { status: 500 });
+        }
+
+        if (!userData || userData.credits_balance === 0) {
+          return NextResponse.json({ 
+            error: 'Insufficient credits',
+            paymentRequired: true
+          }, { status: 402 });
+        }
+
+        // Deduct one credit
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ credits_balance: userData.credits_balance - 1 })
+          .eq('clerk_id', userId);
+
+        if (updateError) {
+          console.error('Generate API - Error updating credits:', updateError);
           return NextResponse.json({ 
             error: 'Failed to use credits',
-            details: creditError
-          }, { status: creditResponse.status });
+            details: updateError
+          }, { status: 500 });
+        }
+
+        // Add transaction record
+        const { error: transactionError } = await supabase
+          .from('credits_transactions')
+          .insert({
+            user_id: userId,
+            amount: -1,
+            description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`,
+            type: 'use'
+          });
+
+        if (transactionError) {
+          console.error('Generate API - Error recording transaction:', transactionError);
+          // Don't fail the request, just log the error
+          console.log('Generate API - Continuing despite transaction recording error');
         }
         
         console.log('Generate API - Credits used successfully');
@@ -167,30 +197,6 @@ export async function POST(req: Request) {
         error: 'Error processing credits',
         details: creditError instanceof Error ? creditError.message : String(creditError)
       }, { status: 500 });
-    }
-    
-    // Get the Supabase admin client
-    const supabase = await getSupabaseAdminClient();
-    if (!supabase) {
-      console.error('Generate API - Failed to get Supabase admin client');
-      
-      // Since we already used credits, we should refund them if we can't proceed
-      try {
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/credits/refund`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': req.headers.get('Authorization') || '',
-          },
-          body: JSON.stringify({
-            description: `Refund for failed fusion of ${pokemon1Name} and ${pokemon2Name}`
-          })
-        });
-      } catch (refundError) {
-        console.error('Generate API - Failed to refund credits:', refundError);
-      }
-      
-      return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
     }
     
     // Use the provided image URLs or get them from the Pokemon ID

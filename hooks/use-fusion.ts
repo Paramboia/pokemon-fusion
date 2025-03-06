@@ -69,8 +69,9 @@ export function useFusion() {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
+            'X-Simple-Fusion': 'false', // Default to AI fusion
           },
-          credentials: 'include', // Include cookies for session-based auth
+          credentials: 'include',
           body: JSON.stringify({
             pokemon1Id,
             pokemon2Id,
@@ -112,28 +113,46 @@ export function useFusion() {
             toast.error('Payment required to generate more fusions');
             setError('Payment required to generate more fusions');
           } else if (response.status === 404 && errorMessage.includes('User not found')) {
-            // Special handling for user not found in database
             toast.error('Your account is not properly synced. Please refresh the page and try again.');
             setError('User account not synced with database');
           } else if (response.status === 500 || response.status === 504) {
-            // For server errors, use a more user-friendly message
-            toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
-            setError('The fusion generator is currently experiencing issues. Please try again later.');
+            // For server errors, use a more user-friendly message and try simple fusion
+            toast.error('AI fusion failed. Using simple fusion instead.');
+            setError('The AI fusion generator is currently unavailable. Using simple fusion.');
             
-            // Use a fallback approach for server errors
+            // Try again with simple fusion
+            const simpleFusionResponse = await fetch('/api/generate', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'X-Simple-Fusion': 'true', // Indicate this is a simple fusion
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                pokemon1Id,
+                pokemon2Id,
+                pokemon1Name: name1,
+                pokemon2Name: name2,
+                fusionName: generatedFusionName
+              })
+            });
+
+            if (!simpleFusionResponse.ok) {
+              toast.error('Simple fusion also failed. Please try again later.');
+              setError('Both fusion methods failed. Please try again later.');
+              setGenerating(false);
+              return;
+            }
+
+            const simpleFusionData = await simpleFusionResponse.json();
+            setFusionImage(simpleFusionData.output || simpleFusionData.fusionImage);
+            setFusionId(simpleFusionData.id);
             setIsLocalFallback(true);
-            
-            // Create a simple fusion name
-            const firstHalf = name1.substring(0, Math.ceil(name1.length / 2));
-            const secondHalf = name2.substring(Math.floor(name2.length / 2));
-            const fallbackName = firstHalf + secondHalf;
-            
-            // Use one of the original images as a fallback
-            setFusionImage(image1Url);
-            setFusionName(fallbackName);
-            
-            // Log the fallback approach
-            console.log('Using fallback fusion approach due to server error');
+            setFusionName(simpleFusionData.fusionName || generatedFusionName);
+            toast.success('Simple fusion created successfully!');
+            setGenerating(false);
+            return;
           } else {
             toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
             setError(errorMessage);
@@ -150,10 +169,7 @@ export function useFusion() {
           console.log('Fusion API response:', data);
         } catch (parseError) {
           console.error('Error parsing response:', parseError);
-          
-          // Dismiss the loading toast
           toast.dismiss('fusion-generation')
-          
           toast.error('Invalid response from server');
           setError('Failed to parse server response');
           setGenerating(false);
@@ -168,17 +184,7 @@ export function useFusion() {
         setFusionImage(data.output || data.fusionImage);
         setFusionId(data.id);
         setIsLocalFallback(data.isLocalFallback || false);
-        
-        // Set the fusion name
-        if (data.fusionName) {
-          setFusionName(data.fusionName);
-        } else {
-          // Create a fusion name if not provided
-          const firstHalf = name1.substring(0, Math.ceil(name1.length / 2));
-          const secondHalf = name2.substring(Math.floor(name2.length / 2));
-          const fallbackName = firstHalf + secondHalf;
-          setFusionName(fallbackName);
-        }
+        setFusionName(data.fusionName || generatedFusionName);
         
         // Show appropriate success message
         if (data.isLocalFallback) {
@@ -192,55 +198,59 @@ export function useFusion() {
         clearTimeout(warmupTimer)
         
         console.error('Error in fetch:', fetchError);
-        
-        // Dismiss the loading toast
         toast.dismiss('fusion-generation')
         
         // Check if it was an abort error (timeout)
         if (fetchError.name === 'AbortError') {
-          toast.error('The fusion generation is taking longer than expected. Please try again.');
-          setError('The fusion generator took too long to respond. Please try again later.');
+          toast.error('The fusion generation is taking longer than expected. Using simple fusion.');
+          
+          // Try simple fusion as fallback
+          try {
+            const simpleFusionResponse = await fetch('/api/generate', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'X-Simple-Fusion': 'true', // Indicate this is a simple fusion
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                pokemon1Id,
+                pokemon2Id,
+                pokemon1Name: name1,
+                pokemon2Name: name2,
+                fusionName: generatedFusionName
+              })
+            });
+
+            if (!simpleFusionResponse.ok) {
+              toast.error('Simple fusion also failed. Please try again later.');
+              setError('Both fusion methods failed. Please try again later.');
+              setGenerating(false);
+              return;
+            }
+
+            const simpleFusionData = await simpleFusionResponse.json();
+            setFusionImage(simpleFusionData.output || simpleFusionData.fusionImage);
+            setFusionId(simpleFusionData.id);
+            setIsLocalFallback(true);
+            setFusionName(simpleFusionData.fusionName || generatedFusionName);
+            toast.success('Simple fusion created successfully!');
+          } catch (simpleFusionError) {
+            console.error('Error in simple fusion:', simpleFusionError);
+            toast.error('All fusion methods failed. Please try again later.');
+            setError('Failed to generate fusion using any method.');
+          }
         } else {
           toast.error('Oops, something went wrong when cooking. Please try again in a few minutes.');
           setError('An unexpected error occurred. Please try again later.');
         }
-        
-        // Use a fallback approach
-        setIsLocalFallback(true);
-        
-        // Create a simple fusion name
-        const firstHalf = name1.substring(0, Math.ceil(name1.length / 2));
-        const secondHalf = name2.substring(Math.floor(name2.length / 2));
-        const fallbackName = firstHalf + secondHalf;
-        setFusionName(fallbackName);
-        
-        // Use one of the original images as a fallback
-        setFusionImage(image1Url);
       }
     } catch (err) {
       console.error('Error in generateFusion:', err);
-      
-      // Dismiss the loading toast
       toast.dismiss('fusion-generation')
-      
       setError('An unexpected error occurred');
       toast.error('Failed to generate fusion. Please try again.');
-      
-      // Use a fallback approach for unexpected errors
-      setIsLocalFallback(true);
-      
-      // Create a simple fusion name if we have the names
-      if (name1 && name2) {
-        const firstHalf = name1.substring(0, Math.ceil(name1.length / 2));
-        const secondHalf = name2.substring(Math.floor(name2.length / 2));
-        const fallbackName = firstHalf + secondHalf;
-        setFusionName(fallbackName);
-      }
-      
-      // Use one of the original images as a fallback
-      if (image1Url) {
-        setFusionImage(image1Url);
-      }
     } finally {
       setGenerating(false);
     }

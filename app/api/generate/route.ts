@@ -124,38 +124,45 @@ export async function POST(req: Request) {
     
     // Check and use credits before generating the fusion
     try {
-      const creditResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/credits/use`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': req.headers.get('Authorization') || '',
-        },
-        body: JSON.stringify({
-          description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`
-        })
-      });
+      // Only use credits for AI-generated fusions
+      const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
       
-      if (!creditResponse.ok) {
-        const creditError = await creditResponse.json();
-        console.error('Generate API - Credit usage error:', creditError);
+      if (!isSimpleFusion) {
+        const creditResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/credits/use`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': req.headers.get('Authorization') || '',
+          },
+          body: JSON.stringify({
+            description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`
+          })
+        });
         
-        // If the user doesn't have enough credits, return a payment required error
-        if (creditResponse.status === 402) {
+        if (!creditResponse.ok) {
+          const creditError = await creditResponse.json();
+          console.error('Generate API - Credit usage error:', creditError);
+          
+          // If the user doesn't have enough credits, return a payment required error
+          if (creditResponse.status === 402) {
+            return NextResponse.json({ 
+              error: 'Insufficient credits',
+              paymentRequired: true
+            }, { status: 402 });
+          }
+          
           return NextResponse.json({ 
-            error: 'Insufficient credits',
-            paymentRequired: true
-          }, { status: 402 });
+            error: 'Failed to use credits',
+            details: creditError
+          }, { status: creditResponse.status });
         }
         
-        return NextResponse.json({ 
-          error: 'Failed to use credits',
-          details: creditError
-        }, { status: creditResponse.status });
+        console.log('Generate API - Credits used successfully');
+      } else {
+        console.log('Generate API - Simple fusion, skipping credit usage');
       }
-      
-      console.log('Generate API - Credits used successfully');
     } catch (creditError) {
-      console.error('Generate API - Error using credits:', creditError);
+      console.error('Generate API - Error processing credits:', creditError);
       return NextResponse.json({ 
         error: 'Error processing credits',
         details: creditError instanceof Error ? creditError.message : String(creditError)

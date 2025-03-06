@@ -207,7 +207,7 @@ export default function CreditsPage() {
         {/* FAQ Section */}
         <div className="container max-w-4xl mb-12">
           <h2 className="text-3xl font-bold text-center mb-6">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/80">
+            <span className="bg-clip-text bg-gradient-to-r from-primary to-primary/80">
               Frequently Asked Questions
             </span>
           </h2>

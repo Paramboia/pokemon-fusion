@@ -90,19 +90,19 @@ export default function CreditsPage() {
         name: 'Charmander',
         image: '/pokemon/charmander.png',
         color: 'from-orange-300 to-orange-400',
-        bgColor: 'bg-orange-50 dark:bg-orange-900',
+        bgColor: 'bg-orange-50 dark:bg-slate-900',
       },
       {
         name: 'Charmeleon',
         image: '/pokemon/charmeleon.png',
         color: 'from-orange-500 to-red-500',
-        bgColor: 'bg-orange-50 dark:bg-red-900',
+        bgColor: 'bg-orange-100 dark:bg-slate-800',
       },
       {
         name: 'Charizard',
         image: '/pokemon/charizard.png',
         color: 'from-red-600 to-orange-600',
-        bgColor: 'bg-red-50 dark:bg-red-950',
+        bgColor: 'bg-red-50 dark:bg-slate-700',
       },
     ];
     

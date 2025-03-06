@@ -41,11 +41,9 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
         tier.bgColor || ""
       )}
     >
-      <div className={cn(
-        "h-1 w-full",
-        tier.featured ? "bg-gradient-to-r from-primary/80 to-primary" : 
-        tier.themeColor ? `bg-gradient-to-r ${tier.themeColor}` : "bg-gradient-to-r from-primary/80 to-primary"
-      )}></div>
+      {tier.featured && (
+        <div className="h-1 w-full bg-gradient-to-r from-primary/80 to-primary"></div>
+      )}
       <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2")}>
         <div className="relative h-32 w-32 mb-2">
           <Image

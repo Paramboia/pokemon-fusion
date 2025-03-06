@@ -20,41 +20,30 @@ export function useCredits() {
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
 
   // Fetch the user's credit balance
-  const fetchBalance = useCallback(async (retry = false) => {
-    if (!isSignedIn || !isLoaded) {
-      setBalance(0);
-      setIsLoading(false);
-      return;
-    }
-
+  const fetchBalance = useCallback(async () => {
     try {
       setIsLoading(true);
       console.log('Fetching credit balance...');
       
-      // Get the authentication token
-      const token = await getToken();
-      
-      if (!token) {
-        console.error('No authentication token available');
-        setError('Authentication required');
-        setIsLoading(false);
-        return;
+      // Get the authentication token if user is signed in
+      let headers = {};
+      if (isSignedIn && isLoaded) {
+        const token = await getToken();
+        if (token) {
+          headers = { 'Authorization': `Bearer ${token}` };
+        }
       }
       
       const response = await axios.get('/api/credits/balance', { 
-        timeout: 5000,
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        timeout: 8000, // Increased timeout
+        headers
       });
       
       console.log('Credit balance response:', response.data);
       setBalance(response.data.balance);
       setError(null);
-      setRetryCount(0); // Reset retry count on success
     } catch (err: any) {
       console.error('Error fetching credit balance:', err);
       
@@ -62,137 +51,90 @@ export function useCredits() {
       if (err.code === 'ECONNABORTED') {
         setError('Request timed out. Server might be busy.');
       } else if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        if (err.response.status === 401) {
-          setError('Authentication error. Please sign in again.');
-          
-          // If this is the first retry, try to refresh the token and try again
-          if (!retry && retryCount < 3) {
-            console.log(`Retrying credit balance fetch (attempt ${retryCount + 1})...`);
-            setRetryCount(prev => prev + 1);
-            
-            // Wait a moment before retrying
-            setTimeout(() => {
-              fetchBalance(true);
-            }, 1000);
-            return;
-          }
-        } else if (err.response.status === 404) {
-          setError('API endpoint not found or user not found in database.');
-          console.log('User might not exist in Supabase database yet.');
-          
-          // If this is the first retry, try to sync the user and try again
-          if (!retry && retryCount < 3) {
-            console.log(`Retrying credit balance fetch after user sync (attempt ${retryCount + 1})...`);
-            setRetryCount(prev => prev + 1);
-            
-            // Wait a moment before retrying
-            setTimeout(() => {
-              fetchBalance(true);
-            }, 1000);
-            return;
-          }
-        } else {
-          setError(`Server error: ${err.response.status}`);
-        }
+        setError(`Server error: ${err.response.status}`);
       } else if (err.request) {
-        // The request was made but no response was received
         setError('No response from server. Please check your connection.');
       } else {
-        // Something happened in setting up the request that triggered an Error
         setError('Failed to fetch credit balance');
       }
       
-      // Set a fallback balance of 0
-      setBalance(0);
+      // Keep balance as null to display "?" instead of 0
+      setBalance(null);
     } finally {
       setIsLoading(false);
     }
-  }, [isSignedIn, isLoaded, getToken, retryCount]);
+  }, [isSignedIn, isLoaded, getToken]);
 
   // Fetch available credit packages
-  const fetchPackages = useCallback(async (retry = false) => {
-    if (!isLoaded) return;
-
+  const fetchPackages = useCallback(async () => {
     try {
       setIsLoading(true);
+      console.log('Fetching credit packages...');
       
-      // Try to fetch packages from the API
-      try {
-        // Get the authentication token if user is signed in
-        let headers = {};
-        if (isSignedIn) {
-          const token = await getToken();
-          if (token) {
-            headers = { 'Authorization': `Bearer ${token}` };
-          }
-        }
-        
-        const response = await axios.get('/api/credits/packages', { 
-          timeout: 5000,
-          headers
-        });
-        
-        if (response.data.packages && response.data.packages.length > 0) {
-          setPackages(response.data.packages);
-          setError(null);
-          setRetryCount(0); // Reset retry count on success
-          return;
-        }
-      } catch (apiErr: any) {
-        console.error('Error fetching credit packages from API:', apiErr);
-        
-        // If this is the first retry and we got a 401 or 404, try again
-        if (!retry && retryCount < 3 && 
-            (apiErr.response?.status === 401 || apiErr.response?.status === 404)) {
-          console.log(`Retrying credit packages fetch (attempt ${retryCount + 1})...`);
-          setRetryCount(prev => prev + 1);
-          
-          // Wait a moment before retrying
-          setTimeout(() => {
-            fetchPackages(true);
-          }, 1000);
-          return;
+      // Get the authentication token if user is signed in
+      let headers = {};
+      if (isSignedIn && isLoaded) {
+        const token = await getToken();
+        if (token) {
+          headers = { 'Authorization': `Bearer ${token}` };
         }
       }
       
-      // If API fails, use environment variables as fallback
-      const fallbackPackages = [
-        {
-          id: 'starter',
-          name: 'Starter Pack',
-          credits: 5,
-          price: 1.50,
-          currency: 'EUR',
-          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_5_CREDITS || '',
-        },
-        {
-          id: 'standard',
-          name: 'Standard Pack',
-          credits: 20,
-          price: 5.00,
-          currency: 'EUR',
-          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_20_CREDITS || '',
-        },
-        {
-          id: 'value',
-          name: 'Value Pack',
-          credits: 50,
-          price: 10.00,
-          currency: 'EUR',
-          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_50_CREDITS || '',
-        }
-      ];
+      const response = await axios.get('/api/credits/packages', { 
+        timeout: 8000, // Increased timeout
+        headers
+      });
       
-      setPackages(fallbackPackages);
+      if (response.data.packages && response.data.packages.length > 0) {
+        console.log('Credit packages response:', response.data.packages);
+        setPackages(response.data.packages);
+        setError(null);
+      } else {
+        // Use fallback packages if API returns empty array
+        console.log('Using fallback packages (empty response)');
+        setPackages(getFallbackPackages());
+      }
     } catch (err) {
-      console.error('Error in fetchPackages:', err);
+      console.error('Error fetching credit packages:', err);
       setError('Failed to fetch credit packages');
+      
+      // Use fallback packages on error
+      console.log('Using fallback packages (error)');
+      setPackages(getFallbackPackages());
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, isSignedIn, getToken, retryCount]);
+  }, [isLoaded, isSignedIn, getToken]);
+
+  // Helper function to get fallback packages
+  const getFallbackPackages = () => {
+    return [
+      {
+        id: 'starter',
+        name: 'Starter Pack',
+        credits: 5,
+        price: 1.50,
+        currency: 'EUR',
+        priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_5_CREDITS || '',
+      },
+      {
+        id: 'standard',
+        name: 'Standard Pack',
+        credits: 20,
+        price: 5.00,
+        currency: 'EUR',
+        priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_20_CREDITS || '',
+      },
+      {
+        id: 'value',
+        name: 'Value Pack',
+        credits: 50,
+        price: 10.00,
+        currency: 'EUR',
+        priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_50_CREDITS || '',
+      }
+    ];
+  };
 
   // Use credits for a fusion
   const useCredits = useCallback(async (description?: string) => {
@@ -203,6 +145,11 @@ export function useCredits() {
 
     if (balance === 0) {
       toast.error('You have no credits left. Please purchase more.');
+      return false;
+    }
+    
+    if (balance === null) {
+      toast.error('Unable to determine your credit balance. Please try again later.');
       return false;
     }
 

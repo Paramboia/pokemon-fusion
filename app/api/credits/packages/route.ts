@@ -1,181 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { CREDIT_PACKAGES } from '@/lib/stripe';
-import { createServerClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
+import { createServerClient, getSupabaseUserIdFromClerk, getSupabaseAdminClient } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   try {
-    // Get the authenticated user from Clerk
-    const { userId: authClerkUserId } = auth();
-    console.log('Credits Packages API - Authenticated userId from auth():', authClerkUserId);
+    console.log('Credits Packages API - Fetching packages');
     
-    // Check for authorization header as fallback
-    let finalClerkUserId = authClerkUserId;
-    
-    if (!finalClerkUserId) {
-      console.log('Credits Packages API - No userId from auth(), checking Authorization header');
-      const authHeader = req.headers.get('Authorization');
-      console.log('Credits Packages API - Authorization header present:', authHeader ? 'Yes' : 'No');
-
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        // Extract the token
-        const token = authHeader.split(' ')[1];
-        console.log('Credits Packages API - Extracted token (first 10 chars):', token.substring(0, 10) + '...');
-
-        try {
-          // Verify the token with Clerk
-          const verifiedToken = await clerkClient.verifyToken(token);
-          console.log('Credits Packages API - Token verification result:', verifiedToken ? 'Success' : 'Failed');
-
-          if (verifiedToken && verifiedToken.sub) {
-            console.log('Credits Packages API - Verified token, userId:', verifiedToken.sub);
-            finalClerkUserId = verifiedToken.sub;
-          }
-        } catch (tokenError) {
-          console.error('Credits Packages API - Error verifying token:', tokenError);
-        }
-      }
-    }
-
-    // If no userId is provided or we couldn't authenticate, return an error
-    if (!finalClerkUserId) {
-      console.log('Credits Packages API - No authenticated user found');
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserIdFromClerk(finalClerkUserId);
-    if (!supabaseUserId) {
-      console.error('Credits Packages API - Failed to find Supabase user ID for Clerk user:', finalClerkUserId);
-      
-      // Try to create a new user mapping if it doesn't exist
-      try {
-        console.log('Credits Packages API - Attempting to create user mapping for Clerk user:', finalClerkUserId);
-        
-        // Get user details from Clerk
-        const clerkUser = await clerkClient.users.getUser(finalClerkUserId);
-        
-        // Get primary email
-        const primaryEmailObj = clerkUser.emailAddresses.find(
-          email => email.id === clerkUser.primaryEmailAddressId
-        ) || clerkUser.emailAddresses[0];
-        
-        const email = primaryEmailObj?.emailAddress;
-        const name = clerkUser.firstName && clerkUser.lastName 
-          ? `${clerkUser.firstName} ${clerkUser.lastName}`.trim() 
-          : 'Anonymous User';
-        
-        if (email) {
-          // Call the sync-user API to create the mapping
-          const syncResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/auth/sync-user`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              id: finalClerkUserId,
-              firstName: clerkUser.firstName || '',
-              lastName: clerkUser.lastName || '',
-              emailAddresses: [{ emailAddress: email }]
-            }),
-          });
-          
-          if (syncResponse.ok) {
-            const syncData = await syncResponse.json();
-            console.log('Credits Packages API - Successfully created user mapping:', syncData);
-            
-            // Try to get the Supabase user ID again
-            const newSupabaseUserId = await getSupabaseUserIdFromClerk(finalClerkUserId);
-            if (newSupabaseUserId) {
-              console.log('Credits Packages API - Successfully retrieved Supabase user ID after sync:', newSupabaseUserId);
-              
-              // Continue with the new Supabase user ID
-              const supabase = createServerClient();
-              const { data, error } = await supabase
-                .from('credit_packages')
-                .select('*')
-                .eq('is_active', true)
-                .order('credits', { ascending: true });
-
-              if (error) {
-                console.error('Credits Packages API - Error fetching credit packages:', error);
-                return NextResponse.json(
-                  { error: 'Failed to fetch credit packages' },
-                  { status: 500 }
-                );
-              }
-
-              // Format the packages for the frontend
-              const packages = data.map(pkg => ({
-                id: pkg.id,
-                name: pkg.name,
-                credits: pkg.credits,
-                price: pkg.price_cents / 100, // Convert cents to euros
-                currency: pkg.currency,
-                priceId: CREDIT_PACKAGES[pkg.name.toUpperCase().replace(' ', '_') as keyof typeof CREDIT_PACKAGES]?.stripe_price_id || null
-              }));
-
-              console.log('Credits Packages API - Successfully retrieved packages after sync:', packages.length);
-              return NextResponse.json({ packages });
-            }
-          } else {
-            console.error('Credits Packages API - Failed to create user mapping:', await syncResponse.text());
-          }
-        }
-      } catch (syncError) {
-        console.error('Credits Packages API - Error creating user mapping:', syncError);
-      }
-      
-      // If we couldn't create a user mapping, return fallback packages
-      console.log('Credits Packages API - Using fallback packages');
-      const fallbackPackages = Object.entries(CREDIT_PACKAGES).map(([key, pkg]) => ({
-        id: key.toLowerCase(),
-        name: key.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()),
-        credits: pkg.credits,
-        price: pkg.price_cents / 100,
-        currency: 'EUR',
-        priceId: pkg.stripe_price_id || '',
-      }));
-      
-      return NextResponse.json({ packages: fallbackPackages });
-    }
-
     // Get the credit packages from Supabase
-    const supabase = createServerClient();
-    const { data, error } = await supabase
-      .from('credit_packages')
-      .select('*')
-      .eq('is_active', true)
-      .order('credits', { ascending: true });
+    try {
+      const supabase = createServerClient();
+      const { data, error } = await supabase
+        .from('credit_packages')
+        .select('*')
+        .eq('is_active', true)
+        .order('credits', { ascending: true });
 
-    if (error) {
-      console.error('Credits Packages API - Error fetching credit packages:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch credit packages' },
-        { status: 500 }
-      );
+      if (error) {
+        console.error('Credits Packages API - Error fetching credit packages:', error);
+        throw error;
+      }
+
+      if (data && data.length > 0) {
+        // Format the packages for the frontend
+        const packages = data.map(pkg => ({
+          id: pkg.id,
+          name: pkg.name,
+          credits: pkg.credits,
+          price: pkg.price_cents / 100, // Convert cents to euros
+          currency: pkg.currency,
+          priceId: CREDIT_PACKAGES[pkg.name.toUpperCase().replace(' ', '_') as keyof typeof CREDIT_PACKAGES]?.stripe_price_id || null
+        }));
+
+        console.log('Credits Packages API - Successfully retrieved packages:', packages.length);
+        return NextResponse.json({ packages });
+      }
+    } catch (dbError) {
+      console.error('Credits Packages API - Database error:', dbError);
     }
-
-    // Format the packages for the frontend
-    const packages = data.map(pkg => ({
-      id: pkg.id,
-      name: pkg.name,
+    
+    // If we couldn't get packages from the database, return fallback packages
+    console.log('Credits Packages API - Using fallback packages');
+    const fallbackPackages = Object.entries(CREDIT_PACKAGES).map(([key, pkg]) => ({
+      id: key.toLowerCase(),
+      name: key.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()),
       credits: pkg.credits,
-      price: pkg.price_cents / 100, // Convert cents to euros
-      currency: pkg.currency,
-      priceId: CREDIT_PACKAGES[pkg.name.toUpperCase().replace(' ', '_') as keyof typeof CREDIT_PACKAGES]?.stripe_price_id || null
+      price: pkg.price_cents / 100,
+      currency: 'EUR',
+      priceId: pkg.stripe_price_id || '',
     }));
-
-    console.log('Credits Packages API - Successfully retrieved packages:', packages.length);
-    return NextResponse.json({ packages });
+    
+    return NextResponse.json({ packages: fallbackPackages });
   } catch (error) {
     console.error('Credits Packages API - Error listing credit packages:', error);
-    return NextResponse.json(
-      { error: 'Failed to list credit packages' },
-      { status: 500 }
-    );
+    
+    // Return fallback packages in case of any error
+    const fallbackPackages = Object.entries(CREDIT_PACKAGES).map(([key, pkg]) => ({
+      id: key.toLowerCase(),
+      name: key.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()),
+      credits: pkg.credits,
+      price: pkg.price_cents / 100,
+      currency: 'EUR',
+      priceId: pkg.stripe_price_id || '',
+    }));
+    
+    return NextResponse.json({ packages: fallbackPackages });
   }
 } 

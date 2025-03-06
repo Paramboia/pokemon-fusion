@@ -23,7 +23,7 @@ export function useCredits() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     if (!user?.id) {
       setBalance(null);
       setIsLoading(false);
@@ -53,78 +53,68 @@ export function useCredits() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id]); // Only depend on user.id
 
   // Fetch available credit packages
   const fetchPackages = useCallback(async () => {
+    if (!isSignedIn || !isLoaded) {
+      setPackages(getFallbackPackages());
+      return;
+    }
+
     try {
       setIsLoading(true);
       console.log('Fetching credit packages...');
       
-      // Get the authentication token if user is signed in
-      let headers = {};
-      if (isSignedIn && isLoaded) {
-        const token = await getToken();
-        if (token) {
-          headers = { 'Authorization': `Bearer ${token}` };
-        }
-      }
+      const token = await getToken();
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       
       const response = await axios.get('/api/credits/packages', { 
-        timeout: 8000, // Increased timeout
+        timeout: 8000,
         headers
       });
       
-      if (response.data.packages && response.data.packages.length > 0) {
-        console.log('Credit packages response:', response.data.packages);
+      if (response.data.packages?.length > 0) {
         setPackages(response.data.packages);
         setError(null);
       } else {
-        // Use fallback packages if API returns empty array
-        console.log('Using fallback packages (empty response)');
         setPackages(getFallbackPackages());
       }
     } catch (err) {
       console.error('Error fetching credit packages:', err);
-      setError('Failed to fetch credit packages');
-      
-      // Use fallback packages on error
-      console.log('Using fallback packages (error)');
       setPackages(getFallbackPackages());
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, isSignedIn, getToken]);
+  }, [isSignedIn, isLoaded, getToken]);
 
   // Helper function to get fallback packages
-  const getFallbackPackages = () => {
-    return [
-      {
-        id: 'starter',
-        name: 'Starter Pack',
-        credits: 5,
-        price: 1.50,
-        currency: 'EUR',
-        priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_5_CREDITS || '',
-      },
-      {
-        id: 'standard',
-        name: 'Standard Pack',
-        credits: 20,
-        price: 5.00,
-        currency: 'EUR',
-        priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_20_CREDITS || '',
-      },
-      {
-        id: 'value',
-        name: 'Value Pack',
-        credits: 50,
-        price: 10.00,
-        currency: 'EUR',
-        priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_50_CREDITS || '',
-      }
-    ];
-  };
+  const getFallbackPackages = () => [
+    {
+      id: 'starter',
+      name: 'Starter Pack',
+      credits: 5,
+      price: 1.50,
+      currency: 'EUR',
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_5_CREDITS || '',
+    },
+    {
+      id: 'standard',
+      name: 'Standard Pack',
+      credits: 20,
+      price: 5.00,
+      currency: 'EUR',
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_20_CREDITS || '',
+    },
+    {
+      id: 'value',
+      name: 'Value Pack',
+      credits: 50,
+      price: 10.00,
+      currency: 'EUR',
+      priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_50_CREDITS || '',
+    }
+  ];
 
   // Use credits for a fusion
   const useCredits = useCallback(async (description?: string) => {
@@ -144,22 +134,15 @@ export function useCredits() {
     }
 
     try {
-      // Get the authentication token
       const token = await getToken();
-      
       if (!token) {
-        console.error('No authentication token available');
         toast.error('Authentication required. Please sign in again.');
         return false;
       }
       
       const response = await axios.post('/api/credits/use', 
         { description },
-        { 
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
       setBalance(response.data.balance);
@@ -183,11 +166,8 @@ export function useCredits() {
     }
 
     try {
-      // Get the authentication token
       const token = await getToken();
-      
       if (!token) {
-        console.error('No authentication token available');
         toast.error('Authentication required. Please sign in again.');
         return null;
       }
@@ -198,11 +178,7 @@ export function useCredits() {
           successUrl: `${window.location.origin}/credits/success`,
           cancelUrl: `${window.location.origin}/credits/cancel`,
         },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
       return response.data;
@@ -221,21 +197,13 @@ export function useCredits() {
     }
   }, [createCheckoutSession]);
 
-  // Load initial data
+  // Single effect to load initial data
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && user?.id) {
       fetchBalance();
       fetchPackages();
     }
-  }, [isLoaded, fetchBalance, fetchPackages]);
-
-  // Refresh data when user signs in or out
-  useEffect(() => {
-    if (isLoaded) {
-      fetchBalance();
-      fetchPackages();
-    }
-  }, [isSignedIn, isLoaded, fetchBalance, fetchPackages]);
+  }, [isLoaded, user?.id, fetchBalance, fetchPackages]);
 
   return {
     balance,

@@ -8,28 +8,24 @@ import { cn } from '@/lib/utils';
 import { useUser } from '@clerk/nextjs';
 
 export function CreditBalance() {
-  const { isLoaded } = useUser();
+  const { isLoaded, user } = useUser();
   const { balance, isLoading, fetchBalance, error } = useCredits();
 
-  // Fetch balance when component mounts
+  // Single effect to handle both initial fetch and refresh
   useEffect(() => {
-    if (isLoaded) {
-      fetchBalance();
-    }
-  }, [isLoaded, fetchBalance]);
+    if (!isLoaded || !user) return;
 
-  // Refresh balance every 30 seconds
-  useEffect(() => {
-    if (!isLoaded) return;
-    
-    const intervalId = setInterval(() => {
-      fetchBalance();
-    }, 30000); // 30 seconds
-    
+    // Initial fetch
+    fetchBalance();
+
+    // Set up refresh interval
+    const intervalId = setInterval(fetchBalance, 30000); // 30 seconds
+
+    // Cleanup
     return () => clearInterval(intervalId);
-  }, [isLoaded, fetchBalance]);
+  }, [isLoaded, user, fetchBalance]);
 
-  if (!isLoaded) {
+  if (!isLoaded || !user) {
     return null;
   }
 

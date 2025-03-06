@@ -7,7 +7,8 @@ import { Loader2, Wallet, Flame } from 'lucide-react';
 import { PricingSection } from '@/components/ui/pricing-section';
 import { SparklesText } from "@/components/ui/sparkles-text";
 import { AuthGate } from '@/components/auth-gate';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
+import { toast } from 'sonner';
 
 // Fallback data in case API calls fail
 const FALLBACK_PACKAGES = [
@@ -38,25 +39,38 @@ const FALLBACK_PACKAGES = [
 ];
 
 export default function CreditsPage() {
-  const { isLoaded } = useUser();
+  const { isLoaded: isUserLoaded, user } = useUser();
+  const { getToken } = useAuth();
   const { balance, isLoading, error: balanceError, fetchBalance, redirectToCheckout } = useCredits();
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
   const [displayPackages] = useState(FALLBACK_PACKAGES);
 
   // Fetch balance when component mounts
   useEffect(() => {
-    if (isLoaded) {
+    if (isUserLoaded && user) {
       console.log('Credits page - Fetching initial balance');
       fetchBalance();
     }
-  }, [isLoaded, fetchBalance]);
+  }, [isUserLoaded, user, fetchBalance]);
 
   const handlePurchase = async (priceId: string, packageId: string) => {
     try {
+      if (!user) {
+        toast.error('You must be signed in to purchase credits');
+        return;
+      }
+
+      const token = await getToken();
+      if (!token) {
+        toast.error('Authentication required. Please sign in again.');
+        return;
+      }
+
       setLoadingPackageId(packageId);
       await redirectToCheckout(priceId);
     } catch (error) {
       console.error('Error during checkout:', error);
+      toast.error('Failed to start checkout process. Please try again.');
     } finally {
       setLoadingPackageId(null);
     }

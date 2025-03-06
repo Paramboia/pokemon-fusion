@@ -135,40 +135,27 @@ export async function POST(req: Request) {
       const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
       
       if (!isSimpleFusion) {
-        // Get user's current credit balance
-        const { data: userData, error: userError } = await supabase
+        // Get user's current credit balance from users table
+        const { data: userData, error: balanceError } = await supabase
           .from('users')
           .select('credits_balance')
           .eq('clerk_id', userId)
           .single();
 
-        if (userError) {
-          console.error('Generate API - Error fetching user credits:', userError);
+        if (balanceError) {
+          console.error('Generate API - Error fetching user credits:', balanceError);
           return NextResponse.json({ 
             error: 'Failed to verify credits',
-            details: userError
+            details: balanceError
           }, { status: 500 });
         }
 
-        if (!userData || userData.credits_balance === 0) {
+        const currentBalance = userData?.credits_balance || 0;
+        if (currentBalance <= 0) {
           return NextResponse.json({ 
             error: 'Insufficient credits',
             paymentRequired: true
           }, { status: 402 });
-        }
-
-        // Deduct one credit
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ credits_balance: userData.credits_balance - 1 })
-          .eq('clerk_id', userId);
-
-        if (updateError) {
-          console.error('Generate API - Error updating credits:', updateError);
-          return NextResponse.json({ 
-            error: 'Failed to use credits',
-            details: updateError
-          }, { status: 500 });
         }
 
         // Add transaction record
@@ -183,8 +170,10 @@ export async function POST(req: Request) {
 
         if (transactionError) {
           console.error('Generate API - Error recording transaction:', transactionError);
-          // Don't fail the request, just log the error
-          console.log('Generate API - Continuing despite transaction recording error');
+          return NextResponse.json({ 
+            error: 'Failed to use credits',
+            details: transactionError
+          }, { status: 500 });
         }
         
         console.log('Generate API - Credits used successfully');

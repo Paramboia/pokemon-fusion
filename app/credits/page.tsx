@@ -55,6 +55,11 @@ export default function CreditsPage() {
 
   const handlePurchase = async (priceId: string, packageId: string) => {
     try {
+      if (!isUserLoaded) {
+        console.log('User not loaded yet');
+        return;
+      }
+
       if (!user) {
         toast.error('You must be signed in to purchase credits');
         return;
@@ -66,7 +71,15 @@ export default function CreditsPage() {
         return;
       }
 
+      console.log('Starting checkout process with token');
       setLoadingPackageId(packageId);
+      
+      // Make sure the price ID is valid
+      if (!priceId) {
+        toast.error('Invalid package selected. Please try again.');
+        return;
+      }
+
       await redirectToCheckout(priceId);
     } catch (error) {
       console.error('Error during checkout:', error);
@@ -75,6 +88,16 @@ export default function CreditsPage() {
       setLoadingPackageId(null);
     }
   };
+
+  // Show loading state while user is not loaded
+  if (!isUserLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center">

@@ -46,16 +46,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserIdFromClerk(finalClerkUserId);
-    if (!supabaseUserId) {
-      console.error('Credits Checkout API - Failed to find Supabase user ID for Clerk user:', finalClerkUserId);
-      return NextResponse.json(
-        { error: 'User not found in database' },
-        { status: 404 }
-      );
-    }
-
     // Parse the request body
     const body = await req.json();
     const { priceId, successUrl, cancelUrl } = body;
@@ -70,6 +60,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid price ID' },
         { status: 400 }
+      );
+    }
+
+    // Get the corresponding Supabase user ID
+    const supabaseUserId = await getSupabaseUserIdFromClerk(finalClerkUserId);
+    console.log('Credits Checkout API - Supabase user ID:', supabaseUserId);
+
+    if (!supabaseUserId) {
+      console.error('Credits Checkout API - Failed to find Supabase user ID for Clerk user:', finalClerkUserId);
+      return NextResponse.json(
+        { error: 'User not found in database' },
+        { status: 404 }
       );
     }
 

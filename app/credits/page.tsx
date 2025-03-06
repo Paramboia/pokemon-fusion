@@ -90,22 +90,19 @@ export default function CreditsPage() {
         name: 'Charmander',
         image: '/pokemon/charmander.png',
         color: 'from-orange-300 to-orange-400',
-        borderColor: 'border-orange-300',
-        bgColor: 'bg-orange-50 dark:bg-orange-950/40',
+        bgColor: 'bg-orange-50 dark:bg-orange-900',
       },
       {
         name: 'Charmeleon',
         image: '/pokemon/charmeleon.png',
         color: 'from-orange-500 to-red-500',
-        borderColor: 'border-orange-500',
-        bgColor: 'bg-orange-50 dark:bg-red-950/40',
+        bgColor: 'bg-orange-50 dark:bg-red-900',
       },
       {
         name: 'Charizard',
         image: '/pokemon/charizard.png',
         color: 'from-red-600 to-orange-600',
-        borderColor: 'border-red-600',
-        bgColor: 'bg-red-50 dark:bg-red-950/40',
+        bgColor: 'bg-red-50 dark:bg-red-950',
       },
     ];
     
@@ -124,7 +121,6 @@ export default function CreditsPage() {
       pokemonImage: theme.image,
       pokemonName: theme.name,
       themeColor: theme.color,
-      borderColor: theme.borderColor,
       bgColor: theme.bgColor,
     };
   });

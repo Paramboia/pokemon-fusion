@@ -37,11 +37,15 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
   return (
     <Card
       className={cn(
-        "flex flex-col overflow-hidden border transition-all duration-300 hover:shadow-lg",
-        tier.featured ? "border-primary shadow-md scale-105" : tier.borderColor || "",
+        "flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg border-0",
         tier.bgColor || ""
       )}
     >
+      <div className={cn(
+        "h-1 w-full",
+        tier.featured ? "bg-gradient-to-r from-primary/80 to-primary" : 
+        tier.themeColor ? `bg-gradient-to-r ${tier.themeColor}` : "bg-gradient-to-r from-primary/80 to-primary"
+      )}></div>
       <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2")}>
         <div className="relative h-32 w-32 mb-2">
           <Image
@@ -96,7 +100,7 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
       <CardFooter className="mt-auto p-6 pt-0">
         <Button
           className={cn("w-full", 
-            tier.featured ? "" : "bg-gradient-to-r " + (tier.themeColor || "from-primary to-primary/80")
+            "bg-gradient-to-r " + (tier.themeColor || "from-primary to-primary/80")
           )}
           data-price-id={tier.priceId}
           data-package-id={tier.id}

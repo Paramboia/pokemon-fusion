@@ -17,7 +17,7 @@ function getPokemonImageUrl(id: number): string {
 }
 
 // Set a longer timeout for the API route
-export const maxDuration = 60; // 60 seconds timeout for the API route
+export const maxDuration = 300; // 5 minutes timeout for the API route
 
 // Function to convert transparent background to white background
 async function convertTransparentToWhite(imageUrl: string): Promise<string> {
@@ -213,6 +213,13 @@ export async function POST(req: Request) {
       console.log('Generate API - Initializing Replicate client');
       const replicate = new Replicate({
         auth: process.env.REPLICATE_API_TOKEN,
+        // Add timeout configuration
+        fetch: (url, options = {}) => {
+          return fetch(url, {
+            ...options,
+            signal: AbortSignal.timeout(240000) // 4 minute timeout for each request
+          });
+        }
       });
       
       // Prepare the input for the image-merger model
@@ -220,28 +227,42 @@ export async function POST(req: Request) {
         image_1: processedImage1,
         image_2: processedImage2,
         control_image: processedImage1,
-        merge_mode: "left_right", // Options: full, left_right, up_down, center_square
+        merge_mode: "left_right",
         prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with a pure white background, solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
         negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, soft, ugly, broken, distorted, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting, any background other than white",
-        upscale_2x: true // Enable upscaling for better quality
+        upscale_2x: true
       };
       
       console.log('Generate API - Running image-merger model with processed images');
       
-      // Run the model
-      const output = await replicate.run(
-        "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-        { input: modelInput }
-      );
+      // Run the model with retries
+      let output;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          output = await replicate.run(
+            "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+            { input: modelInput }
+          );
+          break; // If successful, exit the retry loop
+        } catch (retryError) {
+          retryCount++;
+          console.error(`Generate API - Replicate attempt ${retryCount} failed:`, retryError);
+          if (retryCount === maxRetries) {
+            throw retryError; // Re-throw if all retries failed
+          }
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+        }
+      }
       
       console.log('Generate API - Replicate output:', output);
       
       if (!output || !Array.isArray(output) || output.length === 0) {
         console.error('Generate API - No output from Replicate');
-        return NextResponse.json({ 
-          error: 'No output from Replicate',
-          replicateOutput: output
-        }, { status: 500 });
+        throw new Error('No valid output from Replicate');
       }
       
       // Get the first image from the output
@@ -334,6 +355,7 @@ export async function POST(req: Request) {
       
       // Try to save the fallback fusion
       try {
+        // Set isSimpleFusion to true for fallback to avoid credit usage
         const fallbackResult = await saveFusion({
           userId,
           pokemon1Id,
@@ -341,7 +363,8 @@ export async function POST(req: Request) {
           pokemon1Name,
           pokemon2Name,
           fusionName: fallbackName,
-          fusionImage: fallbackImageUrl
+          fusionImage: fallbackImageUrl,
+          isSimpleFusion: true // Add this to indicate it's a fallback
         });
         
         if (fallbackResult.error) {

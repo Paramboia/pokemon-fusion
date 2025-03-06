@@ -135,7 +135,7 @@ export async function POST(req: Request) {
       const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
       
       if (!isSimpleFusion) {
-        // Get user's current credit balance from users table
+        // Check credit balance before starting generation
         const { data: userData, error: balanceError } = await supabase
           .from('users')
           .select('credits_balance')
@@ -157,26 +157,6 @@ export async function POST(req: Request) {
             paymentRequired: true
           }, { status: 402 });
         }
-
-        // Add transaction record
-        const { error: transactionError } = await supabase
-          .from('credits_transactions')
-          .insert({
-            user_id: userId,
-            amount: -1,
-            description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`,
-            type: 'use'
-          });
-
-        if (transactionError) {
-          console.error('Generate API - Error recording transaction:', transactionError);
-          return NextResponse.json({ 
-            error: 'Failed to use credits',
-            details: transactionError
-          }, { status: 500 });
-        }
-        
-        console.log('Generate API - Credits used successfully');
       } else {
         console.log('Generate API - Simple fusion, skipping credit usage');
       }
@@ -267,6 +247,29 @@ export async function POST(req: Request) {
       // Get the first image from the output
       const fusionImageUrl = output[0];
       console.log('Generate API - Fusion image URL:', fusionImageUrl);
+      
+      // If this was an AI fusion, record the credit usage now that we have successfully generated the image
+      if (!isSimpleFusion) {
+        // Add transaction record after successful generation
+        const { error: transactionError } = await supabase
+          .from('credits_transactions')
+          .insert({
+            user_id: userId,
+            amount: -1,
+            description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`,
+            type: 'use'
+          });
+
+        if (transactionError) {
+          console.error('Generate API - Error recording transaction:', transactionError);
+          return NextResponse.json({ 
+            error: 'Failed to use credits',
+            details: transactionError
+          }, { status: 500 });
+        }
+        
+        console.log('Generate API - Credits used successfully');
+      }
       
       // Save the fusion to the database
       console.log('Generate API - Saving fusion to database with user ID:', userId);

@@ -1,22 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { createServerClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   try {
     // Get the authenticated user from Clerk
-    const { userId: clerkUserId } = auth();
-    if (!clerkUserId) {
+    const { userId: authClerkUserId } = auth();
+    console.log('Credits Balance API - Authenticated userId from auth():', authClerkUserId);
+    
+    // Check for authorization header as fallback
+    let finalClerkUserId = authClerkUserId;
+    
+    if (!finalClerkUserId) {
+      console.log('Credits Balance API - No userId from auth(), checking Authorization header');
+      const authHeader = req.headers.get('Authorization');
+      console.log('Credits Balance API - Authorization header present:', authHeader ? 'Yes' : 'No');
+
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        // Extract the token
+        const token = authHeader.split(' ')[1];
+        console.log('Credits Balance API - Extracted token (first 10 chars):', token.substring(0, 10) + '...');
+
+        try {
+          // Verify the token with Clerk
+          const verifiedToken = await clerkClient.verifyToken(token);
+          console.log('Credits Balance API - Token verification result:', verifiedToken ? 'Success' : 'Failed');
+
+          if (verifiedToken && verifiedToken.sub) {
+            console.log('Credits Balance API - Verified token, userId:', verifiedToken.sub);
+            finalClerkUserId = verifiedToken.sub;
+          }
+        } catch (tokenError) {
+          console.error('Credits Balance API - Error verifying token:', tokenError);
+        }
+      }
+    }
+
+    // If no userId is provided or we couldn't authenticate, return an error
+    if (!finalClerkUserId) {
+      console.log('Credits Balance API - No authenticated user found');
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
     // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserIdFromClerk(clerkUserId);
+    const supabaseUserId = await getSupabaseUserIdFromClerk(finalClerkUserId);
     if (!supabaseUserId) {
-      console.error('Failed to find Supabase user ID for Clerk user:', clerkUserId);
+      console.error('Credits Balance API - Failed to find Supabase user ID for Clerk user:', finalClerkUserId);
       return NextResponse.json(
         { error: 'User not found in database' },
         { status: 404 }
@@ -32,16 +64,17 @@ export async function GET(req: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error fetching credit balance:', error);
+      console.error('Credits Balance API - Error fetching credit balance:', error);
       return NextResponse.json(
         { error: 'Failed to fetch credit balance' },
         { status: 500 }
       );
     }
 
+    console.log('Credits Balance API - Successfully retrieved balance:', data?.credits_balance || 0);
     return NextResponse.json({ balance: data?.credits_balance || 0 });
   } catch (error) {
-    console.error('Error checking credit balance:', error);
+    console.error('Credits Balance API - Error checking credit balance:', error);
     return NextResponse.json(
       { error: 'Failed to check credit balance' },
       { status: 500 }

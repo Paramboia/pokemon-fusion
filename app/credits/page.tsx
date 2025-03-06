@@ -159,7 +159,14 @@ export default function CreditsPage() {
                     </div>
                   ) : (
                     <div className="text-3xl font-bold text-primary flex items-center justify-center">
-                      {balance || 0}
+                      {balance === null ? (
+                        <span className="flex items-center">
+                          <Flame className="h-5 w-5 mr-1" />
+                          ?
+                        </span>
+                      ) : (
+                        balance
+                      )}
                     </div>
                   )}
                 </div>

@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Wallet, Flame } from 'lucide-react';
 import { PricingSection } from '@/components/ui/pricing-section';
 import { PricingTier } from '@/components/ui/pricing-card';
-import { SparklesText } from "@/components/ui";
+import { SparklesText } from "@/components/ui/sparkles-text";
 import { useAuthContext } from '@/contexts/auth-context';
 import { AuthGate } from '@/components/auth-gate';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
@@ -206,38 +206,37 @@ export default function CreditsPage() {
 
         {/* FAQ Section */}
         <div className="container max-w-4xl mb-12">
-          <h2 className="text-3xl font-bold text-center mb-6">
-            <span className="bg-clip-text bg-gradient-to-r from-primary to-primary/80">
-              Frequently Asked Questions
-            </span>
-          </h2>
+          <SparklesText 
+            text="Frequently Asked Questions"
+            className="text-3xl font-bold text-center mb-6"
+          />
           <Card className="overflow-hidden border-0 shadow-md bg-white dark:bg-gray-800">
             <div className="bg-gradient-to-r from-primary/80 to-primary p-1"></div>
-            <CardContent className="p-6">
-              <div className="space-y-8">
+            <CardContent className="px-6 py-4">
+              <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">What are credits?</h2>
+                  <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">What are credits?</h2>
                   <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                     Credits are used to generate unique Pokémon fusions. Each fusion costs 1 credit.
                   </p>
                 </div>
                 
                 <div>
-                  <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">How do I purchase credits?</h2>
+                  <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">How do I purchase credits?</h2>
                   <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                     Select one of the packages above and follow the checkout process. Credits will be added to your account immediately after payment.
                   </p>
                 </div>
                 
                 <div>
-                  <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Do credits expire?</h2>
+                  <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Do credits expire?</h2>
                   <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                     No, your credits never expire and will remain in your account until used.
                   </p>
                 </div>
                 
                 <div>
-                  <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Can I get a refund?</h2>
+                  <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Can I get a refund?</h2>
                   <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                     Refunds are available for unused credits within 30 days of purchase. Please contact support for assistance.
                   </p>

@@ -11,6 +11,7 @@ type AuthContextType = {
   isSignedIn: boolean;
   supabaseUser: any;
   authError: string | null;
+  syncUserToSupabase: () => Promise<any>;
 };
 
 // Create the context with default values
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   isSignedIn: false,
   supabaseUser: null,
   authError: null,
+  syncUserToSupabase: async () => null,
 });
 
 // Custom hook to use the auth context
@@ -36,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<any>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [syncAttempted, setSyncAttempted] = useState(false);
+  const [syncInProgress, setSyncInProgress] = useState(false);
   
   // Function to sync user data to Supabase
   const syncUserToSupabase = async () => {
@@ -43,6 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Auth Context - User is not signed in, skipping sync');
       return null;
     }
+    
+    if (syncInProgress) {
+      console.log('Auth Context - Sync already in progress, skipping');
+      return supabaseUser;
+    }
+    
+    setSyncInProgress(true);
     
     try {
       console.log('Auth Context - User is signed in, syncing to Supabase');
@@ -61,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!email) {
         console.error('Auth Context - No email found for user');
         setAuthError('No email found for user');
+        setSyncInProgress(false);
         return null;
       }
       
@@ -93,11 +104,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // For errors, use Clerk data as fallback
         console.log('Auth Context - Using Clerk user data as fallback due to sync error');
         setAuthError(`Error syncing user: ${errorData.error || 'Unknown error'}`);
-        return {
+        
+        const fallbackUser = {
           id: user.id,
           name,
           email,
         };
+        
+        setSupabaseUser(fallbackUser);
+        setSyncInProgress(false);
+        return fallbackUser;
       }
       
       // Parse the response
@@ -105,6 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Auth Context - User synced to Supabase:', data.user);
       setAuthError(null);
       
+      setSupabaseUser(data.user);
+      setSyncInProgress(false);
       return data.user;
     } catch (error) {
       console.error('Auth Context - Error in syncUserToSupabase:', error);
@@ -113,18 +131,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Use Clerk data as fallback
       console.log('Auth Context - Using Clerk user data as fallback due to exception');
-      return {
+      const fallbackUser = {
         id: user.id,
         name: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Anonymous User',
         email: user.primaryEmailAddress?.emailAddress || '',
       };
+      
+      setSupabaseUser(fallbackUser);
+      setSyncInProgress(false);
+      return fallbackUser;
     }
   };
-  
+
   // Effect to sync user data to Supabase when the user signs in
   useEffect(() => {
     console.log('Auth Context - useEffect triggered with isLoaded:', isLoaded, 'isSignedIn:', isSignedIn, 'syncAttempted:', syncAttempted);
-    
+
     if (isLoaded) {
       if (isSignedIn && user && !syncAttempted) {
         console.log('Auth Context - User is signed in, attempting to sync. User:', user.id);
@@ -132,7 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSyncAttempted(true);
         syncUserToSupabase().then((syncedUser) => {
           console.log('Auth Context - syncUserToSupabase completed, result:', syncedUser);
-          setSupabaseUser(syncedUser);
           if (syncedUser) {
             console.log('Auth Context - User synced successfully');
           } else {
@@ -153,7 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [isLoaded, isSignedIn, user, syncAttempted]);
-  
+
   // Provide the auth context to the app
   return (
     <AuthContext.Provider
@@ -163,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isSignedIn,
         supabaseUser,
         authError,
+        syncUserToSupabase,
       }}
     >
       {children}

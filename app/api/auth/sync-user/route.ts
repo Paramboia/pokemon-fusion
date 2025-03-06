@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { auth } from '@clerk/nextjs/server';
 
 // Create a Supabase client with environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -37,6 +38,30 @@ async function ensureUsersTable() {
   }
 }
 
+// Helper function to check if clerk_id column exists
+async function ensureClerkIdColumn() {
+  try {
+    console.log('Checking if clerk_id column exists');
+    
+    // Try to select the clerk_id column
+    const { data, error } = await supabaseClient
+      .from('users')
+      .select('clerk_id')
+      .limit(1);
+    
+    if (error && error.message.includes('column "clerk_id" does not exist')) {
+      console.log('clerk_id column does not exist, skipping clerk_id updates');
+      return false;
+    }
+    
+    console.log('clerk_id column exists');
+    return true;
+  } catch (error) {
+    console.error('Error checking clerk_id column:', error);
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
   try {
     console.log('=== Sync-user API called ===');
@@ -47,6 +72,10 @@ export async function POST(request: Request) {
     if (supabaseServiceKey) {
       console.log('Supabase Service Key first 10 chars:', supabaseServiceKey.substring(0, 10) + '...');
     }
+    
+    // Get authenticated user ID from Clerk
+    const { userId: authUserId } = auth();
+    console.log('Authenticated user ID from Clerk:', authUserId);
     
     // Log request headers
     const headers = {};
@@ -60,7 +89,7 @@ export async function POST(request: Request) {
     console.log('Received user data:', JSON.stringify(userData, null, 2));
     
     // Extract user information
-    const userId = userData.id;
+    const userId = userData.id || authUserId;
     const firstName = userData.firstName || '';
     const lastName = userData.lastName || '';
     const email = userData.emailAddresses?.[0]?.emailAddress;
@@ -69,6 +98,14 @@ export async function POST(request: Request) {
     console.log('Extracted user info:', { userId, name, email });
     
     // Validate required fields
+    if (!userId) {
+      console.error('Missing required user ID');
+      return NextResponse.json(
+        { error: 'Missing required user ID' },
+        { status: 400 }
+      );
+    }
+    
     if (!email) {
       console.error('Missing required email');
       return NextResponse.json(
@@ -87,31 +124,66 @@ export async function POST(request: Request) {
       );
     }
     
+    // Check if clerk_id column exists
+    const clerkIdColumnExists = await ensureClerkIdColumn();
+    
     try {
-      // Check if user already exists by email
-      console.log('Checking if user exists with email:', email);
-      const { data: existingUser, error: fetchError } = await supabaseClient
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
+      // First check if user already exists by clerk_id
+      let existingUser = null;
       
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error fetching user:', fetchError);
-        return NextResponse.json(
-          { error: 'Error fetching user from Supabase' },
-          { status: 500 }
-        );
+      if (clerkIdColumnExists) {
+        console.log('Checking if user exists with clerk_id:', userId);
+        const { data: userByClerkId, error: clerkIdError } = await supabaseClient
+          .from('users')
+          .select('*')
+          .eq('clerk_id', userId)
+          .maybeSingle();
+        
+        if (clerkIdError && !clerkIdError.message.includes('Results contain 0 rows')) {
+          console.error('Error fetching user by clerk_id:', clerkIdError);
+        }
+        
+        if (userByClerkId) {
+          console.log('Found user by clerk_id:', userByClerkId.id);
+          existingUser = userByClerkId;
+        }
+      }
+      
+      // If not found by clerk_id, check by email
+      if (!existingUser) {
+        console.log('Checking if user exists with email:', email);
+        const { data: userByEmail, error: emailError } = await supabaseClient
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (emailError && !emailError.message.includes('Results contain 0 rows')) {
+          console.error('Error fetching user by email:', emailError);
+        }
+        
+        if (userByEmail) {
+          console.log('Found user by email:', userByEmail.id);
+          existingUser = userByEmail;
+        }
       }
       
       if (existingUser) {
         console.log('Updating existing user with ID:', existingUser.id);
+        
+        // Prepare update data
+        const updateData: any = { name };
+        
+        // Add clerk_id to update if the column exists and it's not already set
+        if (clerkIdColumnExists && (!existingUser.clerk_id || existingUser.clerk_id !== userId)) {
+          console.log('Adding clerk_id to update data:', userId);
+          updateData.clerk_id = userId;
+        }
+        
         // Update existing user
         const { data: updatedUser, error: updateError } = await supabaseClient
           .from('users')
-          .update({
-            name
-          })
+          .update(updateData)
           .eq('id', existingUser.id)
           .select();
         
@@ -134,17 +206,74 @@ export async function POST(request: Request) {
       } else {
         console.log('Creating new user with name:', name, 'and email:', email);
         
+        // Prepare insert data
+        const insertData: any = {
+          name,
+          email,
+          credits_balance: 0 // Initialize with 0 credits
+        };
+        
+        // Add clerk_id to insert if the column exists
+        if (clerkIdColumnExists) {
+          console.log('Adding clerk_id to insert data:', userId);
+          insertData.clerk_id = userId;
+        }
+        
         // Insert new user
         const { data: newUser, error: insertError } = await supabaseClient
           .from('users')
-          .insert({
-            name,
-            email
-          })
+          .insert(insertData)
           .select();
         
         if (insertError) {
           console.error('Error inserting user:', insertError);
+          
+          // If error is related to clerk_id, try without it
+          if (insertError.message.includes('clerk_id') && clerkIdColumnExists) {
+            console.log('Retrying insert without clerk_id');
+            delete insertData.clerk_id;
+            
+            const { data: retryUser, error: retryError } = await supabaseClient
+              .from('users')
+              .insert(insertData)
+              .select();
+              
+            if (retryError) {
+              console.error('Error on retry insert:', retryError);
+              return NextResponse.json(
+                { error: 'Error inserting user to Supabase' },
+                { status: 500 }
+              );
+            }
+            
+            console.log('Successfully inserted new user on retry:', retryUser);
+            
+            // Try to update with clerk_id after successful insert
+            if (retryUser?.[0]?.id) {
+              try {
+                const { error: updateError } = await supabaseClient
+                  .from('users')
+                  .update({ clerk_id: userId })
+                  .eq('id', retryUser[0].id);
+                  
+                if (updateError) {
+                  console.error('Error updating new user with clerk_id:', updateError);
+                } else {
+                  console.log('Updated new user with clerk_id');
+                }
+              } catch (updateError) {
+                console.error('Exception updating new user with clerk_id:', updateError);
+              }
+            }
+            
+            return NextResponse.json({ 
+              success: true,
+              message: 'User created successfully on retry',
+              timestamp: new Date().toISOString(),
+              user: retryUser?.[0] || null
+            });
+          }
+          
           return NextResponse.json(
             { error: 'Error inserting user to Supabase' },
             { status: 500 }

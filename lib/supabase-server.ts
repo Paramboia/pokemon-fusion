@@ -274,9 +274,15 @@ export async function getSupabaseUserIdFromClerk(clerkId: string): Promise<strin
       .eq('clerk_id', clerkId)
       .maybeSingle();
     
+    if (clerkIdError) {
+      console.error('Supabase Server - Error looking up user by clerk_id:', clerkIdError);
+    }
+    
     if (userByClerkId) {
       console.log('Supabase Server - Found Supabase user by Clerk ID:', userByClerkId.id);
       return userByClerkId.id;
+    } else {
+      console.log('Supabase Server - No user found with clerk_id:', clerkId);
     }
     
     // If not found by Clerk ID, try to find by email
@@ -293,23 +299,35 @@ export async function getSupabaseUserIdFromClerk(clerkId: string): Promise<strin
         // Query Supabase for the user ID by email
         const { data: userByEmail, error: emailError } = await supabaseClient
           .from('users')
-          .select('id')
+          .select('id, clerk_id')
           .eq('email', email)
           .maybeSingle();
         
+        if (emailError) {
+          console.error('Supabase Server - Error looking up user by email:', emailError);
+        }
+        
         if (userByEmail) {
           console.log('Supabase Server - Found Supabase user by email:', userByEmail.id);
+          console.log('Supabase Server - Current clerk_id value:', userByEmail.clerk_id);
           
-          // Update the user with the clerk_id for future lookups
-          const { error: updateError } = await supabaseClient
-            .from('users')
-            .update({ clerk_id: clerkId })
-            .eq('id', userByEmail.id);
+          // Only update if clerk_id is missing or different
+          if (!userByEmail.clerk_id || userByEmail.clerk_id !== clerkId) {
+            console.log('Supabase Server - Updating user with clerk_id:', clerkId);
             
-          if (updateError) {
-            console.error('Supabase Server - Error updating user with clerk_id:', updateError);
+            // Update the user with the clerk_id for future lookups
+            const { error: updateError } = await supabaseClient
+              .from('users')
+              .update({ clerk_id: clerkId })
+              .eq('id', userByEmail.id);
+              
+            if (updateError) {
+              console.error('Supabase Server - Error updating user with clerk_id:', updateError);
+            } else {
+              console.log('Supabase Server - Updated user with clerk_id');
+            }
           } else {
-            console.log('Supabase Server - Updated user with clerk_id');
+            console.log('Supabase Server - User already has correct clerk_id');
           }
           
           return userByEmail.id;
@@ -329,13 +347,15 @@ export async function getSupabaseUserIdFromClerk(clerkId: string): Promise<strin
           .insert({
             clerk_id: clerkId,
             name,
-            email
+            email,
+            credits_balance: 0 // Initialize with 0 credits
           })
           .select()
           .single();
         
         if (insertError) {
           console.error('Supabase Server - Error creating user in Supabase:', insertError);
+          console.error('Supabase Server - Error message:', insertError.message);
           
           // If the error is about the clerk_id column not existing, try without it
           if (insertError.message.includes('clerk_id')) {
@@ -344,7 +364,8 @@ export async function getSupabaseUserIdFromClerk(clerkId: string): Promise<strin
               .from('users')
               .insert({
                 name,
-                email
+                email,
+                credits_balance: 0 // Initialize with 0 credits
               })
               .select()
               .single();
@@ -358,7 +379,8 @@ export async function getSupabaseUserIdFromClerk(clerkId: string): Promise<strin
                 .from('users')
                 .insert({
                   name: 'Temporary User',
-                  email: `${clerkId}@temporary.user`
+                  email: `${clerkId}@temporary.user`,
+                  credits_balance: 0 // Initialize with 0 credits
                 })
                 .select()
                 .single();
@@ -370,7 +392,20 @@ export async function getSupabaseUserIdFromClerk(clerkId: string): Promise<strin
                 return minimalUser.id;
               }
             } else if (newUserNoClerkId) {
-              console.log('Supabase Server - Created new user in Supabase with Clerk ID as ID:', newUserNoClerkId.id);
+              console.log('Supabase Server - Created new user in Supabase without clerk_id:', newUserNoClerkId.id);
+              
+              // Try to update the user with clerk_id after creation
+              const { error: updateError } = await supabaseClient
+                .from('users')
+                .update({ clerk_id: clerkId })
+                .eq('id', newUserNoClerkId.id);
+                
+              if (updateError) {
+                console.error('Supabase Server - Error updating new user with clerk_id:', updateError);
+              } else {
+                console.log('Supabase Server - Updated new user with clerk_id');
+              }
+              
               return newUserNoClerkId.id;
             }
           }
@@ -383,12 +418,35 @@ export async function getSupabaseUserIdFromClerk(clerkId: string): Promise<strin
       console.error('Supabase Server - Error fetching user from Clerk:', clerkError);
     }
     
-    // If all else fails, return the Clerk ID as a last resort
-    console.log('Supabase Server - All lookup methods failed, returning Clerk ID as fallback');
-    return clerkId;
+    // If all else fails, create a new user with the Clerk ID
+    try {
+      console.log('Supabase Server - Creating new user with Clerk ID as fallback');
+      const { data: fallbackUser, error: fallbackError } = await supabaseClient
+        .from('users')
+        .insert({
+          clerk_id: clerkId,
+          name: 'User ' + clerkId.substring(0, 8),
+          email: `${clerkId}@temporary.user`,
+          credits_balance: 0 // Initialize with 0 credits
+        })
+        .select()
+        .single();
+        
+      if (fallbackError) {
+        console.error('Supabase Server - Error creating fallback user:', fallbackError);
+      } else if (fallbackUser) {
+        console.log('Supabase Server - Created fallback user:', fallbackUser.id);
+        return fallbackUser.id;
+      }
+    } catch (fallbackError) {
+      console.error('Supabase Server - Error in fallback user creation:', fallbackError);
+    }
+    
+    console.error('Supabase Server - All methods failed to get or create a Supabase user for Clerk ID:', clerkId);
+    return null;
   } catch (error) {
     console.error('Supabase Server - Unexpected error in getSupabaseUserIdFromClerk:', error);
-    return clerkId; // Return the Clerk ID as a fallback
+    return null;
   }
 }
 

@@ -20,9 +20,10 @@ export function useCredits() {
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Fetch the user's credit balance
-  const fetchBalance = useCallback(async () => {
+  const fetchBalance = useCallback(async (retry = false) => {
     if (!isSignedIn || !isLoaded) {
       setBalance(0);
       setIsLoading(false);
@@ -53,6 +54,7 @@ export function useCredits() {
       console.log('Credit balance response:', response.data);
       setBalance(response.data.balance);
       setError(null);
+      setRetryCount(0); // Reset retry count on success
     } catch (err: any) {
       console.error('Error fetching credit balance:', err);
       
@@ -64,9 +66,33 @@ export function useCredits() {
         // that falls out of the range of 2xx
         if (err.response.status === 401) {
           setError('Authentication error. Please sign in again.');
+          
+          // If this is the first retry, try to refresh the token and try again
+          if (!retry && retryCount < 3) {
+            console.log(`Retrying credit balance fetch (attempt ${retryCount + 1})...`);
+            setRetryCount(prev => prev + 1);
+            
+            // Wait a moment before retrying
+            setTimeout(() => {
+              fetchBalance(true);
+            }, 1000);
+            return;
+          }
         } else if (err.response.status === 404) {
           setError('API endpoint not found or user not found in database.');
           console.log('User might not exist in Supabase database yet.');
+          
+          // If this is the first retry, try to sync the user and try again
+          if (!retry && retryCount < 3) {
+            console.log(`Retrying credit balance fetch after user sync (attempt ${retryCount + 1})...`);
+            setRetryCount(prev => prev + 1);
+            
+            // Wait a moment before retrying
+            setTimeout(() => {
+              fetchBalance(true);
+            }, 1000);
+            return;
+          }
         } else {
           setError(`Server error: ${err.response.status}`);
         }
@@ -83,10 +109,10 @@ export function useCredits() {
     } finally {
       setIsLoading(false);
     }
-  }, [isSignedIn, isLoaded, getToken]);
+  }, [isSignedIn, isLoaded, getToken, retryCount]);
 
   // Fetch available credit packages
-  const fetchPackages = useCallback(async () => {
+  const fetchPackages = useCallback(async (retry = false) => {
     if (!isLoaded) return;
 
     try {
@@ -111,10 +137,24 @@ export function useCredits() {
         if (response.data.packages && response.data.packages.length > 0) {
           setPackages(response.data.packages);
           setError(null);
+          setRetryCount(0); // Reset retry count on success
           return;
         }
-      } catch (apiErr) {
+      } catch (apiErr: any) {
         console.error('Error fetching credit packages from API:', apiErr);
+        
+        // If this is the first retry and we got a 401 or 404, try again
+        if (!retry && retryCount < 3 && 
+            (apiErr.response?.status === 401 || apiErr.response?.status === 404)) {
+          console.log(`Retrying credit packages fetch (attempt ${retryCount + 1})...`);
+          setRetryCount(prev => prev + 1);
+          
+          // Wait a moment before retrying
+          setTimeout(() => {
+            fetchPackages(true);
+          }, 1000);
+          return;
+        }
       }
       
       // If API fails, use environment variables as fallback
@@ -152,7 +192,7 @@ export function useCredits() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, isSignedIn, getToken]);
+  }, [isLoaded, isSignedIn, getToken, retryCount]);
 
   // Use credits for a fusion
   const useCredits = useCallback(async (description?: string) => {
@@ -250,6 +290,14 @@ export function useCredits() {
       fetchBalance();
       fetchPackages();
     }
+  }, [isLoaded, fetchBalance, fetchPackages]);
+
+  // Refresh data when user signs in or out
+  useEffect(() => {
+    if (isLoaded) {
+      fetchBalance();
+      fetchPackages();
+    }
   }, [isSignedIn, isLoaded, fetchBalance, fetchPackages]);
 
   return {
@@ -257,10 +305,9 @@ export function useCredits() {
     packages,
     isLoading,
     error,
-    fetchBalance,
-    fetchPackages,
     useCredits,
-    createCheckoutSession,
     redirectToCheckout,
+    fetchBalance,
+    fetchPackages
   };
 } 

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
+import { supabase } from '@/lib/supabase'
 
 export function useFusion() {
   const router = useRouter()
@@ -66,6 +67,34 @@ export function useFusion() {
       const timeoutId = setTimeout(() => controller.abort(), 50000) // 50 second timeout
 
       try {
+        // Check credits balance directly from Supabase
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('credits_balance')
+          .eq('clerk_id', user.id)
+          .single()
+
+        if (userError || !userData) {
+          console.error('Failed to fetch credits balance:', userError);
+          toast.dismiss('fusion-generation');
+          toast.error('Unable to verify credits. Showing first Pokémon instead.');
+          setError('Unable to verify credits');
+          setFusionImage(image1Url);
+          setIsLocalFallback(true);
+          setFusionName(name1);
+          setGenerating(false);
+          return;
+        }
+
+        if (userData.credits_balance === 0) {
+          toast.dismiss('fusion-generation');
+          setIsPaymentRequired(true);
+          toast.error('No credits available. Please purchase more credits.');
+          setError('No credits available');
+          setGenerating(false);
+          return;
+        }
+
         // Call the API endpoint to generate the fusion
         const response = await fetch('/api/generate', {
           method: 'POST',

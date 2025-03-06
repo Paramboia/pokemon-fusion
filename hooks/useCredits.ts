@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuthContext } from '@/contexts/auth-context';
 import { toast } from 'sonner';
+import { useAuth } from '@clerk/nextjs';
 
 export type CreditPackage = {
   id: string;
@@ -14,6 +15,7 @@ export type CreditPackage = {
 
 export function useCredits() {
   const { isSignedIn, isLoaded } = useAuthContext();
+  const { getToken } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,7 +32,24 @@ export function useCredits() {
     try {
       setIsLoading(true);
       console.log('Fetching credit balance...');
-      const response = await axios.get('/api/credits/balance', { timeout: 5000 });
+      
+      // Get the authentication token
+      const token = await getToken();
+      
+      if (!token) {
+        console.error('No authentication token available');
+        setError('Authentication required');
+        setIsLoading(false);
+        return;
+      }
+      
+      const response = await axios.get('/api/credits/balance', { 
+        timeout: 5000,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
       console.log('Credit balance response:', response.data);
       setBalance(response.data.balance);
       setError(null);
@@ -64,7 +83,7 @@ export function useCredits() {
     } finally {
       setIsLoading(false);
     }
-  }, [isSignedIn, isLoaded]);
+  }, [isSignedIn, isLoaded, getToken]);
 
   // Fetch available credit packages
   const fetchPackages = useCallback(async () => {
@@ -75,7 +94,20 @@ export function useCredits() {
       
       // Try to fetch packages from the API
       try {
-        const response = await axios.get('/api/credits/packages', { timeout: 5000 });
+        // Get the authentication token if user is signed in
+        let headers = {};
+        if (isSignedIn) {
+          const token = await getToken();
+          if (token) {
+            headers = { 'Authorization': `Bearer ${token}` };
+          }
+        }
+        
+        const response = await axios.get('/api/credits/packages', { 
+          timeout: 5000,
+          headers
+        });
+        
         if (response.data.packages && response.data.packages.length > 0) {
           setPackages(response.data.packages);
           setError(null);
@@ -120,7 +152,7 @@ export function useCredits() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded]);
+  }, [isLoaded, isSignedIn, getToken]);
 
   // Use credits for a fusion
   const useCredits = useCallback(async (description?: string) => {
@@ -135,7 +167,24 @@ export function useCredits() {
     }
 
     try {
-      const response = await axios.post('/api/credits/use', { description });
+      // Get the authentication token
+      const token = await getToken();
+      
+      if (!token) {
+        console.error('No authentication token available');
+        toast.error('Authentication required. Please sign in again.');
+        return false;
+      }
+      
+      const response = await axios.post('/api/credits/use', 
+        { description },
+        { 
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
       setBalance(response.data.balance);
       return true;
     } catch (err: any) {
@@ -147,7 +196,7 @@ export function useCredits() {
       }
       return false;
     }
-  }, [isSignedIn, isLoaded, balance]);
+  }, [isSignedIn, isLoaded, balance, getToken]);
 
   // Create a checkout session for purchasing credits
   const createCheckoutSession = useCallback(async (priceId: string) => {
@@ -157,11 +206,27 @@ export function useCredits() {
     }
 
     try {
-      const response = await axios.post('/api/credits/checkout', {
-        priceId,
-        successUrl: `${window.location.origin}/credits/success`,
-        cancelUrl: `${window.location.origin}/credits/cancel`,
-      });
+      // Get the authentication token
+      const token = await getToken();
+      
+      if (!token) {
+        console.error('No authentication token available');
+        toast.error('Authentication required. Please sign in again.');
+        return null;
+      }
+      
+      const response = await axios.post('/api/credits/checkout', 
+        {
+          priceId,
+          successUrl: `${window.location.origin}/credits/success`,
+          cancelUrl: `${window.location.origin}/credits/cancel`,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
       
       return response.data;
     } catch (err) {
@@ -169,7 +234,7 @@ export function useCredits() {
       console.error('Error creating checkout session:', err);
       return null;
     }
-  }, [isSignedIn, isLoaded]);
+  }, [isSignedIn, isLoaded, getToken]);
 
   // Redirect to Stripe Checkout
   const redirectToCheckout = useCallback(async (priceId: string) => {

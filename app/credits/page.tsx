@@ -41,7 +41,7 @@ const FALLBACK_PACKAGES = [
 
 export default function CreditsPage() {
   const { isSignedIn, isLoaded } = useAuthContext();
-  const { balance, packages, isLoading, redirectToCheckout } = useCredits();
+  const { balance, packages, isLoading, redirectToCheckout, fetchBalance } = useCredits();
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
   const [displayPackages, setDisplayPackages] = useState(FALLBACK_PACKAGES);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -52,6 +52,14 @@ export default function CreditsPage() {
       setDisplayPackages(packages);
     }
   }, [packages]);
+
+  // Fetch balance when component mounts and auth state changes
+  useEffect(() => {
+    if (isSignedIn && isLoaded) {
+      console.log('Credits page - Fetching initial balance');
+      fetchBalance();
+    }
+  }, [isSignedIn, isLoaded, fetchBalance]);
 
   // Handle API errors
   useEffect(() => {
@@ -77,53 +85,15 @@ export default function CreditsPage() {
   }, [isSignedIn, isLoaded]);
 
   const handlePurchase = async (priceId: string, packageId: string) => {
+    if (!isSignedIn) {
+      setErrorMessage('Please sign in to purchase credits');
+      return;
+    }
+
     setLoadingPackageId(packageId);
     await redirectToCheckout(priceId);
     setLoadingPackageId(null);
   };
-
-  // Map packages to pricing tiers
-  const tiers: PricingTier[] = displayPackages.map((pkg, index) => {
-    // Pokemon names, images and colors for each tier based on Charmander evolution line
-    const pokemonThemes = [
-      {
-        name: 'Charmander',
-        image: '/pokemon/charmander.png',
-        color: 'from-orange-300 to-orange-400',
-        bgColor: 'bg-orange-50 dark:bg-slate-700',
-      },
-      {
-        name: 'Charmeleon',
-        image: '/pokemon/charmeleon.png',
-        color: 'from-orange-500 to-red-500',
-        bgColor: 'bg-orange-100 dark:bg-slate-800',
-      },
-      {
-        name: 'Charizard',
-        image: '/pokemon/charizard.png',
-        color: 'from-red-600 to-orange-600',
-        bgColor: 'bg-red-50 dark:bg-slate-900',
-      },
-    ];
-    
-    const theme = pokemonThemes[index] || pokemonThemes[0];
-
-    return {
-      id: pkg.id,
-      name: pkg.name,
-      price: {
-        monthly: pkg.price,
-        yearly: pkg.price,
-      },
-      credits: pkg.credits,
-      priceId: pkg.priceId || '',
-      featured: index === 1, // Make the middle package featured
-      pokemonImage: theme.image,
-      pokemonName: theme.name,
-      themeColor: theme.color,
-      bgColor: theme.bgColor,
-    };
-  });
 
   return (
     <div className="flex flex-col items-center">
@@ -193,7 +163,29 @@ export default function CreditsPage() {
           <PricingSection
             title="Choose Your Tier"
             subtitle="Purchase credits to generate Pokémon fusions"
-            tiers={tiers}
+            tiers={displayPackages.map((pkg, index) => ({
+              id: pkg.id,
+              name: pkg.name,
+              price: {
+                monthly: pkg.price,
+                yearly: pkg.price,
+              },
+              credits: pkg.credits,
+              priceId: pkg.priceId,
+              featured: index === 1,
+              pokemonImage: `/pokemon/${['charmander', 'charmeleon', 'charizard'][index]}.png`,
+              pokemonName: ['Charmander', 'Charmeleon', 'Charizard'][index],
+              themeColor: [
+                'from-orange-300 to-orange-400',
+                'from-orange-500 to-red-500',
+                'from-red-600 to-orange-600'
+              ][index],
+              bgColor: [
+                'bg-orange-50 dark:bg-slate-700',
+                'bg-orange-100 dark:bg-slate-800',
+                'bg-red-50 dark:bg-slate-900'
+              ][index],
+            }))}
             frequencies={['monthly']}
             onPurchase={handlePurchase}
             loadingPackageId={loadingPackageId}

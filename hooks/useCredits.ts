@@ -23,55 +23,30 @@ export function useCredits() {
 
   // Fetch the user's credit balance
   const fetchBalance = useCallback(async () => {
+    if (!isSignedIn || !isLoaded) {
+      setBalance(null);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      setIsLoading(true);
-      console.log('Fetching credit balance...');
-      
-      // Get the authentication token if user is signed in
-      let headers = {};
-      if (isSignedIn && isLoaded) {
-        const token = await getToken();
-        console.log('Got auth token:', token ? 'Yes' : 'No');
-        if (token) {
-          headers = { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          };
-        } else {
-          console.log('No auth token available');
-          setBalance(null);
-          return;
-        }
-      } else {
-        console.log('User not signed in or not loaded');
-        setBalance(null);
-        return;
-      }
-      
-      const response = await axios.get('/api/credits/balance', { 
-        timeout: 8000,
-        headers,
-        withCredentials: true
+      const token = await getToken();
+      const response = await fetch('/api/credits/balance', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
-      
-      console.log('Credit balance response:', response.data);
-      setBalance(response.data.balance);
-      setError(null);
-    } catch (err: any) {
-      console.error('Error fetching credit balance:', err);
-      
-      // Provide more detailed error messages based on the error type
-      if (err.code === 'ECONNABORTED') {
-        setError('Request timed out. Server might be busy.');
-      } else if (err.response) {
-        setError(`Server error: ${err.response.status}`);
-        console.error('Response data:', err.response.data);
-      } else if (err.request) {
-        setError('No response from server. Please check your connection.');
-      } else {
-        setError('Failed to fetch credit balance');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
+      const data = await response.json();
+      setBalance(data.balance);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching balance:', err);
+      setError('Failed to fetch credit balance');
       setBalance(null);
     } finally {
       setIsLoading(false);

@@ -4,32 +4,32 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { useCredits } from '@/hooks/useCredits';
 import { Wallet, Loader2 } from 'lucide-react';
-import { useAuth } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
+import { useUser } from '@clerk/nextjs';
 
 export function CreditBalance() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isLoaded } = useUser();
   const { balance, isLoading, fetchBalance, error } = useCredits();
 
-  // Fetch balance when component mounts and when auth state changes
+  // Fetch balance when component mounts
   useEffect(() => {
-    if (isSignedIn && isLoaded) {
+    if (isLoaded) {
       fetchBalance();
     }
-  }, [isSignedIn, isLoaded, fetchBalance]);
+  }, [isLoaded, fetchBalance]);
 
   // Refresh balance every 30 seconds
   useEffect(() => {
-    if (!isSignedIn || !isLoaded) return;
+    if (!isLoaded) return;
     
     const intervalId = setInterval(() => {
       fetchBalance();
     }, 30000); // 30 seconds
     
     return () => clearInterval(intervalId);
-  }, [isSignedIn, isLoaded, fetchBalance]);
+  }, [isLoaded, fetchBalance]);
 
-  if (!isSignedIn || !isLoaded) {
+  if (!isLoaded) {
     return null;
   }
 

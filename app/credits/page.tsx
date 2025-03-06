@@ -5,11 +5,9 @@ import { useCredits } from '@/hooks/useCredits';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Wallet, Flame } from 'lucide-react';
 import { PricingSection } from '@/components/ui/pricing-section';
-import { PricingTier } from '@/components/ui/pricing-card';
 import { SparklesText } from "@/components/ui/sparkles-text";
-import { useAuthContext } from '@/contexts/auth-context';
 import { AuthGate } from '@/components/auth-gate';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { useUser } from '@clerk/nextjs';
 
 // Fallback data in case API calls fail
 const FALLBACK_PACKAGES = [
@@ -40,58 +38,22 @@ const FALLBACK_PACKAGES = [
 ];
 
 export default function CreditsPage() {
-  const { isSignedIn, isLoaded } = useAuthContext();
-  const { balance, packages, isLoading, redirectToCheckout, fetchBalance } = useCredits();
+  const { isLoaded } = useUser();
+  const { balance, isLoading, error: balanceError, fetchBalance } = useCredits();
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
-  const [displayPackages, setDisplayPackages] = useState(FALLBACK_PACKAGES);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [displayPackages] = useState(FALLBACK_PACKAGES);
 
-  // Use fallback packages if API call fails
+  // Fetch balance when component mounts
   useEffect(() => {
-    if (packages && packages.length > 0) {
-      setDisplayPackages(packages);
-    }
-  }, [packages]);
-
-  // Fetch balance when component mounts and auth state changes
-  useEffect(() => {
-    if (isSignedIn && isLoaded) {
+    if (isLoaded) {
       console.log('Credits page - Fetching initial balance');
       fetchBalance();
     }
-  }, [isSignedIn, isLoaded, fetchBalance]);
-
-  // Handle API errors
-  useEffect(() => {
-    const checkApiStatus = async () => {
-      if (!isSignedIn) {
-        return; // Don't show error message if not signed in - AuthGate will handle this
-      }
-      
-      try {
-        const response = await fetch('/api/health');
-        if (!response.ok) {
-          setErrorMessage('API service is currently unavailable. Please try again later.');
-        }
-      } catch (error) {
-        console.error('Error checking API status:', error);
-        setErrorMessage('Unable to connect to the server. Please check your connection and try again.');
-      }
-    };
-
-    if (isLoaded) {
-      checkApiStatus();
-    }
-  }, [isSignedIn, isLoaded]);
+  }, [isLoaded, fetchBalance]);
 
   const handlePurchase = async (priceId: string, packageId: string) => {
-    if (!isSignedIn) {
-      setErrorMessage('Please sign in to purchase credits');
-      return;
-    }
-
     setLoadingPackageId(packageId);
-    await redirectToCheckout(priceId);
+    // Implement Stripe checkout here
     setLoadingPackageId(null);
   };
 
@@ -119,7 +81,7 @@ export default function CreditsPage() {
                 <div className="flex items-center justify-center bg-primary/10 rounded-full h-20 w-20 p-6">
                   {isLoading ? (
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  ) : errorMessage ? (
+                  ) : balanceError ? (
                     <div className="text-xl font-bold text-primary flex items-center justify-center">
                       <Flame className="h-5 w-5 mr-1" />
                       ?
@@ -138,12 +100,12 @@ export default function CreditsPage() {
                   )}
                 </div>
               </div>
-              {errorMessage && (
+              {balanceError && (
                 <div className="px-6 pb-6 pt-0">
                   <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 p-3 rounded-md text-sm">
                     <p className="flex items-center">
                       <Flame className="h-4 w-4 mr-2 flex-shrink-0" />
-                      {errorMessage}
+                      {balanceError}
                     </p>
                   </div>
                 </div>

@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuthContext } from '@/contexts/auth-context';
 import { toast } from 'sonner';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth, useUser } from '@clerk/nextjs';
+import { supabase } from '@/lib/supabase-client';
 
 export type CreditPackage = {
   id: string;
@@ -16,33 +17,34 @@ export type CreditPackage = {
 export function useCredits() {
   const { isSignedIn, isLoaded } = useAuthContext();
   const { getToken } = useAuth();
+  const { user } = useUser();
   const [balance, setBalance] = useState<number | null>(null);
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch the user's credit balance
-  const fetchBalance = useCallback(async () => {
-    if (!isSignedIn || !isLoaded) {
+  const fetchBalance = async () => {
+    if (!user?.id) {
       setBalance(null);
       setIsLoading(false);
       return;
     }
 
     try {
-      const token = await getToken();
-      const response = await fetch('/api/credits/balance', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const { data, error: supabaseError } = await supabase
+        .from('users')
+        .select('credits_balance')
+        .eq('clerk_id', user.id)
+        .single();
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (supabaseError) {
+        console.error('Error fetching balance:', supabaseError);
+        setError('Failed to fetch credit balance');
+        setBalance(null);
+        return;
       }
 
-      const data = await response.json();
-      setBalance(data.balance);
+      setBalance(data?.credits_balance ?? 0);
       setError(null);
     } catch (err) {
       console.error('Error fetching balance:', err);
@@ -51,7 +53,7 @@ export function useCredits() {
     } finally {
       setIsLoading(false);
     }
-  }, [isSignedIn, isLoaded, getToken]);
+  };
 
   // Fetch available credit packages
   const fetchPackages = useCallback(async () => {

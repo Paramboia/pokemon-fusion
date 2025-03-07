@@ -5,7 +5,9 @@ import { getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = auth();
+    // Fix the auth call to properly await the Promise
+    const authResult = await auth();
+    const userId = authResult.userId;
     
     // Parse the request body
     const body = await req.json();

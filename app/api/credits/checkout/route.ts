@@ -40,8 +40,8 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/credits/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/credits/cancel`,
+      success_url: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/home?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/credits`,
       metadata: {
         clerkUserId: userId,
         supabaseUserId,

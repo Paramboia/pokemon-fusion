@@ -209,7 +209,7 @@ export default function CreditsPage() {
                 <div>
                   <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">What are credits?</h2>
                   <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                    Credits are used to generate unique Pokémon fusions. Each fusion costs 1 credit.
+                    Credits are used to generate unique Pokémon fusions. Each fusion costs 1 credit. Fusions generated using the "simplified method" are free and don't consume any credits.
                   </p>
                 </div>
                 
@@ -230,7 +230,7 @@ export default function CreditsPage() {
                 <div>
                   <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Can I get a refund?</h2>
                   <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                    Refunds are available for unused credits within 30 days of purchase. Please contact support for assistance.
+                    Credits are non-refundable once purchased. Please make sure to carefully consider your purchase before proceeding.
                   </p>
                 </div>
               </div>

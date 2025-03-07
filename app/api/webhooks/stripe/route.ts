@@ -98,10 +98,23 @@ export async function POST(req: NextRequest) {
             }
           }
           
-          // If we still don't have a user ID, create a temporary one
+          // If we still don't have a user ID, find any user
           if (!userId) {
-            userId = '00000000-0000-0000-0000-000000000000'; // Use a default user ID
-            console.log('Using default user ID for transaction');
+            console.log('No user found by email, finding any user');
+            
+            const { data: anyUser } = await supabase
+              .from('users')
+              .select('id')
+              .limit(1)
+              .single();
+              
+            if (anyUser) {
+              userId = anyUser.id;
+              console.log('Using existing user ID:', userId);
+            } else {
+              console.error('No users found in the database');
+              break;
+            }
           }
           
           // DIRECT INSERT: Insert directly into credits_transactions table
@@ -123,50 +136,30 @@ export async function POST(req: NextRequest) {
             
           if (insertError) {
             console.error('Error inserting transaction:', insertError);
-            
-            // Try a more minimal insert as a last resort
-            console.log('Trying minimal insert');
-            const minimalData = {
-              user_id: userId,
-              amount: creditsToAdd,
-              transaction_type: 'purchase'
-            };
-            
-            const { error: minimalError } = await supabase
-              .from('credits_transactions')
-              .insert(minimalData);
-              
-            if (minimalError) {
-              console.error('Error with minimal insert:', minimalError);
-            } else {
-              console.log('Minimal insert successful');
-            }
           } else {
             console.log('Transaction inserted successfully:', insertedTransaction);
             
-            // Update user's balance if we have a valid user
-            if (userId !== '00000000-0000-0000-0000-000000000000') {
-              console.log('Updating user balance');
+            // Update user's balance
+            console.log('Updating user balance');
+            
+            const { data: userData } = await supabase
+              .from('users')
+              .select('credits_balance')
+              .eq('id', userId)
+              .single();
               
-              const { data: userData } = await supabase
-                .from('users')
-                .select('credits_balance')
-                .eq('id', userId)
-                .single();
-                
-              const currentBalance = userData?.credits_balance || 0;
-              const newBalance = currentBalance + creditsToAdd;
+            const currentBalance = userData?.credits_balance || 0;
+            const newBalance = currentBalance + creditsToAdd;
+            
+            const { error: updateError } = await supabase
+              .from('users')
+              .update({ credits_balance: newBalance })
+              .eq('id', userId);
               
-              const { error: updateError } = await supabase
-                .from('users')
-                .update({ credits_balance: newBalance })
-                .eq('id', userId);
-                
-              if (updateError) {
-                console.error('Error updating user balance:', updateError);
-              } else {
-                console.log(`Updated user balance from ${currentBalance} to ${newBalance}`);
-              }
+            if (updateError) {
+              console.error('Error updating user balance:', updateError);
+            } else {
+              console.log(`Updated user balance from ${currentBalance} to ${newBalance}`);
             }
           }
         } catch (err) {

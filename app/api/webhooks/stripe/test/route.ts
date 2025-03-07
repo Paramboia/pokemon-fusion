@@ -9,9 +9,35 @@ export async function GET(req: NextRequest) {
     const supabase = await getSupabaseAdminClient();
     console.log('Got Supabase admin client');
     
+    // First, find an existing user to use
+    const { data: users, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .limit(1);
+      
+    if (userError) {
+      console.error('Error fetching users:', userError);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Error fetching users',
+        details: userError
+      });
+    }
+    
+    if (!users || users.length === 0) {
+      console.error('No users found in the database');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'No users found in the database'
+      });
+    }
+    
+    const userId = users[0].id;
+    console.log('Found user ID to use:', userId);
+    
     // Try to insert a test record
     const testData = {
-      user_id: '00000000-0000-0000-0000-000000000000', // Default user ID
+      user_id: userId,
       amount: 1,
       transaction_type: 'test',
       description: 'Test transaction from API'

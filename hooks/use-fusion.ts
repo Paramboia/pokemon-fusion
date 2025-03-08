@@ -89,8 +89,8 @@ export function useFusion() {
         if (userData.credits_balance === 0) {
           toast.dismiss('fusion-generation');
           setIsPaymentRequired(true);
-          toast.error('No credits available. Please purchase more credits.');
-          setError('No credits available. Please purchase more credits.');
+          toast.error('Please purchase more credits to generate more amazing Pokémon fusions.');
+          setError('Please purchase more credits to generate more amazing Pokémon fusions.');
           setGenerating(false);
           return;
         }

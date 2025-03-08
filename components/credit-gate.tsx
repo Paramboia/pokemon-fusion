@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { CreditCard, AlertCircle } from "lucide-react";
+import { Wallet, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 interface CreditGateProps {
@@ -26,7 +26,7 @@ export function CreditGate({
           {isError ? (
             <AlertCircle className="h-10 w-10 text-red-500" />
           ) : (
-            <CreditCard className="h-10 w-10 text-amber-500" />
+            <Wallet className="h-10 w-10 text-gray-800 dark:text-gray-200" />
           )}
         </div>
         <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">

@@ -42,7 +42,14 @@ export function CreditBalance() {
       {isLoading ? (
         <Loader2 className="h-3 w-3 animate-spin" />
       ) : (
-        <span className="font-medium text-sm">{balance !== null ? balance : '?'}</span>
+        <span className={cn(
+          "font-medium text-sm",
+          balance === 0 ? "text-red-500" : 
+          balance && balance > 0 ? "text-green-500" : 
+          "" // Default color (black/current text color) for "?"
+        )}>
+          {balance !== null ? balance : '?'}
+        </span>
       )}
     </Link>
   );

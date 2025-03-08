@@ -30,7 +30,9 @@ export function Footer() {
           
           <div className="flex items-center gap-2">
             <Link 
-              href="/community"
+              href="https://www.facebook.com/profile.php?id=61574000278243"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-2 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <Facebook className="h-5 w-5" />

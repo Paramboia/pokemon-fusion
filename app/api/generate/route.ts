@@ -278,7 +278,7 @@ export async function POST(req: Request) {
             user_id: userId,
             amount: -1,
             description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`,
-            type: 'use'
+            transaction_type: 'usage'
           });
 
         if (transactionError) {

@@ -187,30 +187,17 @@ export default function Home() {
           </div>
         )}
 
-        {/* Error Messages */}
-        {error && !isLocalFallback && (
-          <div className="mt-6 flex justify-center">
-            <CreditGate 
-              title="Error Generating Fusion"
-              message={error}
-              buttonText="Get Credits"
-              redirectPath="/credits"
-              isError={true}
-            />
-          </div>
-        )}
-
-        {/* Payment Required Message */}
-        {isPaymentRequired && (
+        {/* Error Messages and Payment Required Message combined into one component */}
+        {(error && !isLocalFallback) || isPaymentRequired ? (
           <div className="mt-6 flex justify-center">
             <CreditGate 
               title="Credits Required"
-              message="You've reached the limit of free fusions. Purchase credits to continue creating amazing Pokémon fusions!"
+              message={error && !isLocalFallback ? error : "You've reached the limit of free fusions. Purchase credits to continue creating amazing Pokémon fusions!"}
               buttonText="Get Credits"
               redirectPath="/credits"
             />
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

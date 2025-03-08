@@ -14,6 +14,7 @@ import { HomeAuthGate } from "@/components/home-auth-gate";
 import FusionCard from "@/components/fusion-card";
 import { useAuth } from "@clerk/nextjs";
 import { AlternatingText } from "@/components/ui";
+import { CreditGate } from "@/components/credit-gate";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
@@ -189,35 +190,25 @@ export default function Home() {
         {/* Error Messages */}
         {error && !isLocalFallback && (
           <div className="mt-6 flex justify-center">
-            <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 p-4 max-w-md w-full">
-              <div className="flex items-start">
-                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mr-3 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-red-600 dark:text-red-400">Error</h3>
-                  <p className="text-sm text-red-600/90 dark:text-red-400/90 mt-1">{error}</p>
-                </div>
-              </div>
-            </Card>
+            <CreditGate 
+              title="Error Generating Fusion"
+              message={error}
+              buttonText="Get Credits"
+              redirectPath="/credits"
+              isError={true}
+            />
           </div>
         )}
 
         {/* Payment Required Message */}
         {isPaymentRequired && (
           <div className="mt-6 flex justify-center">
-            <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 p-4 max-w-md w-full">
-              <div className="flex items-start">
-                <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400 mr-3 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-amber-600 dark:text-amber-400">Payment Required</h3>
-                  <p className="text-sm text-amber-600/90 dark:text-amber-400/90 mt-1">
-                    You've reached the limit of free fusions. Please upgrade your account to continue.
-                  </p>
-                  <Button className="mt-3" size="sm">
-                    Upgrade Now
-                  </Button>
-                </div>
-              </div>
-            </Card>
+            <CreditGate 
+              title="Credits Required"
+              message="You've reached the limit of free fusions. Purchase credits to continue creating amazing Pokémon fusions!"
+              buttonText="Get Credits"
+              redirectPath="/credits"
+            />
           </div>
         )}
       </div>

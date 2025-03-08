@@ -185,9 +185,9 @@ export default function CreditsPage() {
                 'from-red-600 to-orange-600'
               ][index],
               bgColor: [
-                'bg-orange-50 dark:bg-slate-700',
+                'bg-orange-50 dark:bg-slate-900',
                 'bg-orange-100 dark:bg-slate-800',
-                'bg-red-50 dark:bg-slate-900'
+                'bg-red-50 dark:bg-slate-700'
               ][index],
             }))}
             frequencies={['monthly']}

@@ -105,6 +105,7 @@ export async function saveFusion({
   pokemon2Name,
   fusionName,
   fusionImage,
+  isSimpleFusion,
 }: {
   userId: string;
   pokemon1Id?: number;
@@ -113,6 +114,7 @@ export async function saveFusion({
   pokemon2Name: string;
   fusionName: string;
   fusionImage: string;
+  isSimpleFusion?: boolean;
 }) {
   console.log('saveFusion - Starting with params:', {
     userId,
@@ -122,6 +124,7 @@ export async function saveFusion({
     pokemon2Name,
     fusionName,
     fusionImageLength: fusionImage ? fusionImage.length : 0,
+    isSimpleFusion
   });
 
   try {

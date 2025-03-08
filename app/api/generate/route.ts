@@ -129,11 +129,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
     }
     
+    // Determine if this is a simple fusion
+    const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
+    console.log('Generate API - Is simple fusion:', isSimpleFusion);
+    
     // Check and use credits before generating the fusion
     try {
       // Only use credits for AI-generated fusions
-      const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
-      
       if (!isSimpleFusion) {
         // Check credit balance before starting generation
         const { data: userData, error: balanceError } = await supabase
@@ -230,7 +232,7 @@ export async function POST(req: Request) {
         merge_mode: "left_right",
         prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
         negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, ugly, broken, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting",
-        upscale_2x: false
+        upscale_2x: true
       };
       
       console.log('Generate API - Running image-merger model with processed images');
@@ -301,7 +303,8 @@ export async function POST(req: Request) {
         pokemon1Name,
         pokemon2Name,
         fusionName,
-        fusionImage: fusionImageUrl
+        fusionImage: fusionImageUrl,
+        isSimpleFusion: false // This is an AI-generated fusion
       });
       
       if (result.error) {

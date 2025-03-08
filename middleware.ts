@@ -25,6 +25,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/credits/checkout',
   '/api/webhooks/stripe(.*)',
   '/api/webhooks/stripe/test',
+  '/api/webhooks/stripe/verify',
   '/_next(.*)',
   '/favicon.ico',
   '/sitemap.xml',

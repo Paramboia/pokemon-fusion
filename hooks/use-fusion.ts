@@ -90,7 +90,7 @@ export function useFusion() {
           toast.dismiss('fusion-generation');
           setIsPaymentRequired(true);
           toast.error('No credits available. Please purchase more credits.');
-          setError('No credits available');
+          setError('No credits available. Please purchase more credits.');
           setGenerating(false);
           return;
         }

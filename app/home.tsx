@@ -191,8 +191,8 @@ export default function Home() {
         {(error && !isLocalFallback) || isPaymentRequired ? (
           <div className="mt-6 flex justify-center">
             <CreditGate 
-              title="Credits Required"
-              message={error && !isLocalFallback ? error : "You've reached the limit of free fusions. Purchase credits to continue creating amazing Pokémon fusions!"}
+              title="Ups... You need Credits"
+              message={error && !isLocalFallback ? error : "Purchase credits to continue creating amazing Pokémon fusions!"}
               buttonText="Get Credits"
               redirectPath="/credits"
             />

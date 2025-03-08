@@ -129,7 +129,11 @@ export default function CreditsPage() {
                       ?
                     </div>
                   ) : (
-                    <div className="text-3xl font-bold text-primary flex items-center justify-center">
+                    <div className={`text-3xl font-bold flex items-center justify-center ${
+                      balance === 0 ? "text-red-500" : 
+                      balance && balance > 0 ? "text-green-500" : 
+                      "text-gray-800 dark:text-gray-200" // Default color for "?"
+                    }`}>
                       {balance === null ? (
                         <span className="flex items-center">
                           <Flame className="h-5 w-5 mr-1" />

@@ -133,24 +133,31 @@ export async function POST(req: Request) {
     const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
     console.log('Generate API - Is simple fusion:', isSimpleFusion);
     
+    // Variable to store the user's UUID
+    let userUuid: string | undefined;
+    
     // Check and use credits before generating the fusion
     try {
       // Only use credits for AI-generated fusions
       if (!isSimpleFusion) {
-        // Check credit balance before starting generation
-        const { data: userData, error: balanceError } = await supabase
+        // Get the user's UUID and credit balance
+        const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('credits_balance')
+          .select('id, credits_balance')
           .eq('clerk_id', userId)
           .single();
 
-        if (balanceError) {
-          console.error('Generate API - Error fetching user credits:', balanceError);
+        if (userError) {
+          console.error('Generate API - Error fetching user:', userError);
           return NextResponse.json({ 
-            error: 'Failed to verify credits',
-            details: balanceError
+            error: 'Failed to verify user',
+            details: userError
           }, { status: 500 });
         }
+
+        // Store the user's UUID for later use
+        userUuid = userData.id;
+        console.log('Generate API - User UUID:', userUuid);
 
         const currentBalance = userData?.credits_balance || 0;
         if (currentBalance <= 0) {
@@ -277,7 +284,7 @@ export async function POST(req: Request) {
         const { error: transactionError } = await supabase
           .from('credits_transactions')
           .insert({
-            user_id: userId,
+            user_id: userUuid,
             amount: -1,
             description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`,
             transaction_type: 'usage'
@@ -295,9 +302,9 @@ export async function POST(req: Request) {
       }
       
       // Save the fusion to the database
-      console.log('Generate API - Saving fusion to database with user ID:', userId);
+      console.log('Generate API - Saving fusion to database with user ID:', userUuid || userId);
       const result = await saveFusion({
-        userId,
+        userId: userUuid || userId, // Use the UUID if available, otherwise use the clerk_id
         pokemon1Id,
         pokemon2Id,
         pokemon1Name,
@@ -360,7 +367,7 @@ export async function POST(req: Request) {
       try {
         // Set isSimpleFusion to true for fallback to avoid credit usage
         const fallbackResult = await saveFusion({
-          userId,
+          userId: userUuid || userId, // Use the UUID if available, otherwise use the clerk_id
           pokemon1Id,
           pokemon2Id,
           pokemon1Name,

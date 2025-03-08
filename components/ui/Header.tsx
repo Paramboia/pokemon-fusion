@@ -104,7 +104,7 @@ export function Header() {
         </nav>
         
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 px-2 space-y-3 bg-transparent rounded-lg mt-2 shadow-md">
+          <div className="md:hidden py-4 px-2 space-y-3 bg-white dark:bg-gray-800 rounded-lg mt-2 shadow-md">
             <Link
               href="/"
               className={cn(

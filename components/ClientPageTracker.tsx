@@ -1,10 +1,11 @@
 'use client';
 
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { pageview } from '@/lib/gtag';
 
-export function ClientPageTracker() {
+// Inner component that uses the hooks
+function PageViewTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -21,6 +22,14 @@ export function ClientPageTracker() {
     }
   }, [pathname, searchParams]);
 
-  // This component doesn't render anything
   return null;
+}
+
+// Wrapper component with Suspense
+export function ClientPageTracker() {
+  return (
+    <Suspense fallback={null}>
+      <PageViewTracker />
+    </Suspense>
+  );
 } 

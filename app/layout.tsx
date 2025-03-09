@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { ClientLayout } from "@/components/client-layout";
 import { ClientPageTracker } from "@/components/ClientPageTracker";
 import Script from "next/script";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Pokémon Fusion",

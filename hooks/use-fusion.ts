@@ -19,7 +19,15 @@ export function useFusion() {
   const [isPaymentRequired, setIsPaymentRequired] = useState(false)
   const [isLocalFallback, setIsLocalFallback] = useState(false)
 
-  const generateFusion = async (image1Url: string, image2Url: string, name1: string, name2: string, pokemon1Id: number, pokemon2Id: number) => {
+  const generateFusion = async (
+    image1Url: string, 
+    image2Url: string, 
+    name1: string, 
+    name2: string, 
+    pokemon1Id: number, 
+    pokemon2Id: number,
+    fusionName?: string
+  ) => {
     try {
       // Reset state
       setGenerating(true)
@@ -39,7 +47,7 @@ export function useFusion() {
         return;
       }
 
-      console.log('Generating fusion for:', { name1, name2, pokemon1Id, pokemon2Id })
+      console.log('Generating fusion for:', { name1, name2, pokemon1Id, pokemon2Id, fusionName })
 
       // Get the Clerk session token
       const token = await getToken()
@@ -53,8 +61,8 @@ export function useFusion() {
         return;
       }
 
-      // Create a fusion name by combining parts of both Pokémon names
-      const generatedFusionName = `${name1}-${name2}`;
+      // Use provided fusion name or create a default one
+      const generatedFusionName = fusionName || `${name1}-${name2}`;
 
       // Show a toast to indicate generation has started
       toast.loading('Starting Pokémon fusion generation...', {

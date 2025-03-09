@@ -56,14 +56,75 @@ export default function Home() {
       const name1 = pokemon1.name;
       const name2 = pokemon2.name;
       
-      // Take first half of first name and second half of second name
-      const firstHalf = name1.substring(0, Math.ceil(name1.length / 2));
-      const secondHalf = name2.substring(Math.floor(name2.length / 2));
+      // Create a more creative fusion name
+      const fusionName = generateCreativeFusionName(name1, name2);
       
-      setFusionName(firstHalf + secondHalf);
+      setFusionName(fusionName);
     } else {
       setFusionName("");
     }
+  };
+
+  // Function to generate creative fusion names
+  const generateCreativeFusionName = (name1: string, name2: string): string => {
+    // Try different fusion techniques and pick the best one
+    const options: string[] = [];
+    
+    // Option 1: Take beginning of first name and end of second
+    const firstStart = name1.substring(0, Math.ceil(name1.length / 2));
+    const secondEnd = name2.substring(Math.floor(name2.length / 2));
+    options.push(firstStart + secondEnd);
+    
+    // Option 2: Take first syllable of first name and last syllable of second
+    // (Simple approximation: first consonant cluster + vowel from first name, 
+    // and last vowel + consonant cluster from second name)
+    const firstSyllable = name1.match(/^[^aeiou]*[aeiou]+/i)?.[0] || name1.substring(0, 2);
+    const lastSyllable = name2.match(/[aeiou]+[^aeiou]*$/i)?.[0] || name2.substring(name2.length - 2);
+    options.push(firstSyllable + lastSyllable);
+    
+    // Option 3: Find common letters and blend around them
+    const commonLetters = findCommonLetters(name1, name2);
+    if (commonLetters.length > 0) {
+      // Use the first common letter as a joining point
+      const commonLetter = commonLetters[0];
+      const name1Index = name1.indexOf(commonLetter);
+      const name2Index = name2.indexOf(commonLetter);
+      
+      if (name1Index > 0 && name2Index < name2.length - 1) {
+        const blendedName = name1.substring(0, name1Index + 1) + name2.substring(name2Index + 1);
+        options.push(blendedName);
+      }
+    }
+    
+    // Option 4: Alternate syllables (simplified)
+    const name1Parts = name1.match(/[^aeiou]*[aeiou]+/gi) || [name1];
+    const name2Parts = name2.match(/[^aeiou]*[aeiou]+/gi) || [name2];
+    
+    if (name1Parts.length > 0 && name2Parts.length > 0) {
+      options.push(name1Parts[0] + name2Parts[name2Parts.length - 1]);
+    }
+    
+    // Choose the best option (for now, just pick the shortest one that's at least 4 chars)
+    const validOptions = options.filter(name => name.length >= 4);
+    const bestOption = validOptions.sort((a, b) => a.length - b.length)[0] || options[0];
+    
+    // Capitalize the first letter
+    return bestOption.charAt(0).toUpperCase() + bestOption.slice(1).toLowerCase();
+  };
+  
+  // Helper function to find common letters between two strings
+  const findCommonLetters = (str1: string, str2: string): string[] => {
+    const common: string[] = [];
+    const str1Lower = str1.toLowerCase();
+    const str2Lower = str2.toLowerCase();
+    
+    for (let i = 0; i < str1Lower.length; i++) {
+      if (str2Lower.includes(str1Lower[i]) && !common.includes(str1Lower[i])) {
+        common.push(str1Lower[i]);
+      }
+    }
+    
+    return common;
   };
 
   const handleGenerateFusion = async () => {
@@ -95,7 +156,8 @@ export default function Home() {
         pokemon1.name,
         pokemon2.name,
         pokemon1.id,
-        pokemon2.id
+        pokemon2.id,
+        fusionName
       );
       
       // Success toast is now handled in the useFusion hook

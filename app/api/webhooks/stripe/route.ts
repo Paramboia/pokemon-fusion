@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, getCreditPackageByPriceId } from '@/lib/stripe';
 import { getSupabaseAdminClient } from '@/lib/supabase-server';
 import Stripe from 'stripe';
 import fs from 'fs';
@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
           supabaseUserId?: string;
           credits?: string;
           packageType?: string;
+          priceId?: string;
         };
 
         // Default to 5 credits if not specified
@@ -150,6 +151,32 @@ export async function POST(req: NextRequest) {
             }
           }
           
+          // Get the line items to find the price ID if not in metadata
+          let priceId: string | null = metadata.priceId || null;
+          
+          if (!priceId) {
+            try {
+              // If we have a session ID, get the line items to find the price ID
+              if (session.id) {
+                await logToFile(`Retrieving line items for session: ${session.id}`);
+                const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+                
+                if (lineItems && lineItems.data.length > 0) {
+                  // Get the price ID from the first line item
+                  const firstItem = lineItems.data[0];
+                  if (firstItem.price && firstItem.price.id) {
+                    priceId = firstItem.price.id;
+                    await logToFile(`Found price ID from line items: ${priceId}`);
+                  }
+                }
+              }
+            } catch (lineItemError: any) {
+              await logToFile(`Error retrieving line items: ${lineItemError.message}`);
+            }
+          } else {
+            await logToFile(`Using price ID from metadata: ${priceId}`);
+          }
+          
           // DIRECT INSERT: Insert directly into credits_transactions table
           await logToFile('Inserting transaction directly into credits_transactions');
           const transactionData = {
@@ -157,6 +184,7 @@ export async function POST(req: NextRequest) {
             amount: creditsToAdd,
             transaction_type: 'purchase',
             payment_id: session.id,
+            pricing_id: priceId, // Store the Stripe price ID directly
             description: `Purchase of ${creditsToAdd} credits`
           };
           
@@ -222,4 +250,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ClientLayout } from "@/components/client-layout";
+import { ClientPageTracker } from "@/components/ClientPageTracker";
 import Script from "next/script";
 
 export const metadata: Metadata = {
@@ -31,6 +32,21 @@ export default function RootLayout({
             `}
           </Script>
           {/* End Google Tag Manager */}
+          
+          {/* Google Analytics */}
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=G-NQ57560QHC`}
+            strategy="afterInteractive"
+          />
+          <Script id="google-analytics" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-NQ57560QHC');
+            `}
+          </Script>
+          {/* End Google Analytics */}
         </head>
         <body className="min-h-screen" suppressHydrationWarning>
           {/* Google Tag Manager (noscript) */}
@@ -51,6 +67,7 @@ export default function RootLayout({
           >
             <AuthProvider>
               <ClientLayout>
+                <ClientPageTracker />
                 {children}
               </ClientLayout>
             </AuthProvider>

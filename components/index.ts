@@ -12,4 +12,9 @@ export { AuthCTAButton } from './auth-cta-button';
 export { NotificationButton } from './notification-button';
 export { ClientLayout } from './client-layout';
 export { ThemeProvider } from './theme-provider';
+export * from './ClientPageTracker';
+export * from './fusion-card';
+export * from './pokemon-selector';
+export * from './credit-gate';
+export * from './CreditBalance';
 // Add other components as needed 

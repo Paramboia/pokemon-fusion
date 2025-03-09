@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePokemon, useFusion } from "@/hooks";
 import { PokemonSelector } from "@/components/pokemon-selector";
-import { Button, Card } from "@/components/ui";
+import { Button, Card, SuccessAlert } from "@/components/ui";
 import { Loader2, Download, Heart, Send, AlertCircle, CreditCard, Info } from "lucide-react";
 import { SparklesText } from "@/components/ui";
 import type { Pokemon } from "@/types";
@@ -31,6 +31,9 @@ export default function Home() {
   const [fusionName, setFusionName] = useState<string>("");
   const [isLiked, setIsLiked] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  // Choose between two success messages randomly
+  const [successMessage, setSuccessMessage] = useState("New Pokémon Fusion generated with success!");
 
   // Check if device is mobile
   useEffect(() => {
@@ -47,6 +50,19 @@ export default function Home() {
     // Cleanup
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
+
+  // Effect to show success alert when fusion is generated
+  useEffect(() => {
+    if (fusionImage && !generating && !error && !isLocalFallback) {
+      // Randomly choose between two success messages
+      const messages = [
+        "Congrats!",
+        "New Pokémon Fusion generated with success!"
+      ];
+      setSuccessMessage(messages[Math.floor(Math.random() * messages.length)]);
+      setShowSuccessAlert(true);
+    }
+  }, [fusionImage, generating, error, isLocalFallback]);
 
   const handlePokemonSelect = (pokemon1: Pokemon | null, pokemon2: Pokemon | null) => {
     setSelectedPokemon({ pokemon1, pokemon2 });
@@ -169,6 +185,13 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
+      {/* Success Alert */}
+      <SuccessAlert
+        message={successMessage}
+        isVisible={showSuccessAlert}
+        onClose={() => setShowSuccessAlert(false)}
+      />
+      
       <div className="flex flex-col items-center justify-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
           <div className="text-gray-800 dark:!text-white" style={{ color: 'inherit', ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>

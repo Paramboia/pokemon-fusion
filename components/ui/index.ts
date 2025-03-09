@@ -19,4 +19,5 @@ export { Skeleton } from './skeleton';
 export { Switch } from './switch';
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 export { AlternatingText } from './alternating-text';
+export { SuccessAlert } from './success-alert';
 // Add other UI components as needed 

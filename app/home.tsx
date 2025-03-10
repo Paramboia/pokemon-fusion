@@ -32,8 +32,8 @@ export default function Home() {
   const [isLiked, setIsLiked] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
-  // Choose between two success messages randomly
-  const [successMessage, setSuccessMessage] = useState("New Pokémon Fusion generated with success!");
+  // Use a fixed success message that includes both parts
+  const [successMessage, setSuccessMessage] = useState("Congrats! New Pokémon Fusion generated with success!");
 
   // Check if device is mobile
   useEffect(() => {
@@ -54,12 +54,6 @@ export default function Home() {
   // Effect to show success alert when fusion is generated
   useEffect(() => {
     if (fusionImage && !generating && !error && !isLocalFallback) {
-      // Randomly choose between two success messages
-      const messages = [
-        "Congrats!",
-        "New Pokémon Fusion generated with success!"
-      ];
-      setSuccessMessage(messages[Math.floor(Math.random() * messages.length)]);
       setShowSuccessAlert(true);
     }
   }, [fusionImage, generating, error, isLocalFallback]);

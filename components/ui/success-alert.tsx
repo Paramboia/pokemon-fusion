@@ -33,6 +33,12 @@ export function SuccessAlert({
 
   if (!isVisible) return null;
 
+  // Split the message if it contains "Congrats!" to style it differently
+  const hasCongratsPrefix = message.startsWith("Congrats!");
+  const [prefix, restOfMessage] = hasCongratsPrefix 
+    ? [message.split("!")[0] + "!", message.split("!")[1]?.trim()] 
+    : ["", message];
+
   return (
     <div className={cn(
       "fixed top-4 left-1/2 transform -translate-x-1/2 z-50",
@@ -47,7 +53,14 @@ export function SuccessAlert({
           </svg>
         </div>
         <div className="ml-3">
-          <p className="text-sm font-medium text-green-800">{message}</p>
+          {hasCongratsPrefix ? (
+            <p className="text-sm font-medium text-green-800">
+              <span className="font-bold">{prefix}</span>
+              {restOfMessage && <span> {restOfMessage}</span>}
+            </p>
+          ) : (
+            <p className="text-sm font-medium text-green-800">{message}</p>
+          )}
         </div>
       </div>
       <button

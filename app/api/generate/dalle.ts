@@ -19,7 +19,7 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Create a Fakemon that is a fusion of ${pokemon1Name} and ${pokemon2Name}. 
+        prompt: `Use the image of ${pokemon1Name} bring the most recognizable physical traits of ${pokemon2Name} to create a new Fakemon. 
                 Pure white background.`,
         n: 1,
         size: "1024x1024",

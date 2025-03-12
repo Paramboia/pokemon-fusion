@@ -21,7 +21,7 @@ export async function generateWithDallE(
         model: "dall-e-3",
         prompt: `Create a brand-new creature that is a fusion of ${pokemon1Name} and ${pokemon2Name}. 
                 The design should blend the most recognizable physical traits of both creatures in a seamless way, 
-                resulting in an entirely new original species. It must be a single creature in the new image.
+                resulting in an entirely new original Pokemon. It must be a single Pokemon image in the new image.
                 Use the first image as bit more of ground base, but still taking carachteristics from both and merging them.
 
                 Art style: Japanese Anime kid cartoon creature style. Highly detailed, cel-shaded, and inspired by game concept art for fantasy RPG creatures.
@@ -33,6 +33,7 @@ export async function generateWithDallE(
 
                 No excessive spikes, mechanical features, robotic parts, or unnatural color combinations. 
                 Do not include extra elements like additional characters, scenery, or text.
+                No multiple creatures in the image.
                 No text or logos.`,
         n: 1,
         size: "1024x1024",

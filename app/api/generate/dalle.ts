@@ -24,7 +24,13 @@ export async function generateWithDallE(
                 It should have the most recognizable physical traits of both images into a seamless, single creature.
                 The color palette should be a mix of both images, seamlessly blending their elemental nature.
                 The art style should be highly detailed, cel-shaded, with clean outlines and soft lighting, resembling fantasy RPG concept art with a smooth, animated look.
-                The background must be pure white, without any additional elements, to keep the focus on the creature.`,
+                The background must be pure white, without any additional elements, to keep the focus on the creature
+                It should only contain the new creature and no other elements in the foreground, background or surrounding space
+                It should contain the new creature only once with no margins above, below or on either side
+                The new creature should consume the entire 1024x1024 space
+                It should not divide the new creature into separate parts of the image nor imply any variations of it
+                It should not contain any text, labels, borders, measurements nor design elements of any kind
+                The image should be suitable for digital printing without any instructional or guiding elements.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

@@ -23,7 +23,6 @@ interface FusionCardProps {
 }
 
 export default function FusionCard({ fusion, onDelete, onLike, showActions = true, showFallbackWarning = true }: FusionCardProps) {
-  const [showShareOptions, setShowShareOptions] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes || 0)
   const [mounted, setMounted] = useState(false)
@@ -264,32 +263,9 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
     }
   };
 
-  const handleShare = (platform: string) => {
-    const text = `Check out this Pokemon fusion: ${getFusionName()}`;
-    let url = '';
-    
-    switch (platform) {
-      case 'twitter':
-        url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
-        break;
-      case 'facebook':
-        url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(text)}`;
-        break;
-      case 'reddit':
-        url = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(text)}`;
-        break;
-    }
-    
-    if (url) {
-      window.open(url, '_blank');
-      setShowShareOptions(false);
-    }
-  };
-
-  // Handle mobile share
-  const handleMobileShare = async () => {
+  const handleShare = async () => {
     const shareText = `Check out this Pokemon fusion ${getFusionName()} on Pokemon Fusion!`;
-    const shareUrl = window.location.origin;
+    // Use the shareUrl that includes the fusion ID
     
     // Check if Web Share API is supported
     if (navigator.share) {
@@ -302,7 +278,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
         await navigator.share({
           title: 'Pokémon Fusion',
           text: shareText,
-          url: shareUrl,
+          url: shareUrl, // Use the shareUrl with fusion ID
           files: [file]
         }).catch(error => {
           // If sharing with file fails, try without file
@@ -310,7 +286,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             return navigator.share({
               title: 'Pokémon Fusion',
               text: shareText,
-              url: shareUrl
+              url: shareUrl // Use the shareUrl with fusion ID
             });
           }
           throw error;
@@ -394,7 +370,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           />
           
           {/* Desktop overlay - only visible on hover */}
-          {!isMobile && showActions && (
+          {!isMobile && (
             <div
               className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center"
               style={{ zIndex: 4 }}
@@ -410,7 +386,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                   <Download className="h-5 w-5 text-white" />
                 </button>
                 
-                {/* Like button - Same background as other buttons, only heart changes */}
+                {/* Like button */}
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -423,9 +399,9 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                   <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-red-400' : ''}`} />
                 </button>
                 
-                {/* Share button (now using Send icon) */}
-                <button 
-                  onClick={() => setShowShareOptions(!showShareOptions)}
+                {/* Share button */}
+                <button
+                  onClick={handleShare}
                   className="bg-gray-700/80 hover:bg-gray-800 rounded-full p-3 transition-colors flex items-center justify-center shadow-lg"
                   style={{ width: '44px', height: '44px' }}
                   aria-label="Share fusion"
@@ -433,68 +409,6 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                   <Send className="h-5 w-5 text-white" />
                 </button>
               </div>
-            </div>
-          )}
-          
-          {/* Share options popup */}
-          {showShareOptions && !isMobile && (
-            <div 
-              style={{
-                position: 'absolute',
-                bottom: '4rem',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                borderRadius: '0.5rem',
-                padding: '0.75rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.5rem',
-                zIndex: 20
-              }}
-            >
-              <button 
-                onClick={() => handleShare('twitter')}
-                style={{
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  fontSize: '0.875rem',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                Twitter
-              </button>
-              <button 
-                onClick={() => handleShare('facebook')}
-                style={{
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  fontSize: '0.875rem',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                Facebook
-              </button>
-              <button 
-                onClick={() => handleShare('reddit')}
-                style={{
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  fontSize: '0.875rem',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                Reddit
-              </button>
             </div>
           )}
         </div>
@@ -531,7 +445,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             <span className="text-sm text-gray-500 dark:text-gray-400">{likeCount || 0} likes</span>
           </div>
           
-          {/* Mobile action buttons - displayed as full CTAs below the details */}
+          {/* Mobile action buttons */}
           {isMobile && showActions && (
             <div className="flex mt-4 gap-2">
               <Button variant="outline" onClick={() => downloadImage(getFusionImage(), getFusionName())}>
@@ -539,7 +453,6 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                 Download
               </Button>
               
-              {/* Always use outline variant, change text color and fill heart when liked */}
               <Button
                 variant="outline"
                 onClick={handleLike}
@@ -549,7 +462,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
                 {isLiked ? "Liked" : "Like"}
               </Button>
               
-              <Button variant="outline" onClick={handleMobileShare}>
+              <Button variant="outline" onClick={handleShare}>
                 <Send className="mr-2 h-4 w-4" />
                 Share
               </Button>

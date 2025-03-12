@@ -27,8 +27,8 @@ export async function generateWithDallE(
                 It should appear dynamic and expressive, with a strong yet friendly appearance. 
                 The background must be solid white, with no shadows, gradients, or extra elements. 
                 Only one Pokemon in the image, no text, logos, or other creatures. 
-                Avoid mechanical parts, excessive spikes, or unnatural color combinations.
-                The Pokemon should be shown from a front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.`,
+                No mechanical parts, excessive spikes, or unnatural color combinations.
+                The new fusion Pokemon should be shown from a front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

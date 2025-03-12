@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import { Metadata } from "next";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -9,15 +9,19 @@ import Script from "next/script";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
-  title: "Pokémon Fusion",
-  description: "Create unique Pokémon combinations with our fusion generator",
+  title: 'PokéFusion - Create Unique Pokémon Combinations',
+  description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures with our fusion generator.',
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>

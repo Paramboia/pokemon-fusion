@@ -1,9 +1,19 @@
 "use client";
 
+import { Metadata } from "next";
 import { SparklesText } from "@/components/ui";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: 'About PokéFusion - Create Unique Pokémon Combinations',
+  description: 'Learn about PokéFusion, a fun project that allows you to create unique Pokémon by combining two different species using AI technology.',
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 export default function AboutPage() {
   return (

@@ -32,7 +32,8 @@ export async function generateWithDallE(
                 It should not contain any text, labels, borders, measurements nor design elements of any kind.
                 No evolution process in the image—just the fusion of the two Pokemon.
                 No mechanical parts, excessive spikes, or unnatural color combinations.
-                No multiple angled views—only one angle, no duplicates, and nothing cropped off-screen.`,
+                No multiple angled views—only one angle, no duplicates, and nothing cropped off-screen.
+                Very IMPORTANT, make the image a Pokemon character illustration, not a concept art.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

@@ -23,48 +23,10 @@ export const maxDuration = 60; // 60 seconds timeout for the API route (Vercel h
 
 // Function to convert transparent background to white background
 async function convertTransparentToWhite(imageUrl: string): Promise<string> {
-  try {
-    console.log(`Converting transparent background to white for: ${imageUrl}`);
-    
-    // Check if we have the API token
-    if (!process.env.REPLICATE_API_TOKEN) {
-      console.error('REPLICATE_API_TOKEN not available for background conversion');
-      return imageUrl; // Return original if no API token
-    }
-    
-    const replicate = new Replicate({
-      auth: process.env.REPLICATE_API_TOKEN,
-    });
-    
-    // Use the rembg model to remove background and add white background
-    const output = await replicate.run(
-      "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
-      { 
-        input: {
-          image: imageUrl,
-          return_mask: false,
-          alpha_matting: true, // Enable alpha matting for better edge detection
-          alpha_matting_foreground_threshold: 240, // Higher threshold to ensure white background
-          alpha_matting_background_threshold: 10, // Lower threshold to ensure no black
-          alpha_matting_erode_size: 10, // Increase erode size to remove more of the black edges
-          background_color: "white" // Set white background
-        }
-      }
-    );
-    
-    if (!output || typeof output !== 'string') {
-      console.error('Failed to convert image background:', output);
-      return imageUrl; // Return original if conversion fails
-    }
-    
-    // At this point, output is confirmed to be a string
-    const outputStr: string = output;
-    console.log(`Successfully converted background to white: ${outputStr.substring(0, 100)}...`);
-    return outputStr;
-  } catch (error) {
-    console.error('Error converting image background:', error);
-    return imageUrl; // Return original if conversion fails
-  }
+  // Since we're using DALL·E 3 which already generates images with white backgrounds,
+  // we can simply return the original image URL
+  console.log('Background conversion skipped - using original image:', imageUrl);
+  return imageUrl;
 }
 
 export async function POST(req: Request) {

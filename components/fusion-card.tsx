@@ -264,21 +264,31 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   };
 
   const handleShare = async () => {
-    const shareText = `Check out this Pokemon fusion ${getFusionName()} on Pokemon Fusion!`;
-    // Use the shareUrl that includes the fusion ID
+    const shareText = `Check out this new Pokemon fusion ${getFusionName()}, created with www.pokemon-fusion.com ⭐`;
     
     // Check if Web Share API is supported
     if (navigator.share) {
       try {
-        // Try to share with image if possible
-        const response = await fetch(getFusionImage());
+        // Try to get the image through our proxy endpoint
+        const response = await fetch('/api/proxy-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ imageUrl: getFusionImage() }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch image for sharing');
+        }
+
         const blob = await response.blob();
         const file = new File([blob], `${getFusionName()}.png`, { type: blob.type });
         
         await navigator.share({
           title: 'Pokémon Fusion',
           text: shareText,
-          url: shareUrl, // Use the shareUrl with fusion ID
+          url: shareUrl,
           files: [file]
         }).catch(error => {
           // If sharing with file fails, try without file
@@ -286,7 +296,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             return navigator.share({
               title: 'Pokémon Fusion',
               text: shareText,
-              url: shareUrl // Use the shareUrl with fusion ID
+              url: shareUrl
             });
           }
           throw error;
@@ -296,7 +306,20 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.error('Error sharing:', error);
-          toast.error('Failed to share');
+          // Try sharing without the image if there was an error
+          try {
+            await navigator.share({
+              title: 'Pokémon Fusion',
+              text: shareText,
+              url: shareUrl
+            });
+            toast.success('Shared successfully!');
+          } catch (fallbackError) {
+            if (fallbackError.name !== 'AbortError') {
+              console.error('Error sharing without image:', fallbackError);
+              toast.error('Failed to share');
+            }
+          }
         }
       }
     } else {

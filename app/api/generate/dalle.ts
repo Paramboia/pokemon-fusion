@@ -19,7 +19,7 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Create a new image inspired from ${pokemon1Name} and ${pokemon2Name}.`,
+        prompt: `Create a new image inspired from ${pokemon1Name} and ${pokemon2Name}. Keep the exact same style, angle and position as of ${pokemon1Name}.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

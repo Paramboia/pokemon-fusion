@@ -4,9 +4,11 @@ import Replicate from 'replicate';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
+import { generateWithDallE } from './dalle';
 
 // Log environment variables for debugging
 console.log('Generate API - REPLICATE_API_TOKEN available:', !!process.env.REPLICATE_API_TOKEN);
+console.log('Generate API - OPENAI_API_KEY available:', !!process.env.OPENAI_API_KEY);
 console.log('Generate API - NEXT_PUBLIC_SUPABASE_URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
 console.log('Generate API - SUPABASE_SERVICE_ROLE_KEY available:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -212,72 +214,98 @@ export async function POST(req: Request) {
       usingProcessedImages: processedImage1 !== image1 || processedImage2 !== image2
     });
     
-    // Check if REPLICATE_API_TOKEN is available
-    if (!process.env.REPLICATE_API_TOKEN) {
-      console.error('Generate API - REPLICATE_API_TOKEN not available');
-      return NextResponse.json({ error: 'REPLICATE_API_TOKEN not available' }, { status: 500 });
+    // Check if OPENAI_API_KEY is available
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('Generate API - OPENAI_API_KEY not available');
+      return NextResponse.json({ error: 'OPENAI_API_KEY not available' }, { status: 500 });
     }
-    
+
     try {
-      console.log('Generate API - Initializing Replicate client');
-      const replicate = new Replicate({
-        auth: process.env.REPLICATE_API_TOKEN,
-        // Add timeout configuration within Vercel's limits
-        fetch: (url, options = {}) => {
-          return fetch(url, {
-            ...options,
-            signal: AbortSignal.timeout(50000) // 50 second timeout for each request to leave buffer for other operations
-          });
+      // Determine which model to use (default to DALL·E 3)
+      const useReplicate = process.env.USE_REPLICATE_MODEL === 'true';
+      console.log('Generate API - Using Replicate model:', useReplicate);
+
+      let fusionImageUrl: string | null = null;
+
+      if (useReplicate) {
+        // Check if REPLICATE_API_TOKEN is available
+        if (!process.env.REPLICATE_API_TOKEN) {
+          console.error('Generate API - REPLICATE_API_TOKEN not available');
+          return NextResponse.json({ error: 'REPLICATE_API_TOKEN not available' }, { status: 500 });
         }
-      });
-      
-      // Prepare the input for the image-merger model
-      const modelInput = {
-        image_1: processedImage1,
-        image_2: processedImage2,
-        control_image: processedImage1,
-        merge_mode: "left_right",
-        prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
-        negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, ugly, broken, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting",
-        upscale_2x: true
-      };
-      
-      console.log('Generate API - Running image-merger model with processed images');
-      
-      // Run the model with retries and shorter timeouts
-      let output;
-      let retryCount = 0;
-      const maxRetries = 2; // Reduced retries to fit within time limit
-      
-      while (retryCount < maxRetries) {
-        try {
-          output = await replicate.run(
-            "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-            { input: modelInput }
-          );
-          break; // If successful, exit the retry loop
-        } catch (retryError) {
-          retryCount++;
-          console.error(`Generate API - Replicate attempt ${retryCount} failed:`, retryError);
-          if (retryCount === maxRetries) {
-            throw retryError; // Re-throw if all retries failed
+
+        console.log('Generate API - Initializing Replicate client');
+        const replicate = new Replicate({
+          auth: process.env.REPLICATE_API_TOKEN,
+          // Add timeout configuration within Vercel's limits
+          fetch: (url, options = {}) => {
+            return fetch(url, {
+              ...options,
+              signal: AbortSignal.timeout(50000) // 50 second timeout for each request to leave buffer for other operations
+            });
           }
-          // Wait before retrying (shorter backoff)
-          await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
+        });
+        
+        // Prepare the input for the image-merger model
+        const modelInput = {
+          image_1: processedImage1,
+          image_2: processedImage2,
+          control_image: processedImage1,
+          merge_mode: "left_right",
+          prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
+          negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, ugly, broken, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting",
+          upscale_2x: true
+        };
+        
+        console.log('Generate API - Running image-merger model with processed images');
+        
+        // Run the model with retries and shorter timeouts
+        let output;
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        while (retryCount < maxRetries) {
+          try {
+            output = await replicate.run(
+              "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+              { input: modelInput }
+            );
+            break; // If successful, exit the retry loop
+          } catch (retryError) {
+            retryCount++;
+            console.error(`Generate API - Replicate attempt ${retryCount} failed:`, retryError);
+            if (retryCount === maxRetries) {
+              throw retryError; // Re-throw if all retries failed
+            }
+            // Wait before retrying (shorter backoff)
+            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
+          }
+        }
+        
+        console.log('Generate API - Replicate output:', output);
+        
+        if (!output || !Array.isArray(output) || output.length === 0) {
+          console.error('Generate API - No output from Replicate');
+          throw new Error('No valid output from Replicate');
+        }
+        
+        // Get the first image from the output
+        fusionImageUrl = output[0];
+        console.log('Generate API - Fusion image URL:', fusionImageUrl);
+      } else {
+        // Generate fusion using DALL·E 3
+        fusionImageUrl = await generateWithDallE(
+          pokemon1Name,
+          pokemon2Name,
+          processedImage1,
+          processedImage2
+        );
+
+        if (!fusionImageUrl) {
+          throw new Error('Failed to generate fusion with DALL·E 3');
         }
       }
-      
-      console.log('Generate API - Replicate output:', output);
-      
-      if (!output || !Array.isArray(output) || output.length === 0) {
-        console.error('Generate API - No output from Replicate');
-        throw new Error('No valid output from Replicate');
-      }
-      
-      // Get the first image from the output
-      const fusionImageUrl = output[0];
-      console.log('Generate API - Fusion image URL:', fusionImageUrl);
-      
+
       // If this was an AI fusion, record the credit usage now that we have successfully generated the image
       if (!isSimpleFusion) {
         // Add transaction record after successful generation
@@ -300,20 +328,20 @@ export async function POST(req: Request) {
         
         console.log('Generate API - Credits used successfully');
       }
-      
+
       // Save the fusion to the database
       console.log('Generate API - Saving fusion to database with user ID:', userUuid || userId);
       const result = await saveFusion({
-        userId: userUuid || userId, // Use the UUID if available, otherwise use the clerk_id
+        userId: userUuid || userId,
         pokemon1Id,
         pokemon2Id,
         pokemon1Name,
         pokemon2Name,
         fusionName,
         fusionImage: fusionImageUrl,
-        isSimpleFusion: false // This is an AI-generated fusion
+        isSimpleFusion: false
       });
-      
+
       if (result.error) {
         console.error('Generate API - Error saving fusion:', result.error);
         return NextResponse.json({ 
@@ -321,22 +349,19 @@ export async function POST(req: Request) {
           details: result.error
         }, { status: 500 });
       }
-      
+
       console.log('Generate API - Fusion saved successfully:', result.data);
-      
+
       // Safely access the fusion ID
-      let fusionId = uuidv4(); // Default to a new UUID
+      let fusionId = uuidv4();
       if (result.data && typeof result.data === 'object') {
-        // If result.data is an object with an id property
         if ('id' in result.data) {
           fusionId = String(result.data.id);
-        } 
-        // If result.data is an array with at least one object that has an id
-        else if (Array.isArray(result.data) && result.data.length > 0 && typeof result.data[0] === 'object' && 'id' in result.data[0]) {
+        } else if (Array.isArray(result.data) && result.data.length > 0 && typeof result.data[0] === 'object' && 'id' in result.data[0]) {
           fusionId = String(result.data[0].id);
         }
       }
-      
+
       // Return the result
       return NextResponse.json({
         id: fusionId,
@@ -349,45 +374,39 @@ export async function POST(req: Request) {
         fusionData: result.data,
         message: 'Fusion generated successfully'
       });
-      
-    } catch (replicateError) {
-      console.error('Generate API - Error with Replicate:', replicateError);
-      
-      // If there's an error with Replicate, use a fallback approach
-      console.log('Generate API - Using fallback fusion approach due to server error');
-      
-      // Create a simple fusion name if not provided
-      const fallbackName = fusionName || `${pokemon1Name}-${pokemon2Name}`;
-      
+
+    } catch (error) {
+      console.error('Generate API - Error generating fusion:', error);
+
       // Use one of the processed original images as a fallback
       const fallbackImageUrl = processedImage1;
       console.log('Generate API - Using processed image as fallback:', fallbackImageUrl);
-      
+
       // Try to save the fallback fusion
       try {
         // Set isSimpleFusion to true for fallback to avoid credit usage
         const fallbackResult = await saveFusion({
-          userId: userUuid || userId, // Use the UUID if available, otherwise use the clerk_id
+          userId: userUuid || userId,
           pokemon1Id,
           pokemon2Id,
           pokemon1Name,
           pokemon2Name,
-          fusionName: fallbackName,
+          fusionName,
           fusionImage: fallbackImageUrl,
-          isSimpleFusion: true // Add this to indicate it's a fallback
+          isSimpleFusion: true
         });
-        
+
         if (fallbackResult.error) {
           console.error('Generate API - Error saving fallback fusion:', fallbackResult.error);
           return NextResponse.json({ 
-            error: 'Error generating fusion with Replicate and fallback also failed',
-            details: replicateError instanceof Error ? replicateError.message : String(replicateError),
+            error: 'Error generating fusion and fallback also failed',
+            details: error instanceof Error ? error.message : String(error),
             fallbackError: fallbackResult.error
           }, { status: 500 });
         }
-        
+
         // Safely access the fusion ID
-        let fusionId = uuidv4(); // Default to a new UUID
+        let fusionId = uuidv4();
         if (fallbackResult.data && typeof fallbackResult.data === 'object') {
           if ('id' in fallbackResult.data) {
             fusionId = String(fallbackResult.data.id);
@@ -396,12 +415,12 @@ export async function POST(req: Request) {
             fusionId = String(fallbackResult.data[0].id);
           }
         }
-        
+
         // Return the fallback result
         return NextResponse.json({
           id: fusionId,
           output: fallbackImageUrl,
-          fusionName: fallbackName,
+          fusionName,
           pokemon1Id,
           pokemon2Id,
           pokemon1Name,
@@ -413,13 +432,12 @@ export async function POST(req: Request) {
       } catch (fallbackError) {
         console.error('Generate API - Error with fallback fusion:', fallbackError);
         return NextResponse.json({ 
-          error: 'Error generating fusion with both Replicate and fallback',
-          details: replicateError instanceof Error ? replicateError.message : String(replicateError),
+          error: 'Error generating fusion with both AI and fallback',
+          details: error instanceof Error ? error.message : String(error),
           fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
         }, { status: 500 });
       }
     }
-    
   } catch (error) {
     console.error("Generate API - Error in POST handler:", error);
     return NextResponse.json({ 

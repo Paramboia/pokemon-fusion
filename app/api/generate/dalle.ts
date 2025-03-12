@@ -20,7 +20,7 @@ export async function generateWithDallE(
       const response = await openai.images.generate({
         model: "dall-e-3",
         prompt: `You are a famous artist who has been asked to create an original image that appeals to a toddler based on the following criteria:
-                Main Theme: a brand-new Pokemon that is a fusion of ${pokemon1Name} and ${pokemon2Name}
+                Main Theme: a sweet and friendly Japanese anime-style animal that uses ${pokemon1Name} as the base, incorporating key features from ${pokemon2Name} while maintaining a balanced and original look
                 It should be extremely minimalistic with only shapes, colors and lines so that it can easily be replicated within a few minutes.
                 It should only contain the “Main Theme” and no other elements in the foreground, background or surrounding space.
                 It should contain the “Main Theme” only once with no margins above, below or on either side.

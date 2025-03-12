@@ -33,7 +33,7 @@ export async function generateWithDallE(
                 No evolution process in the image—just the fusion of the two Pokemon.
                 No mechanical parts, excessive spikes, or unnatural color combinations.
                 No multiple angled views—only one angle, no duplicates, and nothing cropped off-screen.
-                Very IMPORTANT, make the image a Pokemon character illustration, not a concept art.`,
+                Very IMPORTANT, I don't want to see the schema of the fusion - I just want the final fusion Pokemon image result in a white background.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

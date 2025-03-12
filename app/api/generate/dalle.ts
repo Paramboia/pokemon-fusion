@@ -19,12 +19,12 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Create a new Pokémon that seamlessly blend the most recognizable physical traits of ${pokemon1Name} and ${pokemon2Name}. 
+        prompt: `Create a new Fakemon that seamlessly blend the most recognizable physical traits of ${pokemon1Name} and ${pokemon2Name}. 
                 Use ${pokemon1Name} as the base, integrating key features of ${pokemon2Name} in a balanced, organic way while keeping the original art style. 
-                Art Style: Official Pokémon-style, kid-friendly, highly detailed, cel-shaded, clean outlines, smooth shading, and soft lighting.
-                Viewpoint: Single three-quarter front-facing view (like official Pokémon artwork).
+                Art Style: Official Fakemon-style, kid-friendly, highly detailed, cel-shaded, clean outlines, smooth shading, and soft lighting, polished, animated look, reminiscent of fantasy RPG concept art.
+                Viewpoint: Single three-quarter front-facing view (like official Fakemon artwork).
                 Background: Pure white, no gradients, no shadows.
-                Composition: Only ONE full-body Pokémon, no extra versions, no concept art breakdowns, no alternative angles.
+                Composition: Only ONE full-body Fakemon, no extra versions, no concept art breakdowns, no alternative angles.
                 MANDATORY: No text, no labels, no evolution process, no fusion schematics, no mechanical parts, no duplicate angles.`,
         n: 1,
         size: "1024x1024",

@@ -19,13 +19,11 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Create a brand-new Pokemon that is a fusion of ${pokemon1Name} and ${pokemon2Name}. 
+        prompt: `Create a brand-new Pokemon in front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art, that is a fusion of ${pokemon1Name} and ${pokemon2Name}. 
                 The design should blend the most recognizable physical traits of both Pokemon into a seamless, single creature. 
                 Use ${pokemon1Name} as the base, incorporating key features from ${pokemon2Name} while maintaining a balanced and original look. 
-                The art style should be Japanese anime-style, kid-friendly, highly detailed, cel-shaded, with clean outlines and soft lighting. 
-                The creature should have a polished, animated look, reminiscent of fantasy RPG concept art.
-                It should appear dynamic and expressive, with a strong yet friendly appearance. 
-                The background must be solid white, with no shadows, gradients, or extra elements. 
+                The art style should be kid-friendly, cel-shaded, with clean outlines and soft lighting. 
+                The background must be solid white, with no extra elements. 
                 Only one Pokemon in the image, no text, logos, or other creatures. 
                 No mechanical parts, excessive spikes, or unnatural color combinations.
                 The new fusion Pokemon should be shown from a front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.`,

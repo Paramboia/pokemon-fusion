@@ -19,15 +19,12 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `You are a famous artist who has been asked to create an original image that appeals to a toddler based on the following criteria:
-                Main Theme: a new Fakemon that merges ${pokemon1Name} with ${pokemon2Name} 
-                It should be extremely minimalistic with clean outlines, colors and lines so that it can easily be replicated within a few minutes.
-                It should only contain the “Main Theme” and no other elements in the foreground, background or surrounding space.
-                It should contain the “Main Theme” only once with no margins above, below or on either side.
-                The “Main Theme” should consume the entire 1024x1024 space.
-                It should not divide the “Main Theme” into separate parts of the image nor imply any variations of it.
-                It should not contain any text, labels, borders, measurements nor design elements of any kind.
-                The image should be suitable for digital printing without any instructional or guiding elements.`,
+        prompt: `Create a brand-new creature inspired by ${pokemon1Name} and ${pokemon2Name}.
+                The creature should have a powerful and still kid-friendly appearance, combining ${pokemon1Name} aspect-like form with ${pokemon2Name} aspect-like form.
+                It should have the most recognizable physical traits of both images into a seamless, single creature.
+                The color palette should be a mix of both images, seamlessly blending their elemental nature.
+                The art style should be highly detailed, resembling fantasy RPG concept art with a smooth, animated look.
+                The background must be pure white, without any additional elements, to keep the focus on the creature.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

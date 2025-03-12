@@ -19,15 +19,13 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `You are a famous artist who has been asked to create an original image that appeals to a toddler based on the following criteria:
-                Main Theme: a new Fakemon inspired on ${pokemon1Name} and ${pokemon2Name} 
-                It should be highly detailed, cel-shaded, with clean outlines and soft lighting so that it can easily be replicated within a few minutes.
-                It should only contain the “Main Theme” and no other elements in the foreground, background or surrounding space.
-                It should contain the “Main Theme” only once with no margins above, below or on either side.
-                The “Main Theme” should consume the entire 1024x1024 space.
-                It should not divide the “Main Theme” into separate parts of the image nor imply any variations of it.
-                It should not contain any text, labels, borders, measurements nor design elements of any kind.
-                The image should be suitable for digital printing without any instructional or guiding elements.`,
+        prompt: `Create an original Fakemon inspired by ${pokemon1Name} and ${pokemon2Name}. 
+                The Fakemon should be fully visible within the frame, centered, and occupying most of the space without being cropped. 
+                Art Style: Highly detailed, cel-shaded, with clean outlines and soft lighting. 
+                Viewpoint: Single, three-quarter front-facing perspective. 
+                Background: Pure white, no shadows, no extra elements. 
+                Composition: The Fakemon should appear only once, with no duplicate angles, no variations, and no concept art breakdowns. 
+                Restrictions: No text, no labels, no borders, no measurements, no guiding elements of any kind.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

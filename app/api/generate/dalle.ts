@@ -29,7 +29,8 @@ export async function generateWithDallE(
                 Only one Pokemon in the image, no text, logos, or other creatures. 
                 No evolution process in the image, just the fusion of the two Pokemon.
                 No mechanical parts, excessive spikes, or unnatural color combinations.
-                The new fusion Pokemon should be shown from a front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.`,
+                The new fusion Pokemon should be shown from a front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.
+                It's very important that the new image is just the new fusion Pokemon without any other content on the image, like parts used, text, signs, etc.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

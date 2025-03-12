@@ -19,14 +19,14 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Create a brand-new Pokemon that is a fusion of ${pokemon1Name} and ${pokemon2Name}. 
-                The design should blend the most recognizable physical traits of both Pokemon into a seamless, single creature. 
-                Use ${pokemon1Name} as the base, incorporating key features from ${pokemon2Name} while maintaining a balanced and original design. 
-                The art style should be Japanese anime-style, kid-friendly, highly detailed, cel-shaded, with clean outlines and soft lighting. 
-                The creature should have a polished, animated look, reminiscent of fantasy RPG concept art.
-                The background must be solid white with no shadows, gradients, or other elements. 
-                VERY IMPORTANT: No multiple angled views—only one angle, no duplicates, no extra versions, no concept art breakdowns, no alternative angles, nothing cropped off-screen.
-                The new fusion Pokemon should be shown from a single front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.`,
+        prompt: `Create a brand-new Pokémon that merges the traits of ${pokemon1Name} and ${pokemon2Name}, using ${pokemon1Name} as the base. 
+                The new Pokémon should retain the same pose, angle, and overall body positioning as ${pokemon1Name}'s official artwork. 
+                Design: Incorporate key physical features from ${pokemon2Name} into ${pokemon1Name}'s structure, blending them into a seamless and natural-looking hybrid. 
+                Art Style: Strictly follow Official Pokémon-style, cel-shaded, with clean outlines and smooth shading.
+                Viewpoint: Match the exact pose and three-quarter front-facing angle of ${pokemon1Name}.
+                Background: Pure white, no shadows, no extra elements.
+                Composition: Only ONE full-body Pokémon in the image—no alternative angles, no evolution steps, no fusion schematics.
+                Restrictions: No text, no labels, no extra Pokémon, no mechanical parts, no unnatural color combinations.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

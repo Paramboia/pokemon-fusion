@@ -20,10 +20,10 @@ export async function generateWithDallE(
       const response = await openai.images.generate({
         model: "dall-e-3",
         prompt: `Create a brand-new creature inspired by ${pokemon1Name} and ${pokemon2Name}.
-                The creature should have a powerful and still kid-friendly appearance, combining ${pokemon1Name} aspect-like form with ${pokemon2Name} aspect-like form.
+                The creature should have a powerful and still kid-friendly appearance.
                 It should have the most recognizable physical traits of both images into a seamless, single creature.
                 The color palette should be a mix of both images, seamlessly blending their elemental nature.
-                The art style should be highly detailed, resembling fantasy RPG concept art with a smooth, animated look.
+                The art style should be highly detailed, cel-shaded, with clean outlines and soft lighting, resembling fantasy RPG concept art with a smooth, animated look.
                 The background must be pure white, without any additional elements, to keep the focus on the creature.`,
         n: 1,
         size: "1024x1024",

@@ -19,7 +19,7 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Take the most recognizable physical traits of ${pokemon2Name} and apply it to ${pokemon1Name}, in white background.`,
+        prompt: `A new Pokemon front-facing, slightly turned angle in white background, which takes the most recognizable physical traits of ${pokemon2Name} and apply it to ${pokemon1Name}.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

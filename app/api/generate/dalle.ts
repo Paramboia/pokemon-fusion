@@ -25,16 +25,13 @@ export async function generateWithDallE(
                 The art style should be Japanese anime-style, kid-friendly, highly detailed, cel-shaded, with clean outlines and soft lighting. 
                 The creature should have a polished, animated look, reminiscent of fantasy RPG concept art.
                 It should appear dynamic and expressive, with a strong yet friendly appearance. 
-                The background must be solid white, with no shadows, gradients, or extra elements. 
+                The background must be solid white with no shadows, gradients, or other elements. 
                 Only one Pokemon in the image, no text, logos, or other creatures. 
-                No evolution process in the image, just the fusion of the two Pokemon.
+                No evolution process in the image—just the fusion of the two Pokemon.
                 No mechanical parts, excessive spikes, or unnatural color combinations.
-                No multiple angled views.
-                No duplicate imagery.
-                No cropping things off the screen.
-                No piling a bunch of views.
-                The new fusion Pokemon should be shown from a front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.
-                It's very important that the new image is just the new fusion Pokemon without any other content on the image, like parts used, text, signs, etc.`,
+                No multiple angled views—only one angle, no duplicates, and nothing cropped off-screen.
+                The new fusion Pokemon should be shown from a single front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art. 
+                The image must only feature the new fusion Pokemon, with no additional parts, text, or extra content.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

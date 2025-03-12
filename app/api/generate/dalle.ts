@@ -19,13 +19,13 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Create an original Fakemon inspired by ${pokemon1Name} and ${pokemon2Name}. 
-                The Fakemon should be fully visible within the frame, centered, and occupying most of the space without being cropped. 
-                Art Style: Highly detailed, cel-shaded, with clean outlines and soft lighting. 
-                Viewpoint: Single, three-quarter front-facing perspective. 
-                Background: Pure white, no shadows, no extra elements. 
-                Composition: The Fakemon should appear only once, with no duplicate angles, no variations, and no concept art breakdowns. 
-                Restrictions: No text, no labels, no borders, no measurements, no guiding elements of any kind.`,
+        prompt: `Create a single, original Fakemon inspired by ${pokemon1Name} and ${pokemon2Name}. 
+                The Fakemon should be fully visible, centered, and occupy most of the 1024x1024 space without being cropped. 
+                Art Style: Official Pokémon-style, cel-shaded, clean outlines, smooth shading, and soft lighting.
+                Viewpoint: One single, three-quarter front-facing perspective.
+                Background: Pure white, no shadows, no extra elements.
+                Composition: Only one Figure in the image, no duplicates, no alternative angles, no concept sketches, no split designs.
+                Restrictions: No text, no labels, no borders, no measurements, no extra Pokémon, no additional design elements.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

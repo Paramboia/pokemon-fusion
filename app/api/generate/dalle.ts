@@ -19,11 +19,12 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Generate a new Pokemon image by using ${pokemon1Name} as the base, incorporating key features from ${pokemon2Name} while maintaining a balanced and original look. 
+        prompt: `Generate a new image by using ${pokemon1Name} as the base, incorporating key features from ${pokemon2Name} while maintaining a balanced and original look. 
                 Keep the same art style as ${pokemon1Name}.
                 It should appear dynamic and expressive, with a strong yet friendly appearance. 
-                The new Pokemon should be shown from a front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.
-                No text, no logos.`,
+                Front-facing, slightly turned angle, similar to the typical angle used in official Pokemon art.
+                No text, no logos.
+                White background.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

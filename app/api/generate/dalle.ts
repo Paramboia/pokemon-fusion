@@ -19,13 +19,19 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Create a fusion of ${pokemon1Name} and ${pokemon2Name} as a single new Pokémon. 
-          The fusion should be a clean Pokémon-style illustration with a solid white background, 
-          following official game concept art style. The design should merge the characteristics 
-          of both Pokémon in a balanced way, maintaining the friendly animation style typical of 
-          Pokémon. Use smooth shading and soft lighting with a balanced color palette. 
-          The result should look like an official Pokémon design that could exist in the games.
-          The background must be completely white with no shadows or gray areas.`,
+        prompt: `Create a brand-new creature that is a fusion of ${pokemon1Name} and ${pokemon2Name}. 
+                The design should blend the most recognizable physical traits of both creatures in a seamless way, 
+                resulting in an entirely new original species. It must be a single creature in the new image
+
+                Art style: Highly detailed, cel-shaded, and inspired by game concept art for fantasy RPG creatures.
+                The design should have a smooth, polished, and animated, kids friendly look with clean outlines, soft lighting, 
+                and a balanced color palette. 
+
+                The creature should be dynamic and expressive, with a strong but friendly appearance. 
+                The background must be completely white with no shadows or gray areas.
+
+                Avoid excessive spikes, mechanical features, robotic parts, or unnatural color combinations. 
+                Do not include extra elements like additional characters, scenery, or text.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

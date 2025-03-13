@@ -19,14 +19,7 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "dall-e-3",
-        prompt: `Create a brand-new Pokémon that merges the traits of ${pokemon1Name} and ${pokemon2Name}, using ${pokemon1Name} as the base. 
-                The new Pokémon should retain the same pose, angle, and overall body positioning as ${pokemon1Name}'s official artwork. 
-                Design: Incorporate key physical features from ${pokemon2Name} into ${pokemon1Name}'s structure, blending them into a seamless and natural-looking hybrid. 
-                Art Style: Strictly follow Official Pokémon-style, cel-shaded, with clean outlines and smooth shading.
-                Viewpoint: Match the exact pose and three-quarter front-facing angle of ${pokemon1Name}.
-                Background: Pure white, no shadows, no extra elements.
-                Composition: Only ONE full-body Pokémon in the image—no alternative angles, no evolution steps, no fusion schematics.
-                Restrictions: No text, no labels, no extra Pokémon, no mechanical parts, no unnatural color combinations.`,
+        prompt: `Create a brand-new Pokémon fusion using ${pokemon1Name} as the base and incorporating the most recognizable physical characteristics of ${pokemon2Name}. The fusion should feel like a natural evolution of both Pokémon while maintaining the artistic style of Pokémon official designs. Ensure that the primary body shape and structure come from ${pokemon1Name}, while key features such as color patterns, limbs, or signature elements from ${pokemon2Name} are seamlessly integrated. The result should look like an original Pokémon, ready to be part of the official Pokédex.`,
         n: 1,
         size: "1024x1024",
         quality: "standard",

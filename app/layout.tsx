@@ -14,6 +14,32 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    title: 'PokéFusion - Create Unique Pokémon Combinations',
+    description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures with our fusion generator.',
+    url: 'https://www.pokemon-fusion.com',
+    siteName: 'PokéFusion',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PokéFusion - Create Unique Pokémon Combinations',
+    description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures.',
+  },
+  verification: {
+    google: 'add-your-google-site-verification-here',
+  },
+  alternates: {
+    canonical: 'https://www.pokemon-fusion.com',
   },
 };
 

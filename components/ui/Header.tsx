@@ -46,37 +46,39 @@ export function Header() {
               </div>
             </Link>
           </div>
-          <div className="hidden md:flex items-center space-x-6">
-            <Link
-              href="/"
-              className={cn(
-                "flex items-center space-x-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors",
-                isActive("/") && "text-gray-900 dark:text-white font-medium"
-              )}
-            >
-              <Home className="h-5 w-5" />
-              <span>Home</span>
-            </Link>
-            <Link
-              href="/popular"
-              className={cn(
-                "flex items-center space-x-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors",
-                isActive("/popular") && "text-gray-900 dark:text-white font-medium"
-              )}
-            >
-              <Flame className="h-5 w-5" />
-              <span>Popular</span>
-            </Link>
-            <Link
-              href="/favorites"
-              className={cn(
-                "flex items-center space-x-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors",
-                isActive("/favorites") && "text-gray-900 dark:text-white font-medium"
-              )}
-            >
-              <Heart className="h-5 w-5" />
-              <span>Favorites</span>
-            </Link>
+          <div className="hidden md:flex items-center justify-center flex-1">
+            <div className="flex items-center space-x-10">
+              <Link
+                href="/"
+                className={cn(
+                  "flex items-center space-x-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors",
+                  isActive("/") && "text-gray-900 dark:text-white font-medium"
+                )}
+              >
+                <Home className="h-5 w-5" />
+                <span>Home</span>
+              </Link>
+              <Link
+                href="/popular"
+                className={cn(
+                  "flex items-center space-x-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors",
+                  isActive("/popular") && "text-gray-900 dark:text-white font-medium"
+                )}
+              >
+                <Flame className="h-5 w-5" />
+                <span>Popular</span>
+              </Link>
+              <Link
+                href="/favorites"
+                className={cn(
+                  "flex items-center space-x-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors",
+                  isActive("/favorites") && "text-gray-900 dark:text-white font-medium"
+                )}
+              >
+                <Heart className="h-5 w-5" />
+                <span>Favorites</span>
+              </Link>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <button 

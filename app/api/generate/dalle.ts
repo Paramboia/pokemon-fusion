@@ -21,7 +21,7 @@ export async function generateWithDallE(
         model: "dall-e-3",
         prompt: `Create a brand-new Pokémon that merges the traits of ${pokemon1Name} and ${pokemon2Name}, using ${pokemon1Name} as the base. 
                 The new Pokémon should retain the same pose, angle, and overall body positioning as ${pokemon1Name}'s official artwork. 
-                Design: Incorporate key physical features from ${pokemon2Name} into ${pokemon1Name}'s structure, blending them into a seamless and natural-looking hybrid. 
+                Design: Incorporate key physical features from both ${pokemon1Name} and ${pokemon2Name}, blending them into a seamless and natural-looking hybrid. 
                 Art Style: Strictly follow Official Pokémon-style, cel-shaded, with clean outlines and smooth shading.
                 Viewpoint: Match the exact pose and three-quarter front-facing angle of ${pokemon1Name}.
                 Background: Pure white, no shadows, no extra elements.

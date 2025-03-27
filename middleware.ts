@@ -7,6 +7,25 @@ function logRequest(req: NextRequest) {
   console.log(`Middleware - Processing request for: ${req.url}`);
 }
 
+// Handle non-www to www redirects
+function handleDomainRedirects(req: NextRequest) {
+  const url = req.nextUrl.clone();
+  const hostname = req.headers.get('host') || '';
+  
+  // Check if we're on the naked domain (without www)
+  if (hostname === 'pokemon-fusion.com') {
+    console.log(`Middleware - Redirecting from naked domain to www: ${hostname}`);
+    
+    // Create the new URL with www
+    const wwwUrl = new URL(url.pathname + url.search, `https://www.pokemon-fusion.com`);
+    
+    // Return a 301 permanent redirect
+    return NextResponse.redirect(wwwUrl.toString(), 301);
+  }
+  
+  return null;
+}
+
 // Define public routes using createRouteMatcher
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -42,6 +61,12 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   // Log the request
   logRequest(req);
+  
+  // Check if we need to redirect from non-www to www
+  const redirectResponse = handleDomainRedirects(req);
+  if (redirectResponse) {
+    return redirectResponse;
+  }
   
   // If the user is authenticated and we have a userId, log it
   const session = await auth();

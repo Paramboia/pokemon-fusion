@@ -2,5 +2,8 @@
 User-agent: *
 Allow: /
 
-# Sitemap location
-Sitemap: https://www.pokemon-fusion.com/sitemap.xml 
+# Sitemap location - Main domain (www)
+Sitemap: https://www.pokemon-fusion.com/sitemap.xml
+
+# Note for non-www domain visitors:
+# This site is best accessed via https://www.pokemon-fusion.com 

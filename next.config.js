@@ -5,6 +5,22 @@ const nextConfig = {
   reactStrictMode: true,
   // Ensure proper domain handling
   trailingSlash: false,
+  // Add proper domain redirects
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'pokemon-fusion.com',
+          },
+        ],
+        destination: 'https://www.pokemon-fusion.com/:path*',
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

@@ -7,6 +7,10 @@
     "NEXT_TELEMETRY_DISABLED": "1"
   },
   "outputDirectory": ".next",
+  "redirects": [
+    { "source": "https://pokemon-fusion.com/:path*", "destination": "https://www.pokemon-fusion.com/:path*", "permanent": true },
+    { "source": "http://pokemon-fusion.com/:path*", "destination": "https://www.pokemon-fusion.com/:path*", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/static-test", "destination": "/static-test" },
     { "source": "/api/health", "destination": "/api/health" },

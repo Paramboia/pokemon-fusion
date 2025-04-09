@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures.',
   },
   verification: {
-    google: 'add-your-google-site-verification-here',
+    google: 'cKaIVo9nWNcu0wwyAZVxFbEIREtsJog-6qHzJSc3LbM',
   },
   alternates: {
     canonical: 'https://www.pokemon-fusion.com',

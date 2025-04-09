@@ -5,21 +5,9 @@ const nextConfig = {
   reactStrictMode: true,
   // Ensure proper domain handling
   trailingSlash: false,
-  // Add proper domain redirects
+  // Remove redirect config as it's handled in vercel.json
   async redirects() {
-    return [
-      {
-        source: '/:path*',
-        has: [
-          {
-            type: 'host',
-            value: 'pokemon-fusion.com',
-          },
-        ],
-        destination: 'https://www.pokemon-fusion.com/:path*',
-        permanent: true,
-      },
-    ];
+    return [];
   },
   images: {
     remotePatterns: [

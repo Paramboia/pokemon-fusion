@@ -4,8 +4,28 @@ import { SparklesText } from "@/components/ui";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useAuth } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
 
 export default function AboutPage() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const [imagePaths, setImagePaths] = useState({
+    charmander: "/pokemon/charmander.png",
+    charmeleon: "/pokemon/charmeleon.png",
+    charizard: "/pokemon/charizard.png"
+  });
+
+  useEffect(() => {
+    // If the user is not signed in and the auth state is loaded, use the proxy API
+    if (isLoaded && !isSignedIn) {
+      setImagePaths({
+        charmander: `/api/proxy-pokemon-image?name=charmander.png`,
+        charmeleon: `/api/proxy-pokemon-image?name=charmeleon.png`,
+        charizard: `/api/proxy-pokemon-image?name=charizard.png`
+      });
+    }
+  }, [isLoaded, isSignedIn]);
+
   return (
     <div className="flex flex-col items-center">
       <div className="text-center mb-10">
@@ -48,11 +68,12 @@ export default function AboutPage() {
               <div className="flex items-center mb-1">
                 <div className="w-6 h-6 mr-2 relative">
                   <Image 
-                    src="/pokemon/charmander.png" 
+                    src={imagePaths.charmander}
                     alt="Charmander" 
                     width={24} 
                     height={24} 
                     className="object-contain"
+                    priority
                   />
                 </div>
                 <h3 className="font-bold text-lg text-orange-600 dark:text-orange-300">Starter Pack</h3>
@@ -69,11 +90,12 @@ export default function AboutPage() {
               <div className="flex items-center mb-1">
                 <div className="w-6 h-6 mr-2 relative">
                   <Image 
-                    src="/pokemon/charmeleon.png" 
+                    src={imagePaths.charmeleon}
                     alt="Charmeleon" 
                     width={24} 
                     height={24} 
                     className="object-contain"
+                    priority
                   />
                 </div>
                 <h3 className="font-bold text-lg text-red-600 dark:text-orange-300">Standard Pack</h3>
@@ -90,11 +112,12 @@ export default function AboutPage() {
               <div className="flex items-center mb-1">
                 <div className="w-6 h-6 mr-2 relative">
                   <Image 
-                    src="/pokemon/charizard.png" 
+                    src={imagePaths.charizard}
                     alt="Charizard" 
                     width={24} 
                     height={24} 
                     className="object-contain"
+                    priority
                   />
                 </div>
                 <h3 className="font-bold text-lg text-red-700 dark:text-red-300">Value Pack</h3>

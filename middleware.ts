@@ -26,12 +26,14 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks/stripe(.*)',
   '/api/webhooks/stripe/test',
   '/api/webhooks/stripe/verify',
+  '/api/proxy-pokemon-image(.*)',
   '/_next(.*)',
   '/favicon.ico',
   '/sitemap.xml',
   '/robots.txt',
   '/manifest.json',
   '/images(.*)',
+  '/pokemon/(.*)',
   '/fonts(.*)',
   '/icons(.*)',
   '/styles(.*)',
@@ -69,8 +71,9 @@ export const config = {
      * 2. /_static (static files)
      * 3. /_vercel (Vercel internals)
      * 4. Static files with extensions (.jpg, .png, etc.)
+     * 5. /pokemon directory (added to fix image loading)
      */
-    "/((?!_next|_static|_vercel|[\\w-]+\\.\\w+).*)",
+    "/((?!_next|_static|_vercel|pokemon|[\\w-]+\\.\\w+).*)",
     "/",
   ],
 };

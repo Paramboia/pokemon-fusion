@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useCredits } from '@/hooks/useCredits';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Wallet, Flame, XCircle } from 'lucide-react';
+import { Loader2, Wallet, Flame, XCircle, CheckCircle } from 'lucide-react';
 import { PricingSection } from '@/components/ui/pricing-section';
 import { SparklesText } from "@/components/ui/sparkles-text";
 import { AuthGate } from '@/components/auth-gate';
@@ -38,7 +38,7 @@ const FALLBACK_PACKAGES = [
   }
 ];
 
-// Custom toast component
+// Custom toast component for cancellation
 function CancelToast({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -50,8 +50,40 @@ function CancelToast({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md shadow-lg flex items-center justify-between min-w-[300px] animate-in fade-in slide-in-from-top duration-300">
-      <div>Purchase cancelled. You have not been charged.</div>
+      <div className="flex flex-col">
+        <span className="font-bold">Purchase cancelled.</span>
+        <span>You have not been charged.</span>
+      </div>
       <button onClick={onClose} className="ml-3 text-red-500 hover:text-red-700">
+        <XCircle size={18} />
+      </button>
+    </div>
+  );
+}
+
+// Custom toast component for success
+function SuccessToast({ onClose, message }: { onClose: () => void; message: string }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  // Split message into two parts
+  const [firstLine, secondLine] = message.split('!');
+  
+  return (
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md shadow-lg flex items-center justify-between min-w-[300px] animate-in fade-in slide-in-from-top duration-300">
+      <div className="flex items-start">
+        <CheckCircle size={18} className="mr-2 mt-1 flex-shrink-0" />
+        <div className="flex flex-col">
+          <span className="font-bold">{firstLine}!</span>
+          <span>{secondLine.trim()}</span>
+        </div>
+      </div>
+      <button onClick={onClose} className="ml-3 text-green-500 hover:text-green-700">
         <XCircle size={18} />
       </button>
     </div>
@@ -65,6 +97,8 @@ export default function CreditsPage() {
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
   const [displayPackages] = useState(FALLBACK_PACKAGES);
   const [showCancelToast, setShowCancelToast] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Fetch balance when component mounts
   useEffect(() => {
@@ -80,13 +114,12 @@ export default function CreditsPage() {
       const url = new URL(window.location.href);
       const hasReturnParam = url.searchParams.has('return_from_stripe');
       const isCancel = url.searchParams.get('return_from_stripe') === 'cancel';
+      const hasSessionId = url.searchParams.has('session_id');
       
-      console.log('URL params check:', { hasReturnParam, isCancel, fullUrl: window.location.href });
+      console.log('URL params check:', { hasReturnParam, isCancel, hasSessionId, fullUrl: window.location.href });
       
       if (hasReturnParam && isCancel) {
         console.log('Showing cancel toast notification');
-        
-        // Show our custom toast instead
         setShowCancelToast(true);
         
         // Also try using the regular toast as a backup
@@ -94,7 +127,25 @@ export default function CreditsPage() {
           duration: 5000
         });
         
-        console.log('Toast triggered, delaying URL cleanup');
+        // Clean the URL after a delay
+        setTimeout(() => {
+          console.log('Cleaning URL params');
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+        }, 2000);
+      } else if (hasSessionId) {
+        // Handle successful purchase
+        console.log('Showing success toast notification');
+        setSuccessMessage('Payment successful! Credits added to your account.');
+        setShowSuccessToast(true);
+        
+        // Also try using the regular toast as a backup
+        toast.success('Payment successful! Credits added to your account.', {
+          duration: 5000
+        });
+        
+        // Refresh balance to show updated credits
+        fetchBalance();
         
         // Clean the URL after a delay
         setTimeout(() => {
@@ -104,10 +155,14 @@ export default function CreditsPage() {
         }, 2000);
       }
     }
-  }, []);
+  }, [fetchBalance]);
 
   const handleCloseToast = () => {
     setShowCancelToast(false);
+  };
+  
+  const handleCloseSuccessToast = () => {
+    setShowSuccessToast(false);
   };
 
   const handlePurchase = async (priceId: string, packageId: string) => {
@@ -159,6 +214,7 @@ export default function CreditsPage() {
   return (
     <div className="flex flex-col items-center">
       {showCancelToast && <CancelToast onClose={handleCloseToast} />}
+      {showSuccessToast && <SuccessToast onClose={handleCloseSuccessToast} message={successMessage} />}
       <AuthGate
         title="Create Pokémon Fusions"
         message="Sign in to create unique Pokémon fusions and save them to your collection!"

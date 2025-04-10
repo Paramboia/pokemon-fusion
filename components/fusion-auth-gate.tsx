@@ -9,7 +9,7 @@ interface FusionAuthGateProps {
 export function FusionAuthGate({ children }: FusionAuthGateProps) {
   return (
     <AuthGate
-      title="Create Your Own Fusion"
+      title="Create Pokémon Fusions"
       message="Sign in to create unique Pokémon fusions and save them to your collection!"
     >
       {children}

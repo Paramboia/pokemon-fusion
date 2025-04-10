@@ -9,7 +9,7 @@ interface HomeAuthGateProps {
 export function HomeAuthGate({ children }: HomeAuthGateProps) {
   return (
     <AuthGate
-      title="Create Your Own Fusions"
+      title="Create Pokémon Fusions"
       message="Sign in to create unique Pokémon fusions and save them to your collection!"
     >
       {children}

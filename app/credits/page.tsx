@@ -117,8 +117,8 @@ export default function CreditsPage() {
   return (
     <div className="flex flex-col items-center">
       <AuthGate
-        title="Purchase Credits"
-        message="Sign in to purchase and manage your Pokémon fusion credits!"
+        title="Create Pokémon Fusions"
+        message="Sign in to create unique Pokémon fusions and save them to your collection!"
       >
         {/* Credit Balance */}
         <div className="container max-w-4xl mb-12 mt-6">

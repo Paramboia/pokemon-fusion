@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -72,6 +73,12 @@ export const PwaInstallPrompt = () => {
     setIsVisible(false);
   };
 
+  // Handle close button click
+  const handleCloseClick = () => {
+    localStorage.setItem('pwaDismissed', 'true');
+    setIsVisible(false);
+  };
+
   // Only show on mobile and when the prompt is available
   if (!isVisible || !isMobile) return null;
 
@@ -83,23 +90,45 @@ export const PwaInstallPrompt = () => {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
-          className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background border-t border-border shadow-lg rounded-t-lg"
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            padding: '1rem',
+            backgroundColor: '#4f46e5',
+            borderTopWidth: '1px',
+            borderColor: 'rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
+            borderTopLeftRadius: '0.5rem',
+            borderTopRightRadius: '0.5rem',
+          }}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1 mr-4">
-              <p className="text-sm font-medium text-foreground">
-                Install Pokémon Fusion on your device
+              <p className="text-base font-medium text-white">
+                Pokémon Fusion App
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Get the best fusion experience with our app
+              <p className="text-sm text-white/80 mt-1">
+                Create new amazing Pokémon fusions
               </p>
             </div>
-            <button
-              onClick={handleInstallClick}
-              className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
-            >
-              Install
-            </button>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleInstallClick}
+                className="px-5 py-2.5 bg-white text-primary text-sm font-medium rounded-md hover:bg-white/90 transition-colors"
+              >
+                Install
+              </button>
+              <button 
+                onClick={handleCloseClick}
+                className="p-1.5 rounded-full bg-transparent hover:bg-white/10 transition-colors text-white"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
         </motion.div>
       )}

@@ -60,14 +60,14 @@ export default function CreditsPage() {
       if (url.searchParams.has('return_from_stripe') && url.searchParams.get('return_from_stripe') === 'cancel') {
         // This was a redirect from a canceled Stripe checkout
         toast.error('Purchase cancelled. You have not been charged.', {
-          duration: 5000 // 5 seconds
+          duration: 10000 // 5 seconds
         });
         
         // Clean the URL after a longer delay to ensure the toast is shown
         setTimeout(() => {
           url.searchParams.delete('return_from_stripe');
           window.history.replaceState({}, '', url.toString());
-        }, 1000); // Increased to 1 second
+        }, 5000); // Increased to 1 second
       }
     }
   }, []);

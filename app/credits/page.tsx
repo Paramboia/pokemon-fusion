@@ -53,6 +53,21 @@ export default function CreditsPage() {
     }
   }, [isUserLoaded, user, fetchBalance]);
 
+  // Check URL for return_from_stripe parameter to show appropriate message
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('return_from_stripe') && url.searchParams.get('return_from_stripe') === 'cancel') {
+        // This was a redirect from a canceled Stripe checkout
+        toast.info('Payment canceled. You have not been charged.');
+        
+        // Clean the URL
+        url.searchParams.delete('return_from_stripe');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, []);
+
   const handlePurchase = async (priceId: string, packageId: string) => {
     try {
       if (!isUserLoaded) {

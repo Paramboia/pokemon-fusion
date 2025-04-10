@@ -22,6 +22,18 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
+  manifest: '/manifest.json',
+  applicationName: 'Pokémon Fusion',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Pokémon Fusion',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  themeColor: '#4f46e5',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   openGraph: {
     title: 'Pokémon Fusion - Create Unique Pokémon Combinations',
     description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures with our fusion generator.',
@@ -78,6 +90,22 @@ export default function RootLayout({
             `}
           </Script>
           {/* End Google Analytics */}
+
+          {/* PWA meta tags */}
+          <meta name="application-name" content="Pokémon Fusion" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <meta name="apple-mobile-web-app-title" content="Pokémon Fusion" />
+          <meta name="format-detection" content="telephone=no" />
+          <meta name="mobile-web-app-capable" content="yes" />
+          <meta name="msapplication-TileColor" content="#4f46e5" />
+          <meta name="theme-color" content="#4f46e5" />
+
+          {/* Apple touch icons */}
+          <link rel="apple-touch-icon" href="/android-chrome-192x192.png" />
+          <link rel="apple-touch-icon" sizes="192x192" href="/android-chrome-192x192.png" />
+          <link rel="apple-touch-icon" sizes="256x256" href="/android-chrome-256x256.png" />
+          <link rel="apple-touch-icon" sizes="512x512" href="/android-chrome-512x512.png" />
         </head>
         <body className="min-h-screen" suppressHydrationWarning>
           {/* Google Tag Manager (noscript) */}

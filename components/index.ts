@@ -17,4 +17,5 @@ export * from './fusion-card';
 export * from './pokemon-selector';
 export * from './credit-gate';
 export * from './CreditBalance';
+export { PwaInstallPrompt } from './pwa-install-prompt';
 // Add other components as needed 

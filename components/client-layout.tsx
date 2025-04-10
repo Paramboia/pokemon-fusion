@@ -3,8 +3,10 @@
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import { registerServiceWorker } from "@/app/register-sw";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -17,6 +19,9 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
   useEffect(() => {
     setIsMounted(true);
+    
+    // Register service worker for PWA functionality
+    registerServiceWorker();
     
     // If the animated background causes issues, we can fall back to a simple one
     try {
@@ -78,6 +83,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
           {children}
         </main>
         <Footer />
+        {isMounted && <PwaInstallPrompt />}
       </div>
     </div>
   );

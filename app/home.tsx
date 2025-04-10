@@ -15,12 +15,16 @@ import FusionCard from "@/components/fusion-card";
 import { useAuth } from "@clerk/nextjs";
 import { AlternatingText } from "@/components/ui";
 import { CreditGate } from "@/components/credit-gate";
+import { useSearchParams } from "next/navigation";
+import { useCredits } from "@/hooks/useCredits";
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
   const { generating, fusionImage, fusionId, error, isPaymentRequired, isLocalFallback, generateFusion } = useFusion();
   const { isSignedIn } = useAuthContext();
   const { getToken } = useAuth();
+  const searchParams = useSearchParams();
+  const { fetchBalance } = useCredits();
   const [selectedPokemon, setSelectedPokemon] = useState<{
     pokemon1: Pokemon | null;
     pokemon2: Pokemon | null;
@@ -34,6 +38,21 @@ export default function Home() {
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   // Use a fixed success message that includes both parts
   const [successMessage, setSuccessMessage] = useState("Congrats! New Pokémon Fusion generated with success!");
+
+  // Effect to handle Stripe payment success
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    if (sessionId) {
+      // If we have a session_id, it means payment was successful
+      toast.success("Payment successful! Your credits have been added to your account.");
+      // Refresh the user's credit balance
+      fetchBalance();
+      
+      // Optional: you could also change the success message and show the success alert
+      setSuccessMessage("Congrats! Credits added successfully to your account!");
+      setShowSuccessAlert(true);
+    }
+  }, [searchParams, fetchBalance]);
 
   // Check if device is mobile
   useEffect(() => {

@@ -54,9 +54,9 @@ export function SuccessAlert({
         </div>
         <div className="ml-3">
           {hasCongratsPrefix ? (
-            <p className="text-sm font-medium text-green-800">
+            <p className="text-sm font-medium text-green-800 flex flex-col">
               <span className="font-bold">{prefix}</span>
-              {restOfMessage && <span> {restOfMessage}</span>}
+              {restOfMessage && <span>{restOfMessage}</span>}
             </p>
           ) : (
             <p className="text-sm font-medium text-green-800">{message}</p>

@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useCredits } from '@/hooks/useCredits';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Wallet, Flame, XCircle, CheckCircle } from 'lucide-react';
+import { Loader2, Wallet, Flame, XCircle } from 'lucide-react';
 import { PricingSection } from '@/components/ui/pricing-section';
 import { SparklesText } from "@/components/ui/sparkles-text";
 import { AuthGate } from '@/components/auth-gate';
 import { useUser, useAuth } from '@clerk/nextjs';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 // Fallback data in case API calls fail
 const FALLBACK_PACKAGES = [
@@ -49,13 +50,31 @@ function CancelToast({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   return (
-    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md shadow-lg flex items-center justify-between min-w-[300px] animate-in fade-in slide-in-from-top duration-300">
-      <div className="flex flex-col">
-        <span className="font-bold">Purchase cancelled.</span>
-        <span>You have not been charged.</span>
+    <div className={cn(
+      "fixed top-4 left-1/2 transform -translate-x-1/2 z-50",
+      "max-w-md w-full bg-red-50 border border-red-200 rounded-lg shadow-md",
+      "px-4 py-3 flex items-center justify-between",
+      "animate-in fade-in slide-in-from-top-5 duration-300"
+    )}>
+      <div className="flex items-center">
+        <div className="flex-shrink-0">
+          <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <div className="ml-3">
+          <p className="text-sm font-medium text-red-800 flex flex-col">
+            <span className="font-bold">Purchase cancelled.</span>
+            <span>You have not been charged.</span>
+          </p>
+        </div>
       </div>
-      <button onClick={onClose} className="ml-3 text-red-500 hover:text-red-700">
-        <XCircle size={18} />
+      <button
+        type="button"
+        className="inline-flex text-red-500 hover:text-red-700 focus:outline-none"
+        onClick={onClose}
+      >
+        <XCircle className="h-4 w-4" />
       </button>
     </div>
   );
@@ -75,16 +94,31 @@ function SuccessToast({ onClose, message }: { onClose: () => void; message: stri
   const [firstLine, secondLine] = message.split('!');
   
   return (
-    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md shadow-lg flex items-center justify-between min-w-[300px] animate-in fade-in slide-in-from-top duration-300">
-      <div className="flex items-start">
-        <CheckCircle size={18} className="mr-2 mt-1 flex-shrink-0" />
-        <div className="flex flex-col">
-          <span className="font-bold">{firstLine}!</span>
-          <span>{secondLine.trim()}</span>
+    <div className={cn(
+      "fixed top-4 left-1/2 transform -translate-x-1/2 z-50",
+      "max-w-md w-full bg-green-50 border border-green-200 rounded-lg shadow-md",
+      "px-4 py-3 flex items-center justify-between",
+      "animate-in fade-in slide-in-from-top-5 duration-300"
+    )}>
+      <div className="flex items-center">
+        <div className="flex-shrink-0">
+          <svg className="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <div className="ml-3">
+          <p className="text-sm font-medium text-green-800 flex flex-col">
+            <span className="font-bold">{firstLine}!</span>
+            <span>{secondLine.trim()}</span>
+          </p>
         </div>
       </div>
-      <button onClick={onClose} className="ml-3 text-green-500 hover:text-green-700">
-        <XCircle size={18} />
+      <button
+        type="button"
+        className="inline-flex text-green-500 hover:text-green-700 focus:outline-none"
+        onClick={onClose}
+      >
+        <XCircle className="h-4 w-4" />
       </button>
     </div>
   );

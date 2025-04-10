@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useCredits } from '@/hooks/useCredits';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Wallet, Flame } from 'lucide-react';
+import { Loader2, Wallet, Flame, XCircle } from 'lucide-react';
 import { PricingSection } from '@/components/ui/pricing-section';
 import { SparklesText } from "@/components/ui/sparkles-text";
 import { AuthGate } from '@/components/auth-gate';
@@ -38,12 +38,33 @@ const FALLBACK_PACKAGES = [
   }
 ];
 
+// Custom toast component
+function CancelToast({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md shadow-lg flex items-center justify-between min-w-[300px] animate-in fade-in slide-in-from-top duration-300">
+      <div>Purchase cancelled. You have not been charged.</div>
+      <button onClick={onClose} className="ml-3 text-red-500 hover:text-red-700">
+        <XCircle size={18} />
+      </button>
+    </div>
+  );
+}
+
 export default function CreditsPage() {
   const { isLoaded: isUserLoaded, user } = useUser();
   const { getToken } = useAuth();
   const { balance, isLoading, error: balanceError, fetchBalance, redirectToCheckout } = useCredits();
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
   const [displayPackages] = useState(FALLBACK_PACKAGES);
+  const [showCancelToast, setShowCancelToast] = useState(false);
 
   // Fetch balance when component mounts
   useEffect(() => {
@@ -65,16 +86,17 @@ export default function CreditsPage() {
       if (hasReturnParam && isCancel) {
         console.log('Showing cancel toast notification');
         
-        // Try using the toast function directly
+        // Show our custom toast instead
+        setShowCancelToast(true);
+        
+        // Also try using the regular toast as a backup
         toast.error('Purchase cancelled. You have not been charged.', {
-          position: 'top-center',
           duration: 5000
         });
         
-        // Also try using a regular alert as a fallback to check if the code is executing
         console.log('Toast triggered, delaying URL cleanup');
         
-        // Clean the URL after a delay but keep the parameter for debugging
+        // Clean the URL after a delay
         setTimeout(() => {
           console.log('Cleaning URL params');
           const cleanUrl = window.location.pathname;
@@ -83,6 +105,10 @@ export default function CreditsPage() {
       }
     }
   }, []);
+
+  const handleCloseToast = () => {
+    setShowCancelToast(false);
+  };
 
   const handlePurchase = async (priceId: string, packageId: string) => {
     try {
@@ -132,6 +158,7 @@ export default function CreditsPage() {
 
   return (
     <div className="flex flex-col items-center">
+      {showCancelToast && <CancelToast onClose={handleCloseToast} />}
       <AuthGate
         title="Create Pokémon Fusions"
         message="Sign in to create unique Pokémon fusions and save them to your collection!"

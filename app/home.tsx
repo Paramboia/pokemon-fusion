@@ -15,26 +15,48 @@ import FusionCard from "@/components/fusion-card";
 import { useAuth } from "@clerk/nextjs";
 import { AlternatingText } from "@/components/ui";
 import { CreditGate } from "@/components/credit-gate";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useCredits } from "@/hooks/useCredits";
 
 // Create a separate component to handle payment success detection
 function PaymentSuccessHandler({ onSuccess }: { onSuccess: (message: string) => void }) {
   const searchParams = useSearchParams();
   const { fetchBalance } = useCredits();
+  const router = useRouter();
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
+    
+    // Debug log to see if we're detecting the session_id
+    console.log('Payment handler checking for session_id:', sessionId);
+    
     if (sessionId) {
-      // If we have a session_id, it means payment was successful
-      toast.success("Payment successful! Your credits have been added to your account.");
-      // Refresh the user's credit balance
+      console.log('Payment success detected with session ID:', sessionId);
+      
+      // First refresh the balance
       fetchBalance();
       
-      // Notify parent component to show the success message
-      onSuccess("Congrats! Credits added successfully to your account!");
+      // Clean up the URL by removing the session_id parameter
+      // This prevents the success message from showing again if the user refreshes the page
+      const newUrl = window.location.pathname;
+      router.replace(newUrl, { scroll: false });
+      
+      // Use setTimeout to ensure the toast appears after the component is fully mounted
+      setTimeout(() => {
+        // Use a more persistent toast that requires manual dismissal
+        toast.success("Payment successful! Your credits have been added to your account.", {
+          id: 'payment-success-toast',
+          duration: 8000, // 8 seconds
+          important: true,
+        });
+        
+        // Notify parent component to show the success message
+        onSuccess("Congrats! Credits added successfully to your account!");
+        
+        console.log('Success toast and alert triggered');
+      }, 500);
     }
-  }, [searchParams, fetchBalance, onSuccess]);
+  }, [searchParams, fetchBalance, onSuccess, router]);
 
   return null; // This component doesn't render anything
 }
@@ -60,6 +82,14 @@ export default function Home() {
 
   // Handler for payment success
   const handlePaymentSuccess = (message: string) => {
+    console.log('handlePaymentSuccess called with message:', message);
+    
+    // Show a toast directly here as a backup
+    toast.success("Payment successful! Credits added to your account.", {
+      id: 'payment-success-toast-backup',
+      duration: 8000,
+    });
+    
     setSuccessMessage(message);
     setShowSuccessAlert(true);
   };
@@ -213,11 +243,13 @@ export default function Home() {
         <PaymentSuccessHandler onSuccess={handlePaymentSuccess} />
       </Suspense>
       
-      {/* Success Alert */}
+      {/* Success Alert - with longer timeout for payment success */}
       <SuccessAlert
         message={successMessage}
         isVisible={showSuccessAlert}
         onClose={() => setShowSuccessAlert(false)}
+        autoClose={true}
+        autoCloseTime={successMessage.includes("Credits added") ? 10000 : 5000} // Longer timeout for payment success
       />
       
       <div className="flex flex-col items-center justify-center mb-12">

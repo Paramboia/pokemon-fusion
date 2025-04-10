@@ -30,7 +30,7 @@ export default function AboutPage() {
     <div className="flex flex-col items-center">
       <div className="text-center mb-10">
         <SparklesText 
-          text="About PokéFusion"
+          text="About Us"
           className="text-4xl md:text-5xl font-bold mb-4"
         />
         <p className="text-xl text-gray-600 dark:text-gray-200">
@@ -60,7 +60,7 @@ export default function AboutPage() {
         <section>
           <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Credit System</h2>
           <p className="text-gray-600 dark:text-gray-200">
-            PokéFusion operates on a credit-based system, allowing you to generate fusions at your own pace. 
+            Pokémon Fusion operates on a credit-based system, allowing you to generate fusions at your own pace. 
             Each fusion generation costs 1 credit. We offer several affordable packages to suit your needs:
           </p>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -150,7 +150,7 @@ export default function AboutPage() {
         <section>
           <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Disclaimer</h2>
           <p className="text-gray-600 dark:text-gray-200">
-            PokéFusion is a fan-made project and is not affiliated with or endorsed by Nintendo, 
+            Pokémon Fusion is a fan-made project and is not affiliated with or endorsed by Nintendo, 
             Game Freak, or The Pokémon Company. The Pokémon names and images generated on this website are not official and are not covered by any trademark.
           </p>
         </section>

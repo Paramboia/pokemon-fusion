@@ -9,7 +9,7 @@ import Script from "next/script";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
-  title: 'PokéFusion - Create Unique Pokémon Combinations',
+  title: 'Pokémon Fusion - Create Unique Pokémon Combinations',
   description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures with our fusion generator.',
   robots: {
     index: true,
@@ -23,16 +23,16 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'PokéFusion - Create Unique Pokémon Combinations',
+    title: 'Pokémon Fusion - Create Unique Pokémon Combinations',
     description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures with our fusion generator.',
     url: 'https://www.pokemon-fusion.com',
-    siteName: 'PokéFusion',
+    siteName: 'Pokémon Fusion',
     type: 'website',
     locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PokéFusion - Create Unique Pokémon Combinations',
+    title: 'Pokémon Fusion - Create Unique Pokémon Combinations',
     description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures.',
   },
   verification: {

@@ -38,7 +38,7 @@ export function Header() {
               <div className="relative w-10 h-10">
                 <Image
                   src="/logo.webp"
-                  alt="PokéFusion Logo"
+                  alt="Pokémon Fusion Logo"
                   fill
                   className="object-contain"
                   priority

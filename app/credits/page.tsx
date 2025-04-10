@@ -57,17 +57,29 @@ export default function CreditsPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      if (url.searchParams.has('return_from_stripe') && url.searchParams.get('return_from_stripe') === 'cancel') {
-        // This was a redirect from a canceled Stripe checkout
+      const hasReturnParam = url.searchParams.has('return_from_stripe');
+      const isCancel = url.searchParams.get('return_from_stripe') === 'cancel';
+      
+      console.log('URL params check:', { hasReturnParam, isCancel, fullUrl: window.location.href });
+      
+      if (hasReturnParam && isCancel) {
+        console.log('Showing cancel toast notification');
+        
+        // Try using the toast function directly
         toast.error('Purchase cancelled. You have not been charged.', {
-          duration: 10000 // 5 seconds
+          position: 'top-center',
+          duration: 5000
         });
         
-        // Clean the URL after a longer delay to ensure the toast is shown
+        // Also try using a regular alert as a fallback to check if the code is executing
+        console.log('Toast triggered, delaying URL cleanup');
+        
+        // Clean the URL after a delay but keep the parameter for debugging
         setTimeout(() => {
-          url.searchParams.delete('return_from_stripe');
-          window.history.replaceState({}, '', url.toString());
-        }, 5000); // Increased to 1 second
+          console.log('Cleaning URL params');
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+        }, 2000);
       }
     }
   }, []);

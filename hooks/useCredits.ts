@@ -175,7 +175,7 @@ export function useCredits() {
       const response = await axios.post('/api/credits/checkout', 
         {
           priceId,
-          successUrl: `${window.location.origin}/`,
+          successUrl: `${window.location.origin}/credits?return_from_stripe=success&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}/credits?return_from_stripe=cancel`,
         },
         { headers: { 'Authorization': `Bearer ${token}` } }

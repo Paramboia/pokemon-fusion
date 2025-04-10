@@ -113,12 +113,13 @@ export default function CreditsPage() {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       const hasReturnParam = url.searchParams.has('return_from_stripe');
-      const isCancel = url.searchParams.get('return_from_stripe') === 'cancel';
+      const returnType = url.searchParams.get('return_from_stripe');
       const hasSessionId = url.searchParams.has('session_id');
       
-      console.log('URL params check:', { hasReturnParam, isCancel, hasSessionId, fullUrl: window.location.href });
+      console.log('URL params check:', { hasReturnParam, returnType, hasSessionId, fullUrl: window.location.href });
       
-      if (hasReturnParam && isCancel) {
+      if (hasReturnParam && returnType === 'cancel') {
+        // Handle cancellation
         console.log('Showing cancel toast notification');
         setShowCancelToast(true);
         
@@ -133,7 +134,7 @@ export default function CreditsPage() {
           const cleanUrl = window.location.pathname;
           window.history.replaceState({}, '', cleanUrl);
         }, 2000);
-      } else if (hasSessionId) {
+      } else if (hasReturnParam && returnType === 'success' && hasSessionId) {
         // Handle successful purchase
         console.log('Showing success toast notification');
         setSuccessMessage('Payment successful! Credits added to your account.');

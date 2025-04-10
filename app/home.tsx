@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { usePokemon, useFusion } from "@/hooks";
 import { PokemonSelector } from "@/components/pokemon-selector";
 import { Button, Card, SuccessAlert } from "@/components/ui";
@@ -18,13 +18,32 @@ import { CreditGate } from "@/components/credit-gate";
 import { useSearchParams } from "next/navigation";
 import { useCredits } from "@/hooks/useCredits";
 
+// Create a separate component to handle payment success detection
+function PaymentSuccessHandler({ onSuccess }: { onSuccess: (message: string) => void }) {
+  const searchParams = useSearchParams();
+  const { fetchBalance } = useCredits();
+
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    if (sessionId) {
+      // If we have a session_id, it means payment was successful
+      toast.success("Payment successful! Your credits have been added to your account.");
+      // Refresh the user's credit balance
+      fetchBalance();
+      
+      // Notify parent component to show the success message
+      onSuccess("Congrats! Credits added successfully to your account!");
+    }
+  }, [searchParams, fetchBalance, onSuccess]);
+
+  return null; // This component doesn't render anything
+}
+
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
   const { generating, fusionImage, fusionId, error, isPaymentRequired, isLocalFallback, generateFusion } = useFusion();
   const { isSignedIn } = useAuthContext();
   const { getToken } = useAuth();
-  const searchParams = useSearchParams();
-  const { fetchBalance } = useCredits();
   const [selectedPokemon, setSelectedPokemon] = useState<{
     pokemon1: Pokemon | null;
     pokemon2: Pokemon | null;
@@ -39,20 +58,11 @@ export default function Home() {
   // Use a fixed success message that includes both parts
   const [successMessage, setSuccessMessage] = useState("Congrats! New Pokémon Fusion generated with success!");
 
-  // Effect to handle Stripe payment success
-  useEffect(() => {
-    const sessionId = searchParams.get('session_id');
-    if (sessionId) {
-      // If we have a session_id, it means payment was successful
-      toast.success("Payment successful! Your credits have been added to your account.");
-      // Refresh the user's credit balance
-      fetchBalance();
-      
-      // Optional: you could also change the success message and show the success alert
-      setSuccessMessage("Congrats! Credits added successfully to your account!");
-      setShowSuccessAlert(true);
-    }
-  }, [searchParams, fetchBalance]);
+  // Handler for payment success
+  const handlePaymentSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setShowSuccessAlert(true);
+  };
 
   // Check if device is mobile
   useEffect(() => {
@@ -198,6 +208,11 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
+      {/* Suspense boundary for the payment success handler */}
+      <Suspense fallback={null}>
+        <PaymentSuccessHandler onSuccess={handlePaymentSuccess} />
+      </Suspense>
+      
       {/* Success Alert */}
       <SuccessAlert
         message={successMessage}

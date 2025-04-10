@@ -63,9 +63,11 @@ export default function CreditsPage() {
           duration: 5000 // 5 seconds
         });
         
-        // Clean the URL
-        url.searchParams.delete('return_from_stripe');
-        window.history.replaceState({}, '', url.toString());
+        // Clean the URL after a short delay to ensure the toast is shown
+        setTimeout(() => {
+          url.searchParams.delete('return_from_stripe');
+          window.history.replaceState({}, '', url.toString());
+        }, 100);
       }
     }
   }, []);

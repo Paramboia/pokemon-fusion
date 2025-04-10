@@ -176,7 +176,7 @@ export function useCredits() {
         {
           priceId,
           successUrl: `${window.location.origin}/`,
-          cancelUrl: `${window.location.origin}/credits`,
+          cancelUrl: `${window.location.origin}/credits?return_from_stripe=cancel`,
         },
         { headers: { 'Authorization': `Bearer ${token}` } }
       );

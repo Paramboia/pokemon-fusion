@@ -59,7 +59,9 @@ export default function CreditsPage() {
       const url = new URL(window.location.href);
       if (url.searchParams.has('return_from_stripe') && url.searchParams.get('return_from_stripe') === 'cancel') {
         // This was a redirect from a canceled Stripe checkout
-        toast.info('Payment canceled. You have not been charged.');
+        toast.error('Purchase cancelled. You have not been charged.', {
+          duration: 5000 // 5 seconds
+        });
         
         // Clean the URL
         url.searchParams.delete('return_from_stripe');

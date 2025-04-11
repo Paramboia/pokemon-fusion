@@ -117,7 +117,7 @@ export const PwaInstallPrompt = () => {
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleInstallClick}
-                className="px-5 py-2.5 bg-white text-primary text-sm font-medium rounded-md hover:bg-white/90 transition-colors"
+                className="px-5 py-2.5 bg-white text-black text-sm font-medium rounded-md hover:bg-white/90 transition-colors"
               >
                 Install
               </button>

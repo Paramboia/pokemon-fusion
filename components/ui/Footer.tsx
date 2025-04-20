@@ -62,9 +62,10 @@ export function Footer() {
               href="https://www.facebook.com/profile.php?id=61574000278243"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <Facebook className="h-5 w-5" />
+              <span>Community</span>
             </Link>
           </div>
         </div>

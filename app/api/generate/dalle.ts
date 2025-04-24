@@ -22,14 +22,7 @@ export async function generateWithDallE(
     try {
       const response = await openai.images.generate({
         model: "gpt-image-1",
-        prompt: `Create a brand-new Pokémon that merges the traits of ${pokemon1Name} and ${pokemon2Name}, using ${pokemon1Name} as the base. 
-                The new Pokémon should retain the same pose, angle, and overall body positioning as ${pokemon1Name}'s official artwork. 
-                Design: Incorporate key physical features from both ${pokemon1Name} and ${pokemon2Name}, blending them into a seamless and natural-looking hybrid. 
-                Art Style: Strictly follow Official Pokémon-style, cel-shaded, with clean outlines and smooth shading.
-                Viewpoint: Match the exact pose and three-quarter front-facing angle of ${pokemon1Name}.
-                Background: Pure white, no shadows, no extra elements.
-                Composition: Only ONE full-body Pokémon in the image—no alternative angles, no evolution steps, no fusion schematics.
-                Restrictions: No text, no labels, no extra Pokémon, no mechanical parts, no unnatural color combinations.`,
+        prompt: `Fusion ${pokemon1Name} with ${pokemon2Name}, using ${pokemon1Name} as the base.`,
         n: 1,
         size: "1024x1024",
         quality: "high" as any,

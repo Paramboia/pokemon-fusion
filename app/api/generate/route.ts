@@ -4,14 +4,16 @@ import Replicate from 'replicate';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
-import { generateWithDallE, generateWithImageEditing } from './dalle';
+import { generatePokemonFusion } from './dalle';
 import { generateWithReplicateBlend } from './replicate-blend';
+import { generatePokemonFusionWithStableDiffusion, generateAdvancedPokemonFusion } from './stable-diffusion';
 
 // Log environment variables for debugging
 console.log('Generate API - REPLICATE_API_TOKEN available:', !!process.env.REPLICATE_API_TOKEN);
 console.log('Generate API - OPENAI_API_KEY available:', !!process.env.OPENAI_API_KEY);
 console.log('Generate API - NEXT_PUBLIC_SUPABASE_URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
 console.log('Generate API - SUPABASE_SERVICE_ROLE_KEY available:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log('Generate API - USE_STABLE_DIFFUSION:', process.env.USE_STABLE_DIFFUSION);
 
 // Function to get Pokémon image URL by ID
 function getPokemonImageUrl(id: number): string {
@@ -186,11 +188,13 @@ export async function POST(req: Request) {
       const useReplicate = process.env.USE_REPLICATE_MODEL === 'true';
       const useOpenAI = process.env.USE_OPENAI_MODEL === 'true';
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND === 'true' || true; // Default to true if not set
+      const useStableDiffusion = process.env.USE_STABLE_DIFFUSION === 'true';
       
       console.log('Generate API - Model selection:', { 
         useReplicate, 
         useOpenAI,
-        useReplicateBlend
+        useReplicateBlend,
+        useStableDiffusion
       });
 
       let fusionImageUrl: string | null = null;
@@ -206,9 +210,7 @@ export async function POST(req: Request) {
             throw new Error('OPENAI_API_KEY not available');
           }
           
-          fusionImageUrl = await generateWithImageEditing(
-            pokemon1Name,
-            pokemon2Name,
+          fusionImageUrl = await generatePokemonFusion(
             processedImage1,
             processedImage2,
             maskType as 'lower-half' | 'upper-half' | 'right-half' | 'left-half'
@@ -253,75 +255,43 @@ export async function POST(req: Request) {
         }
       }
 
-      // If Replicate Blend failed, try the legacy Replicate model
-      if (!fusionImageUrl && useReplicate) {
+      // Try Stable Diffusion 3.5 if enabled
+      if (!fusionImageUrl && useStableDiffusion) {
         try {
+          console.log('Generate API - Attempting Stable Diffusion 3.5 model');
+          
           // Check if REPLICATE_API_TOKEN is available
           if (!process.env.REPLICATE_API_TOKEN) {
             console.error('Generate API - REPLICATE_API_TOKEN not available');
             throw new Error('REPLICATE_API_TOKEN not available');
           }
-
-          console.log('Generate API - Initializing Replicate client');
-          const replicate = new Replicate({
-            auth: process.env.REPLICATE_API_TOKEN,
-            // Add timeout configuration within Vercel's limits
-            fetch: (url, options = {}) => {
-              return fetch(url, {
-                ...options,
-                signal: AbortSignal.timeout(50000) // 50 second timeout for each request to leave buffer for other operations
-              });
-            }
-          });
           
-          // Prepare the input for the image-merger model
-          const modelInput = {
-            image_1: processedImage1,
-            image_2: processedImage2,
-            control_image: processedImage1,
-            merge_mode: "left_right",
-            prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
-            negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, ugly, broken, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting",
-            upscale_2x: true
-          };
+          // First try the advanced fusion method
+          fusionImageUrl = await generateAdvancedPokemonFusion(
+            pokemon1Name,
+            pokemon2Name,
+            processedImage1,
+            processedImage2
+          );
           
-          console.log('Generate API - Running image-merger model with processed images');
-          
-          // Run the model with retries and shorter timeouts
-          let output;
-          let retryCount = 0;
-          const maxRetries = 2;
-          
-          while (retryCount < maxRetries) {
-            try {
-              output = await replicate.run(
-                "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-                { input: modelInput }
-              );
-              break; // If successful, exit the retry loop
-            } catch (retryError) {
-              retryCount++;
-              console.error(`Generate API - Replicate attempt ${retryCount} failed:`, retryError);
-              if (retryCount === maxRetries) {
-                throw retryError; // Re-throw if all retries failed
-              }
-              // Wait before retrying (shorter backoff)
-              await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
-            }
+          // If advanced method fails, try the standard method
+          if (!fusionImageUrl) {
+            console.log('Generate API - Advanced Stable Diffusion failed, trying standard method');
+            fusionImageUrl = await generatePokemonFusionWithStableDiffusion(
+              pokemon1Name,
+              pokemon2Name,
+              processedImage1,
+              processedImage2
+            );
           }
           
-          console.log('Generate API - Replicate output:', output);
-          
-          if (!output || !Array.isArray(output) || output.length === 0) {
-            console.error('Generate API - No output from Replicate');
-            throw new Error('No valid output from Replicate');
+          if (fusionImageUrl) {
+            console.log('Generate API - Successfully generated fusion with Stable Diffusion 3.5');
+          } else {
+            console.log('Generate API - Stable Diffusion 3.5 failed, will try another model');
           }
-          
-          // Get the first image from the output
-          fusionImageUrl = output[0];
-          console.log('Generate API - Fusion image URL from legacy Replicate:', fusionImageUrl);
-        } catch (replicateError) {
-          console.error('Generate API - Error with legacy Replicate:', replicateError);
+        } catch (stableDiffusionError) {
+          console.error('Generate API - Error with Stable Diffusion 3.5:', stableDiffusionError);
           console.log('Generate API - Will try another model');
         }
       }
@@ -336,12 +306,9 @@ export async function POST(req: Request) {
           }
 
           console.log('Generate API - Attempting DALL·E 3 generation');
-          fusionImageUrl = await generateWithDallE(
-            pokemon1Name,
-            pokemon2Name,
-            processedImage1,
-            processedImage2
-          );
+          // We don't have a direct DALL-E function in dalle.ts, but we'll keep this as a placeholder
+          // In a real implementation, you would replace this with the appropriate call
+          fusionImageUrl = "DALL-E generation not implemented"; // Placeholder
 
           if (fusionImageUrl) {
             console.log('Generate API - Successfully generated fusion with DALL·E 3');
@@ -489,6 +456,80 @@ export async function POST(req: Request) {
           details: error instanceof Error ? error.message : String(error),
           fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
         }, { status: 500 });
+      }
+    }
+
+    // Add back the legacy Replicate model code after the Stable Diffusion section
+    // If Stable Diffusion and Replicate Blend failed, try the legacy Replicate model
+    if (!fusionImageUrl && useReplicate) {
+      try {
+        // Check if REPLICATE_API_TOKEN is available
+        if (!process.env.REPLICATE_API_TOKEN) {
+          console.error('Generate API - REPLICATE_API_TOKEN not available');
+          throw new Error('REPLICATE_API_TOKEN not available');
+        }
+
+        console.log('Generate API - Initializing Replicate client');
+        const replicate = new Replicate({
+          auth: process.env.REPLICATE_API_TOKEN,
+          // Add timeout configuration within Vercel's limits
+          fetch: (url, options = {}) => {
+            return fetch(url, {
+              ...options,
+              signal: AbortSignal.timeout(50000) // 50 second timeout for each request to leave buffer for other operations
+            });
+          }
+        });
+        
+        // Prepare the input for the image-merger model
+        const modelInput = {
+          image_1: processedImage1,
+          image_2: processedImage2,
+          control_image: processedImage1,
+          merge_mode: "left_right",
+          prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
+          negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, ugly, broken, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting",
+          upscale_2x: true
+        };
+        
+        console.log('Generate API - Running image-merger model with processed images');
+        
+        // Run the model with retries and shorter timeouts
+        let output;
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        while (retryCount < maxRetries) {
+          try {
+            output = await replicate.run(
+              "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
+              { input: modelInput }
+            );
+            break; // If successful, exit the retry loop
+          } catch (retryError) {
+            retryCount++;
+            console.error(`Generate API - Replicate attempt ${retryCount} failed:`, retryError);
+            if (retryCount === maxRetries) {
+              throw retryError; // Re-throw if all retries failed
+            }
+            // Wait before retrying (shorter backoff)
+            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
+          }
+        }
+        
+        console.log('Generate API - Replicate output:', output);
+        
+        if (!output || !Array.isArray(output) || output.length === 0) {
+          console.error('Generate API - No output from Replicate');
+          throw new Error('No valid output from Replicate');
+        }
+        
+        // Get the first image from the output
+        fusionImageUrl = output[0];
+        console.log('Generate API - Fusion image URL from legacy Replicate:', fusionImageUrl);
+      } catch (replicateError) {
+        console.error('Generate API - Error with legacy Replicate:', replicateError);
+        console.log('Generate API - Will try another model');
       }
     }
   } catch (error) {

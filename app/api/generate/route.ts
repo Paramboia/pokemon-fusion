@@ -266,24 +266,13 @@ export async function POST(req: Request) {
             throw new Error('REPLICATE_API_TOKEN not available');
           }
           
-          // First try the advanced fusion method
-          fusionImageUrl = await generateAdvancedPokemonFusion(
+          // Generate fusion with Stable Diffusion
+          fusionImageUrl = await generatePokemonFusionWithStableDiffusion(
             pokemon1Name,
             pokemon2Name,
             processedImage1,
             processedImage2
           );
-          
-          // If advanced method fails, try the standard method
-          if (!fusionImageUrl) {
-            console.log('Generate API - Advanced Stable Diffusion failed, trying standard method');
-            fusionImageUrl = await generatePokemonFusionWithStableDiffusion(
-              pokemon1Name,
-              pokemon2Name,
-              processedImage1,
-              processedImage2
-            );
-          }
           
           if (fusionImageUrl) {
             console.log('Generate API - Successfully generated fusion with Stable Diffusion 3.5');

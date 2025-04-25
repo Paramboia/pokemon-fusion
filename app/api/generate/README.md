@@ -20,8 +20,6 @@ The system attempts to generate a fusion using each enabled model in the followi
 1. OpenAI Image Editing (if `useImageEditing` is true)
 2. Replicate Blend (if `USE_REPLICATE_BLEND` is enabled)
 3. Stable Diffusion 3.5 (if `USE_STABLE_DIFFUSION` is enabled)
-   - First tries advanced fusion method (with detailed prompt)
-   - Falls back to standard method if advanced fails
 4. DALL-E 3 (if `USE_OPENAI_MODEL` is enabled) - currently a placeholder
 5. Legacy Replicate model (if `USE_REPLICATE_MODEL` is enabled)
 

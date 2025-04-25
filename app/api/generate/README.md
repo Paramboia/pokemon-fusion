@@ -11,7 +11,7 @@ The generation system uses a pipeline approach with multiple AI models, attempti
 - `route.ts` - Main API endpoint handler that orchestrates the generation pipeline
 - `stable-diffusion.ts` - Implementation for Stable Diffusion 3.5
 - `replicate-blend.ts` - Implementation for Replicate's blending model
-- `dalle.ts` - Implementation for DALL-E/OpenAI image models
+- `dalle.ts` - Implementation for DALL-E/OpenAI image models and GPT-4 Vision enhancement
 
 ## Generation Pipeline
 
@@ -20,6 +20,7 @@ The system attempts to generate a fusion using each enabled model in the followi
 1. OpenAI Image Editing (if `useImageEditing` is true)
 2. Replicate Blend (if `USE_REPLICATE_BLEND` is enabled)
 3. Stable Diffusion 3.5 (if `USE_STABLE_DIFFUSION` is enabled)
+   - With optional GPT-4 direct generation enhancement (if `USE_GPT_VISION_ENHANCEMENT` is enabled)
 4. DALL-E 3 (if `USE_OPENAI_MODEL` is enabled) - currently a placeholder
 5. Legacy Replicate model (if `USE_REPLICATE_MODEL` is enabled)
 
@@ -32,7 +33,30 @@ Different models use different approaches to generate fusions:
 - **OpenAI Image Editing**: Uses actual image manipulation to edit/blend two Pokémon images
 - **Replicate Blend**: Uses a specialized model to blend two input images
 - **Stable Diffusion 3.5**: Uses only Pokémon names with text-to-image generation (no image inputs)
+- **GPT-4 Direct Generation**: Creates a new image from scratch based on Pokémon names for higher quality results
 - **Legacy Replicate**: Uses both images and names for generation
+
+## GPT-4 Direct Generation Enhancement
+
+The GPT-4 enhancement is a parallel generation step that runs after Stable Diffusion. Instead of trying to enhance the Stable Diffusion image directly (which can trigger content policy warnings), this approach:
+
+1. Takes the same Pokémon names that were used for Stable Diffusion
+2. Uses OpenAI's GPT-4 Vision model (`gpt-image-1`) to generate a completely new image
+3. Creates a high-quality, polished fusion with clean lines and balanced proportions
+4. Uses carefully crafted generic prompts to avoid content policy issues
+
+### Dealing with Content Policies
+
+OpenAI's models have strict content policies that sometimes flag Pokémon-related imagery. To work around this:
+
+1. We use generic prompts that describe characteristics without using specific names
+2. Instead of "Charizard and Blastoise fusion", we say "a creature with dragon-like and turtle-like features"
+3. We use color descriptions like "orange and blue color palette" instead of direct references
+4. We ensure the prompts focus on artistic elements (clean lines, balanced proportions) rather than specific character traits
+
+This approach is used as a superior alternative to the Stable Diffusion output when available. If the GPT-4 generation fails for any reason, the system falls back to using the Stable Diffusion image.
+
+To enable this feature, set `USE_GPT_VISION_ENHANCEMENT=true` in your environment variables. You must also have an OpenAI API key with access to the GPT-4 Vision model.
 
 ## Adding a New Model
 
@@ -121,6 +145,7 @@ The system uses these environment variables to control behavior:
 - `USE_OPENAI_MODEL` - Enable DALL-E 3 (placeholder)
 - `USE_REPLICATE_BLEND` - Enable Replicate's blending model
 - `USE_STABLE_DIFFUSION` - Enable Stable Diffusion 3.5
+- `USE_GPT_VISION_ENHANCEMENT` - Enable GPT-4 direct generation enhancement
 - `REPLICATE_API_TOKEN` - API token for Replicate
 - `OPENAI_API_KEY` - API key for OpenAI
 

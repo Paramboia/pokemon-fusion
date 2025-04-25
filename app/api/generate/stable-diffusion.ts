@@ -14,7 +14,7 @@ const replicate = new Replicate({
 
 /**
  * Generate a Pokemon fusion using Stable Diffusion 3.5 via Replicate
- * This function takes both Pokemon names and their images as inputs
+ * This function uses only Pokemon names as inputs for text-to-image generation
  */
 export async function generatePokemonFusionWithStableDiffusion(
   pokemon1Name: string,
@@ -32,39 +32,27 @@ export async function generatePokemonFusionWithStableDiffusion(
       return null;
     }
 
-    // Ensure we have at least the first image (used as base)
-    if (!processedImage1) {
-      console.error('Stable Diffusion - Missing base image data');
-      return null;
-    }
-
-    // Prepare the image inputs
-    const baseImage = prepareImageForReplicate(processedImage1);
-    
     // Create the fusion prompt using the provided template
     const fusionPrompt = `Create a brand-new Pokémon that merges the traits of ${pokemon1Name} and ${pokemon2Name}, using ${pokemon1Name} as the base. 
-                The new Pokémon should retain the same pose, angle, and overall body positioning as ${pokemon1Name}'s official artwork. 
                 Design: Incorporate key physical features from both ${pokemon1Name} and ${pokemon2Name}, blending them into a seamless and natural-looking hybrid. 
                 Art Style: Strictly follow Official Pokémon-style, cel-shaded, with clean outlines and smooth shading.
-                Viewpoint: Match the exact pose and three-quarter front-facing angle of ${pokemon1Name}.
+                Viewpoint: Three-quarter front-facing angle like typical official Pokémon artwork.
                 Background: Pure white, no shadows, no extra elements.
                 Composition: Only ONE full-body Pokémon in the image—no alternative angles, no evolution steps, no fusion schematics.
                 Restrictions: No text, no labels, no extra Pokémon, no mechanical parts, no unnatural color combinations.`;
 
-    // Create the input for Stable Diffusion 3.5
+    // Create the input for Stable Diffusion 3.5 (text-to-image)
     const input = {
       prompt: fusionPrompt,
-      image: baseImage,  // Use the base Pokemon image as input
       width: 1024,
       height: 1024,
       num_outputs: 1,
-      guidance_scale: 7.5,  // Controls how closely the image follows the prompt
-      image_guidance_scale: 1.5,  // Controls how much influence the input image has
+      guidance_scale: 8.0,  // Higher guidance scale to better follow the prompt
       apply_watermark: false,
       negative_prompt: "deformed, ugly, bad anatomy, poor drawing, poorly drawn, lowres, blurry, multiple pokemon, text, watermark, signature, disfigured"
     };
 
-    console.log('Stable Diffusion - Running model with inputs');
+    console.log('Stable Diffusion - Running model with text prompt only');
     
     // Run the model with retries for resilience
     let output;
@@ -119,8 +107,8 @@ export async function generatePokemonFusionWithStableDiffusion(
 }
 
 /**
- * Enhanced version that attempts to use both Pokemon images
- * This experimentally tries to incorporate both images for better fusion results
+ * Enhanced version that uses a more detailed prompt
+ * But still only uses the Pokemon names, not their images
  */
 export async function generateAdvancedPokemonFusion(
   pokemon1Name: string,
@@ -137,28 +125,19 @@ export async function generateAdvancedPokemonFusion(
       return null;
     }
     
-    // Ensure we have both images
-    if (!processedImage1) {
-      console.error('Stable Diffusion Advanced - Missing base image data');
-      return null;
-    }
-
-    // Prepare the image inputs
-    const baseImage = prepareImageForReplicate(processedImage1);
-    
-    // Create the enhanced fusion prompt that references the second image's features
-    const featureDetailsPrompt = `The fusion should maintain the body structure of ${pokemon1Name} but incorporate these specific visual elements from ${pokemon2Name}:
-                - Color scheme: Use ${pokemon2Name}'s primary colors for parts of the body
-                - Distinctive features: Add ${pokemon2Name}'s signature visual elements (like fins, wings, spikes, etc.)
-                - Type attributes: Visual indicators of ${pokemon2Name}'s elemental type
-                - Patterns: Any notable patterns, markings or textures from ${pokemon2Name}`;
+    // Create the enhanced fusion prompt with more specific details
+    const featureDetailsPrompt = `The fusion should include these specific elements:
+                - Combine the body structure of both Pokémon with emphasis on their most distinctive features
+                - Blend the color schemes from both Pokémon
+                - Incorporate signature visual elements from both (like fins, wings, spikes, etc.)
+                - Blend visual indicators of both Pokémon's elemental types
+                - Combine any notable patterns, markings or textures from both Pokémon`;
     
     // Combine with the base prompt template
-    const fusionPrompt = `Create a brand-new Pokémon that merges the traits of ${pokemon1Name} and ${pokemon2Name}, using ${pokemon1Name} as the base. 
-                The new Pokémon should retain the same pose, angle, and overall body positioning as ${pokemon1Name}'s official artwork.
+    const fusionPrompt = `Create a brand-new Pokémon that is a perfect fusion of ${pokemon1Name} and ${pokemon2Name}. 
                 ${featureDetailsPrompt} 
                 Art Style: Strictly follow Official Pokémon-style, cel-shaded, with clean outlines and smooth shading.
-                Viewpoint: Match the exact pose and three-quarter front-facing angle of ${pokemon1Name}.
+                Viewpoint: Three-quarter front-facing angle like typical official Pokémon artwork.
                 Background: Pure white, no shadows, no extra elements.
                 Composition: Only ONE full-body Pokémon in the image—no alternative angles, no evolution steps, no fusion schematics.
                 Restrictions: No text, no labels, no extra Pokémon, no mechanical parts, no unnatural color combinations.`;
@@ -166,17 +145,15 @@ export async function generateAdvancedPokemonFusion(
     // Create the input for Stable Diffusion 3.5 with enhanced parameters
     const input = {
       prompt: fusionPrompt,
-      image: baseImage,
       width: 1024,
       height: 1024,
       num_outputs: 1,
-      guidance_scale: 8.0,         // Slightly higher guidance scale for better prompt following
-      image_guidance_scale: 1.5,    // Balance between keeping original structure and allowing changes
+      guidance_scale: 9.0,         // Higher guidance scale for better prompt following
       apply_watermark: false,
       negative_prompt: "deformed, ugly, bad anatomy, poor drawing, poorly drawn, lowres, blurry, multiple pokemon, text, watermark, signature, disfigured"
     };
 
-    console.log('Stable Diffusion Advanced - Running model with enhanced parameters');
+    console.log('Stable Diffusion Advanced - Running model with detailed text prompt');
     
     // Run the model
     const output = await replicate.run(
@@ -199,7 +176,8 @@ export async function generateAdvancedPokemonFusion(
   }
 }
 
-// Helper function to handle different image format inputs
+// Helper function is no longer needed since we're not using images
+// But keeping it for backward compatibility
 export function prepareImageForReplicate(imageInput: string): string {
   // If the image is already a URL, return it as is
   if (imageInput.startsWith('http')) {

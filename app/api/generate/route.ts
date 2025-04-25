@@ -4,7 +4,7 @@ import Replicate from 'replicate';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
-import { generateWithDallE } from './dalle';
+import { generateWithDallE, generateWithImageEditing } from './dalle';
 import { generateWithReplicateBlend } from './replicate-blend';
 
 // Log environment variables for debugging
@@ -46,6 +46,8 @@ export async function POST(req: Request) {
     const fusionName = body.fusionName || '';
     const pokemon1ImageUrl = body.pokemon1ImageUrl || '';
     const pokemon2ImageUrl = body.pokemon2ImageUrl || '';
+    const useImageEditing = body.useImageEditing || false; // Flag to use the new image editing approach
+    const maskType = body.maskType || 'lower-half'; // Default mask type if not specified
     
     console.log("Generate API - Parsed parameters:", { 
       pokemon1Id, 
@@ -54,7 +56,9 @@ export async function POST(req: Request) {
       pokemon2Name,
       fusionName,
       hasImage1: !!pokemon1ImageUrl,
-      hasImage2: !!pokemon2ImageUrl
+      hasImage2: !!pokemon2ImageUrl,
+      useImageEditing,
+      maskType
     });
     
     // Validate the input
@@ -192,7 +196,36 @@ export async function POST(req: Request) {
       let fusionImageUrl: string | null = null;
 
       // Try models in order of preference, falling back if one fails
-      if (useReplicateBlend) {
+      if (useImageEditing) {
+        try {
+          console.log('Generate API - Attempting OpenAI Image Editing approach');
+          
+          // Check if OPENAI_API_KEY is available
+          if (!process.env.OPENAI_API_KEY) {
+            console.error('Generate API - OPENAI_API_KEY not available');
+            throw new Error('OPENAI_API_KEY not available');
+          }
+          
+          fusionImageUrl = await generateWithImageEditing(
+            pokemon1Name,
+            pokemon2Name,
+            processedImage1,
+            processedImage2,
+            maskType as 'lower-half' | 'upper-half' | 'right-half' | 'left-half'
+          );
+          
+          if (fusionImageUrl) {
+            console.log('Generate API - Successfully generated fusion with OpenAI Image Editing');
+          } else {
+            console.log('Generate API - OpenAI Image Editing failed, will try another model');
+          }
+        } catch (imageEditError) {
+          console.error('Generate API - Error with OpenAI Image Editing:', imageEditError);
+          console.log('Generate API - Will try another model');
+        }
+      }
+
+      if (useReplicateBlend && !fusionImageUrl) {
         try {
           console.log('Generate API - Attempting Replicate Blend model');
           

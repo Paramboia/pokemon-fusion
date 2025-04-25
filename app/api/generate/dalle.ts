@@ -378,7 +378,7 @@ export async function enhanceWithDirectGeneration(
         console.log('GPT Direct Enhancement - Trying more generic prompt after content policy rejection');
         
         const genericPrompt = `A digital illustration of an original animated creature design.
-          Style: Clean animation with smooth outlines
+          Style: Clean animation with smooth outlines, kid friendly
           Background: Pure white
           Composition: Single character centered in the frame
           Details: Balanced proportions, friendly appearance, polished finish`;

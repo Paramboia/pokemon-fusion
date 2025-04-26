@@ -6,7 +6,7 @@ import sharp from 'sharp';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const API_TIMEOUT = IS_PRODUCTION ? 50000 : 60000; // 50 seconds in production, 60 seconds in development
+const API_TIMEOUT = IS_PRODUCTION ? 75000 : 90000; // 75 seconds in production, 90 seconds in development
 const MAX_RETRIES = parseInt(process.env.REPLICATE_MAX_RETRIES || '2', 10);
 const SAVE_LOCAL_COPIES = process.env.SAVE_LOCAL_COPIES !== 'false'; // Default to true
 
@@ -81,7 +81,8 @@ export async function generateWithReplicateBlend(
     console.log(`[${requestId}] REPLICATE BLEND - API Token check: ${process.env.REPLICATE_API_TOKEN ? 'present' : 'missing'}`);
 
     // Check if the feature is enabled (default to true if not set)
-    if (process.env.USE_REPLICATE_BLEND === 'false') {
+    const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false';
+    if (!useReplicateBlend) {
       console.warn(`[${requestId}] REPLICATE BLEND - SKIPPED - Feature is explicitly disabled`);
       return null;
     }

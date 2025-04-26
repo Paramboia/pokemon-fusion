@@ -163,7 +163,7 @@ async function performTextToImageGeneration(
   controller: AbortController
 ): Promise<any> {
   // This is our simple prompt that works consistently with content policies
-  const enhancementPrompt = `Make the image better, ensure clean creature animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background`;
+  const enhancementPrompt = `Make the single creature in the image better by ensuring a clean animation-style with smooth outlines and vivid colors, maintain kid-friendly appearance, pose and three-quarter front-facing angle, and ensure completely pure white background`;
   
   console.log(`[${requestId}] DALLE ENHANCEMENT - Generating image with text-to-image prompt`);
 

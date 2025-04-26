@@ -8,7 +8,7 @@ import FormData from 'form-data';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const API_TIMEOUT = IS_PRODUCTION ? 300000 : 600000; // 5 minutes in production, 10 minutes in development
+const API_TIMEOUT = IS_PRODUCTION ? 25000 : 45000; // 25 seconds in production (to fit within 60s limit), 45 seconds in development
 
 // Initialize OpenAI client with timeout
 const openai = new OpenAI({
@@ -18,7 +18,7 @@ const openai = new OpenAI({
 });
 
 // Control how image enhancement works with environment variables
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '90000', 10); // 90 seconds default
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '20000', 10); // 20 seconds default for production
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Function to create a timeout promise that rejects after a specified time
@@ -163,7 +163,7 @@ async function performTextToImageGeneration(
   controller: AbortController
 ): Promise<any> {
   // This is our simple prompt that works consistently with content policies
-  const enhancementPrompt = `Make the image better, ensure clean animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background`;
+  const enhancementPrompt = `Make the image better, ensure clean creature animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background`;
   
   console.log(`[${requestId}] DALLE ENHANCEMENT - Generating image with text-to-image prompt`);
 

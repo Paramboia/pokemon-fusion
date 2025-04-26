@@ -2,7 +2,7 @@ import Replicate from 'replicate';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const API_TIMEOUT = IS_PRODUCTION ? 75000 : 90000; // 75 seconds in production, 90 seconds in development
+const API_TIMEOUT = IS_PRODUCTION ? 25000 : 45000; // 25 seconds in production (to fit within 60s limit), 45 seconds in development
 const MAX_RETRIES = parseInt(process.env.REPLICATE_MAX_RETRIES || '2', 10);
 
 // Function to create a timeout promise that rejects after a specified time

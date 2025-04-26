@@ -126,7 +126,21 @@ The system uses these environment variables to control behavior:
 - `USE_STABLE_DIFFUSION` - Enable Stable Diffusion 3.5 (requires additional licensing)
 - `REPLICATE_API_TOKEN` - API token for Replicate
 - `OPENAI_API_KEY` - API key for OpenAI (for enhancement)
-- `ENHANCEMENT_TIMEOUT` - Timeout for the enhancement process in milliseconds (default: 90000 - 90 seconds)
+- `ENHANCEMENT_TIMEOUT` - Timeout for the enhancement process in milliseconds (default: 20000 - 20 seconds)
+
+## Timeout Configuration
+
+The system uses tiered timeouts to work within Vercel's limits:
+
+1. **API Route Timeout**: 60 seconds (Vercel Hobby plan limit)
+2. **Individual Service Timeouts**:
+   - Replicate Blend: 25 seconds
+   - DALL-E Enhancement: 20 seconds
+   - Stable Diffusion: 25 seconds (if used)
+
+If you upgrade to a Vercel Pro/Team plan, you can increase these timeouts:
+1. Change `maxDuration` in `route.ts` from 60 to 300 seconds
+2. Increase the service-specific timeouts accordingly
 
 ## Error Handling and Fallbacks
 

@@ -35,10 +35,10 @@ export function initializeConfig() {
     process.env.USE_URL_ONLY_ENHANCEMENT = 'true';
   }
 
-  // Default timeout is 60 seconds
+  // Default timeout is 20 seconds to fit within Vercel Hobby plan limits
   if (process.env.ENHANCEMENT_TIMEOUT === undefined) {
-    console.log('Setting ENHANCEMENT_TIMEOUT=90000 (default - 90 seconds)');
-    process.env.ENHANCEMENT_TIMEOUT = '90000';
+    console.log('Setting ENHANCEMENT_TIMEOUT=20000 (default - 20 seconds)');
+    process.env.ENHANCEMENT_TIMEOUT = '20000';
   }
 }
 

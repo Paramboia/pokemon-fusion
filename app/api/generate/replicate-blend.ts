@@ -10,6 +10,13 @@ const API_TIMEOUT = IS_PRODUCTION ? 75000 : 90000; // 75 seconds in production, 
 const MAX_RETRIES = parseInt(process.env.REPLICATE_MAX_RETRIES || '2', 10);
 const SAVE_LOCAL_COPIES = process.env.SAVE_LOCAL_COPIES !== 'false'; // Default to true
 
+// Function to create a timeout promise that rejects after a specified time
+function timeout(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
+  });
+}
+
 // Initialize Replicate client with timeout
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -28,8 +35,13 @@ async function downloadAndSaveImage(imageUrl: string, pokemon1Name: string, poke
     // Create directory path if it doesn't exist
     const outputDirPath = path.join(process.cwd(), 'public', 'pending_enhancement_output');
     if (!fs.existsSync(outputDirPath)) {
-      fs.mkdirSync(outputDirPath, { recursive: true });
-      console.log(`[${requestId}] Created directory: ${outputDirPath}`);
+      try {
+        fs.mkdirSync(outputDirPath, { recursive: true });
+        console.log(`[${requestId}] Created directory: ${outputDirPath}`);
+      } catch (dirError) {
+        console.error(`[${requestId}] Error creating directory: ${dirError instanceof Error ? dirError.message : String(dirError)}`);
+        // Continue even if directory creation fails - might already exist with different permissions
+      }
     }
 
     // Generate a unique filename based on Pokemon names and timestamp
@@ -40,24 +52,56 @@ async function downloadAndSaveImage(imageUrl: string, pokemon1Name: string, poke
     const filePath = path.join(outputDirPath, filename);
     const relativeFilePath = `/pending_enhancement_output/${filename}`;
 
-    // Download the image
+    // Download the image with a timeout
     console.log(`[${requestId}] Downloading image from ${imageUrl.substring(0, 50)}...`);
-    const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 10000 });
-    
-    // Save the image using sharp to ensure proper format
-    await sharp(Buffer.from(response.data))
-      .toFormat('png')
-      .toFile(filePath);
+    try {
+      const response = await axios.get(imageUrl, { 
+        responseType: 'arraybuffer', 
+        timeout: 15000, // Increase timeout to 15 seconds
+        maxContentLength: 10 * 1024 * 1024 // 10MB max size
+      });
+      
+      // Save the image using sharp to ensure proper format
+      await sharp(Buffer.from(response.data))
+        .toFormat('png')
+        .toFile(filePath);
 
-    console.log(`[${requestId}] Saved image to ${filePath}`);
-    
-    // Return both the remote URL and local path
-    return {
-      remoteUrl: imageUrl,
-      localUrl: relativeFilePath
-    };
+      console.log(`[${requestId}] Saved image to ${filePath}`);
+      
+      // Verify the file was actually saved
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        if (stats.size > 0) {
+          console.log(`[${requestId}] Verified file exists with size: ${stats.size} bytes`);
+          // Return both the remote URL and local path
+          return {
+            remoteUrl: imageUrl,
+            localUrl: relativeFilePath
+          };
+        } else {
+          console.error(`[${requestId}] File was created but has 0 bytes: ${filePath}`);
+          // File exists but is empty, treat as failure
+          return {
+            remoteUrl: imageUrl,
+            localUrl: null
+          };
+        }
+      } else {
+        console.error(`[${requestId}] Failed to save image - file doesn't exist after save operation: ${filePath}`);
+        return {
+          remoteUrl: imageUrl,
+          localUrl: null
+        };
+      }
+    } catch (downloadError) {
+      console.error(`[${requestId}] Error downloading image: ${downloadError instanceof Error ? downloadError.message : String(downloadError)}`);
+      return {
+        remoteUrl: imageUrl,
+        localUrl: null
+      };
+    }
   } catch (error) {
-    console.error(`Error saving image: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`[${requestId}] Error in downloadAndSaveImage: ${error instanceof Error ? error.message : String(error)}`);
     // If we can't save locally, just return the remote URL
     return {
       remoteUrl: imageUrl,
@@ -116,10 +160,14 @@ export async function generateWithReplicateBlend(
     
     while (retryCount <= MAX_RETRIES) {
       try {
-        output = await replicate.run(
-          "charlesmccarthy/blend-images:1ed8aaaa04fa84f0c1191679e765d209b94866f6503038416dcbcb340fede892",
-          { input }
-        );
+        // Use a race between the API call and a timeout
+        output = await Promise.race([
+          replicate.run(
+            "charlesmccarthy/blend-images:1ed8aaaa04fa84f0c1191679e765d209b94866f6503038416dcbcb340fede892",
+            { input }
+          ),
+          timeout(API_TIMEOUT - 1000) // Slightly shorter than the fetch timeout to ensure we get a clean error
+        ]);
         break; // If successful, exit the retry loop
       } catch (retryError) {
         retryCount++;
@@ -162,7 +210,16 @@ export async function generateWithReplicateBlend(
     if (SAVE_LOCAL_COPIES) {
       console.log(`[${requestId}] REPLICATE BLEND - Saving image to local storage`);
       try {
-        const savedImage = await downloadAndSaveImage(output, pokemon1Name, pokemon2Name, requestId);
+        // Use timeout to prevent hanging if download takes too long
+        const downloadPromise = downloadAndSaveImage(output, pokemon1Name, pokemon2Name, requestId);
+        const savedImage = await Promise.race([
+          downloadPromise,
+          timeout(20000) // 20 second timeout for image download/save
+        ]).catch(err => {
+          console.error(`[${requestId}] REPLICATE BLEND - Image save timed out: ${err.message}`);
+          return { remoteUrl: output, localUrl: null };
+        });
+        
         console.log(`[${requestId}] REPLICATE BLEND - Image saved successfully to ${savedImage.localUrl || 'unknown'}`);
         return savedImage;
       } catch (saveError) {
@@ -190,6 +247,8 @@ export async function generateWithReplicateBlend(
         console.error(`[${requestId}] REPLICATE BLEND - Rate limit reached. Please try again later.`);
       } else if (error.message.includes('timeout')) {
         console.error(`[${requestId}] REPLICATE BLEND - Request timed out after ${API_TIMEOUT}ms.`);
+      } else if (error.message.includes('abort') || error.message.includes('aborted')) {
+        console.error(`[${requestId}] REPLICATE BLEND - Request was aborted: ${error.message}`);
       }
     }
     

@@ -7,6 +7,7 @@ import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supaba
 import { generatePokemonFusion, enhanceWithDirectGeneration, enhanceImageWithGptVision } from './dalle';
 import { generateWithReplicateBlend } from './replicate-blend';
 import { generatePokemonFusionWithStableDiffusion, generateAdvancedPokemonFusion } from './stable-diffusion';
+import { initializeConfig, logConfigStatus } from './config';
 import path from 'path';
 import fs from 'fs';
 import OpenAI from 'openai';
@@ -14,6 +15,9 @@ import axios from 'axios';
 import os from 'os';
 import sharp from 'sharp';
 import FormData from 'form-data';
+
+// Initialize configuration to ensure all environment variables are set
+initializeConfig();
 
 // Log environment variables for debugging
 console.log('Generate API - REPLICATE_API_TOKEN available:', !!process.env.REPLICATE_API_TOKEN);
@@ -44,6 +48,20 @@ async function convertTransparentToWhite(imageUrl: string): Promise<string> {
 export async function POST(req: Request) {
   try {
     console.log("Generate API - POST request received");
+    
+    // Log full configuration status
+    logConfigStatus();
+    
+    // Create the pending_enhancement_output directory if it doesn't exist
+    const outputDirPath = path.join(process.cwd(), 'public', 'pending_enhancement_output');
+    if (!fs.existsSync(outputDirPath)) {
+      try {
+        fs.mkdirSync(outputDirPath, { recursive: true });
+        console.log(`Generate API - Created directory: ${outputDirPath}`);
+      } catch (dirError) {
+        console.error(`Generate API - Error creating directory: ${dirError instanceof Error ? dirError.message : String(dirError)}`);
+      }
+    }
     
     // Parse the request body
     const body = await req.json();

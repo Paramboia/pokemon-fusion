@@ -8,7 +8,9 @@ import sharp from 'sharp';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const API_TIMEOUT = IS_PRODUCTION ? 75000 : 90000; // 75 seconds in production, 90 seconds in development
 const MAX_RETRIES = parseInt(process.env.REPLICATE_MAX_RETRIES || '2', 10);
-const SAVE_LOCAL_COPIES = process.env.SAVE_LOCAL_COPIES !== 'false'; // Default to true
+
+// Explicitly check SAVE_LOCAL_COPIES - default to true if not set or 'true'
+const SAVE_LOCAL_COPIES = process.env.SAVE_LOCAL_COPIES === undefined || process.env.SAVE_LOCAL_COPIES === 'true';
 
 // Function to create a timeout promise that rejects after a specified time
 function timeout(ms: number): Promise<never> {
@@ -208,7 +210,7 @@ export async function generateWithReplicateBlend(
     
     // Save the image locally if enabled
     if (SAVE_LOCAL_COPIES) {
-      console.log(`[${requestId}] REPLICATE BLEND - Saving image to local storage`);
+      console.log(`[${requestId}] REPLICATE BLEND - Saving image to local storage (SAVE_LOCAL_COPIES=${SAVE_LOCAL_COPIES})`);
       try {
         // Use timeout to prevent hanging if download takes too long
         const downloadPromise = downloadAndSaveImage(output, pokemon1Name, pokemon2Name, requestId);
@@ -220,7 +222,21 @@ export async function generateWithReplicateBlend(
           return { remoteUrl: output, localUrl: null };
         });
         
-        console.log(`[${requestId}] REPLICATE BLEND - Image saved successfully to ${savedImage.localUrl || 'unknown'}`);
+        if (savedImage.localUrl) {
+          console.log(`[${requestId}] REPLICATE BLEND - Image saved successfully to ${savedImage.localUrl}`);
+          
+          // Verify the file exists after saving
+          const fullPath = path.join(process.cwd(), 'public', savedImage.localUrl);
+          if (fs.existsSync(fullPath)) {
+            const stats = fs.statSync(fullPath);
+            console.log(`[${requestId}] REPLICATE BLEND - Verified saved file: ${fullPath} (${stats.size} bytes)`);
+          } else {
+            console.error(`[${requestId}] REPLICATE BLEND - File verification failed: ${fullPath} does not exist`);
+          }
+        } else {
+          console.error(`[${requestId}] REPLICATE BLEND - Failed to save image locally`);
+        }
+        
         return savedImage;
       } catch (saveError) {
         console.error(`[${requestId}] REPLICATE BLEND - Error saving image:`, saveError);
@@ -228,7 +244,7 @@ export async function generateWithReplicateBlend(
         return output;
       }
     } else {
-      console.log(`[${requestId}] REPLICATE BLEND - Skipping local storage (disabled)`);
+      console.log(`[${requestId}] REPLICATE BLEND - Skipping local storage (SAVE_LOCAL_COPIES=${SAVE_LOCAL_COPIES})`);
       return output;
     }
   } catch (error) {

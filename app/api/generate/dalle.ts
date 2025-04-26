@@ -106,10 +106,31 @@ export async function enhanceWithDirectGeneration(
       // Check if we have a local file to use and local files aren't being skipped
       // Add extra validation to ensure the file exists
       const actualLocalPath = localImagePath ? path.join(process.cwd(), 'public', localImagePath) : null;
+      
+      console.log(`[${requestId}] DALLE ENHANCEMENT - Local file check:
+        Path: ${actualLocalPath || 'none provided'}
+        SKIP_LOCAL_FILES: ${SKIP_LOCAL_FILES}
+        USE_GPT_VISION_ENHANCEMENT: ${process.env.USE_GPT_VISION_ENHANCEMENT}
+      `);
+      
+      // Check if the file exists and has size
+      let fileExists = false;
+      let fileSize = 0;
+      
+      if (actualLocalPath) {
+        fileExists = fs.existsSync(actualLocalPath);
+        if (fileExists) {
+          fileSize = fs.statSync(actualLocalPath).size;
+          console.log(`[${requestId}] DALLE ENHANCEMENT - Local file exists with size: ${fileSize} bytes`);
+        } else {
+          console.log(`[${requestId}] DALLE ENHANCEMENT - Local file does not exist: ${actualLocalPath}`);
+        }
+      }
+      
       const hasLocalFile = !SKIP_LOCAL_FILES && 
                          actualLocalPath && 
-                         fs.existsSync(actualLocalPath) && 
-                         fs.statSync(actualLocalPath).size > 0;
+                         fileExists && 
+                         fileSize > 0;
       
       if (hasLocalFile && actualLocalPath) {
         // We have a local file, use image editing instead of direct generation

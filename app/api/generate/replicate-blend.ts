@@ -80,9 +80,9 @@ export async function generateWithReplicateBlend(
     console.warn(`[${requestId}] REPLICATE BLEND - START - ${pokemon1Name} + ${pokemon2Name} at ${new Date().toISOString()}`);
     console.log(`[${requestId}] REPLICATE BLEND - API Token check: ${process.env.REPLICATE_API_TOKEN ? 'present' : 'missing'}`);
 
-    // Check if the feature is enabled
-    if (process.env.USE_REPLICATE_BLEND !== 'true') {
-      console.warn(`[${requestId}] REPLICATE BLEND - SKIPPED - Feature is disabled`);
+    // Check if the feature is enabled (default to true if not set)
+    if (process.env.USE_REPLICATE_BLEND === 'false') {
+      console.warn(`[${requestId}] REPLICATE BLEND - SKIPPED - Feature is explicitly disabled`);
       return null;
     }
 

@@ -21,11 +21,16 @@ The system is designed for resilience and flexibility, with environment variable
 
 The system attempts to generate a fusion using the following sequence:
 
-1. Replicate Blend to create an initial fusion image (if `USE_REPLICATE_BLEND` is enabled)
-2. GPT Image Enhancement to refine the image (if `USE_GPT_VISION_ENHANCEMENT` is enabled)
-3. Stable Diffusion 3.5 as a fallback if the above methods fail (if `USE_STABLE_DIFFUSION` is enabled)
+1. **Primary Flow**:
+   - Replicate Blend creates the initial fusion image (img_1)
+   - This image is stored in the /public/pending_enhancement_output folder
+   - GPT Image Enhancement uses this locally stored image to enhance it, generating a new image (img_2)
+   - The enhanced image (img_2) is shown to the user
+   - The intermediate image (img_1) is deleted from /public/pending_enhancement_output folder
 
-If all methods fail, the system falls back to using one of the original Pokémon images (Simple Method).
+2. **Fallback Flow**:
+   - If Replicate Blend fails, or if it works but GPT enhancement fails, try Stable Diffusion 3.5
+   - If Stable Diffusion 3.5 fails, use the Simple Method (one of the original Pokémon images)
 
 ## Model Approaches
 
@@ -125,9 +130,10 @@ The system uses these environment variables to control behavior:
 
 The system includes a multi-layered fallback mechanism:
 
-1. If Replicate Blend fails, try Stable Diffusion 3.5
-2. If Stable Diffusion fails, use one of the original Pokémon images (Simple Method)
-3. Each implementation includes retries for API calls with exponential backoff
+1. Primary Generation: Replicate Blend + GPT Enhancement
+2. First Fallback: Stable Diffusion 3.5 if Replicate Blend fails or GPT Enhancement fails
+3. Final Fallback: Simple Method if all AI generation methods fail
+4. Each implementation includes retries for API calls with exponential backoff
 
 ## Optimizations
 
@@ -137,20 +143,5 @@ Several optimizations are included:
 2. Retry logic with exponential backoff for resilience
 3. Background conversion of transparent images to white backgrounds
 4. Storage of intermediate results in pending_enhancement_output folder (implemented in replicate-blend.ts)
-5. Logging at each step for debugging 
+5. Logging at each step for debugging
 
-## Step by Step Tasks to Model Architecture Changes
-
-The following tasks need to be completed to ensure the codebase follows the architecture outlined in this document:
-
-- [x] Create documentation (this README) outlining the architecture
-- [x] Update dalle.ts to implement proper enhanceWithDirectGeneration function
-- [x] Fix the function signature in dalle.ts to match route.ts usage
-- [x] Update route.ts to use the proper function call with correct parameters
-- [x] Ensure consistent error handling across all model implementations
-- [x] Add proper fallback mechanisms between models
-- [x] Update environment variable checks for better clarity
-- [x] Improve logging for debugging and monitoring
-- [x] Add support for model-specific timeouts
-- [x] Implement storage of intermediate results in pending_enhancement_output folder
-- [ ] Test the full generation pipeline with different combinations of models 

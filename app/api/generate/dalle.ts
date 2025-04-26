@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import sharp from 'sharp';
+import FormData from 'form-data';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
@@ -93,31 +94,83 @@ export async function enhanceWithDirectGeneration(
       // Force log this to ensure it appears in production logs
       console.warn(`[${requestId}] DALLE ENHANCEMENT - API CALL STARTING at ${new Date().toISOString()}`);
       
-      // This is our most reliable prompt that works consistently with content policies
-      const enhancementPrompt = `A digital illustration of an original animated creature design combining traits of ${pokemon1Name} and ${pokemon2Name}.
-        The creature is a fusion of these two Pokémon species with balanced features from both.
-        Style: Clean animation with smooth outlines, kid friendly
-        Background: Pure white
-        Composition: Single character centered in the frame
-        Details: Balanced proportions, friendly appearance, polished finish`;
+      let response;
       
-      console.log(`[${requestId}] DALLE ENHANCEMENT - Generating image with optimized prompt`);
-
-      // Generate a new image using GPT-image-1
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: enhancementPrompt,
-        n: 1,
-        size: "1024x1024"
-      });
-
+      // Check if we have a local file to use and local files aren't being skipped
+      const hasLocalFile = !SKIP_LOCAL_FILES && localImagePath && 
+                         fs.existsSync(path.join(process.cwd(), 'public', localImagePath));
+      
+      if (hasLocalFile) {
+        // We have a local file, use image editing instead of direct generation
+        console.log(`[${requestId}] DALLE ENHANCEMENT - Using local file for enhancement: ${localImagePath}`);
+        
+        try {
+          // Read the local file
+          const imagePath = path.join(process.cwd(), 'public', localImagePath);
+          const imageBuffer = fs.readFileSync(imagePath);
+          
+          // Image editing prompt - more tailored to enhance existing image
+          const enhancementPrompt = `Enhance this Pokemon fusion of ${pokemon1Name} and ${pokemon2Name}. 
+            Make it more vibrant with clean animation-style outlines, maintain kid-friendly appearance, 
+            and ensure completely pure white background. Improve the fusion design while keeping the 
+            same pose and overall characteristics.`;
+          
+          console.log(`[${requestId}] DALLE ENHANCEMENT - Using image editing with prompt`);
+          
+          // Set up form data for the API call
+          const formData = new FormData();
+          
+          formData.append('prompt', enhancementPrompt);
+          formData.append('n', '1');
+          formData.append('size', '1024x1024');
+          formData.append('model', 'gpt-image-1');
+          
+          // Add the image
+          formData.append('image', imageBuffer, {
+            filename: 'pokemon-fusion.png',
+            contentType: 'image/png',
+          });
+          
+          // Make the API call using axios
+          const editResponse = await axios.post(
+            'https://api.openai.com/v1/images/edits',
+            formData,
+            {
+              headers: {
+                'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+                ...formData.getHeaders(),
+              },
+              timeout: ENHANCEMENT_TIMEOUT * 0.6, // Use 60% of timeout for API call
+              signal: controller.signal
+            }
+          );
+          
+          // Convert the response to the expected format
+          response = {
+            data: editResponse.data.data
+          };
+          
+          console.log(`[${requestId}] DALLE ENHANCEMENT - Image editing API call successful`);
+        } catch (editError) {
+          console.error(`[${requestId}] DALLE ENHANCEMENT - Error with image editing:`, editError);
+          
+          // Fall back to text-to-image generation if editing fails
+          console.log(`[${requestId}] DALLE ENHANCEMENT - Falling back to text-to-image generation`);
+          response = await performTextToImageGeneration(requestId, pokemon1Name, pokemon2Name, controller);
+        }
+      } else {
+        // If no local file, use text-to-image generation
+        console.log(`[${requestId}] DALLE ENHANCEMENT - No local file available, using text-to-image generation`);
+        response = await performTextToImageGeneration(requestId, pokemon1Name, pokemon2Name, controller);
+      }
+      
       // Clear the timeout since we're done with the API call
       clearTimeout(timeoutId);
       
       const requestDuration = Date.now() - startTime;
       console.warn(`[${requestId}] DALLE ENHANCEMENT - API CALL COMPLETED in ${requestDuration}ms`);
       
-      if (!response.data || response.data.length === 0) {
+      if (!response?.data || response.data.length === 0) {
         console.error(`[${requestId}] DALLE ENHANCEMENT - ERROR: Empty response data`);
         return remoteImageUrl;
       }
@@ -126,6 +179,17 @@ export async function enhanceWithDirectGeneration(
       if (response.data[0]?.url) {
         const imageUrl = response.data[0].url;
         console.warn(`[${requestId}] DALLE ENHANCEMENT - SUCCESS: Generated URL: ${imageUrl.substring(0, 50)}...`);
+        
+        // Try to delete the local source image if available
+        if (hasLocalFile && localImagePath) {
+          try {
+            deleteLocalImage(path.join(process.cwd(), 'public', localImagePath), requestId);
+          } catch (deleteError) {
+            // Non-critical error, just log it
+            console.error(`[${requestId}] DALLE ENHANCEMENT - Failed to delete local image: ${deleteError}`);
+          }
+        }
+        
         return imageUrl;
       }
 
@@ -157,6 +221,34 @@ export async function enhanceWithDirectGeneration(
 }
 
 /**
+ * Helper function to perform text-to-image generation
+ */
+async function performTextToImageGeneration(
+  requestId: string,
+  pokemon1Name: string,
+  pokemon2Name: string,
+  controller: AbortController
+): Promise<any> {
+  // This is our most reliable prompt that works consistently with content policies
+  const enhancementPrompt = `A digital illustration of an original animated creature design combining traits of ${pokemon1Name} and ${pokemon2Name}.
+    The creature is a fusion of these two Pokémon species with balanced features from both.
+    Style: Clean animation with smooth outlines, kid friendly
+    Background: Pure white
+    Composition: Single character centered in the frame
+    Details: Balanced proportions, friendly appearance, polished finish`;
+  
+  console.log(`[${requestId}] DALLE ENHANCEMENT - Generating image with text-to-image prompt`);
+
+  // Generate a new image using GPT-image-1
+  return await openai.images.generate({
+    model: "gpt-image-1",
+    prompt: enhancementPrompt,
+    n: 1,
+    size: "1024x1024"
+  });
+}
+
+/**
  * Generate a Pokemon fusion using image editing approach
  * This function is kept for backward compatibility but modified to work with current API
  */
@@ -178,4 +270,16 @@ export async function generatePokemonFusion(
 export async function enhanceImageWithGptVision(): Promise<string | null> {
   console.log('GPT Direct Enhancement - enhanceImageWithGptVision is deprecated');
   return null;
+}
+
+/**
+ * Helper function to delete a local image file
+ */
+function deleteLocalImage(filePath: string, requestId: string): void {
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    console.log(`[${requestId}] DALLE ENHANCEMENT - Deleted local image at: ${filePath}`);
+  } else {
+    console.log(`[${requestId}] DALLE ENHANCEMENT - Local image not found: ${filePath}`);
+  }
 } 

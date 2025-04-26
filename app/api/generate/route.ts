@@ -21,6 +21,8 @@ console.log('Generate API - OPENAI_API_KEY available:', !!process.env.OPENAI_API
 console.log('Generate API - NEXT_PUBLIC_SUPABASE_URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
 console.log('Generate API - SUPABASE_SERVICE_ROLE_KEY available:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 console.log('Generate API - USE_STABLE_DIFFUSION:', process.env.USE_STABLE_DIFFUSION);
+console.log('Generate API - USE_GPT_VISION_ENHANCEMENT:', process.env.USE_GPT_VISION_ENHANCEMENT);
+console.log('Generate API - SAVE_LOCAL_COPIES:', process.env.SAVE_LOCAL_COPIES);
 
 // Function to get Pokémon image URL by ID
 function getPokemonImageUrl(id: number): string {
@@ -265,8 +267,40 @@ export async function POST(req: Request) {
               fusionImageUrl = replicateResult.remoteUrl;
               console.log('Generate API - Image stored locally at:', localImagePath);
               
+              // Verify if the local file actually exists
+              if (localImagePath) {
+                const fullLocalPath = path.join(process.cwd(), 'public', localImagePath);
+                const fileExists = fs.existsSync(fullLocalPath);
+                const fileSize = fileExists ? fs.statSync(fullLocalPath).size : 0;
+                console.log(`Generate API - Local file verification:
+                  Path: ${fullLocalPath}
+                  Exists: ${fileExists}
+                  Size: ${fileSize} bytes
+                `);
+                
+                // Create the directory if it doesn't exist (backup check)
+                const dirPath = path.dirname(fullLocalPath);
+                if (!fs.existsSync(dirPath)) {
+                  try {
+                    fs.mkdirSync(dirPath, { recursive: true });
+                    console.log(`Generate API - Created directory: ${dirPath}`);
+                  } catch (dirError) {
+                    console.error(`Generate API - Error creating directory: ${dirError instanceof Error ? dirError.message : String(dirError)}`);
+                  }
+                }
+              } else {
+                console.warn('Generate API - No local image path returned from Replicate Blend');
+              }
+              
               // Try to enhance the image with GPT if the environment variable is enabled
               const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
+              
+              console.log(`Generate API - Enhancement checks:
+                USE_GPT_VISION_ENHANCEMENT: ${process.env.USE_GPT_VISION_ENHANCEMENT}
+                Enhancement enabled: ${useGptEnhancement}
+                Has OpenAI key: ${!!process.env.OPENAI_API_KEY}
+                Has local image: ${!!localImagePath}
+              `);
               
               if (useGptEnhancement && process.env.OPENAI_API_KEY) {
                 try {
@@ -280,7 +314,7 @@ export async function POST(req: Request) {
                   );
                   
                   if (enhancedImageUrl) {
-                    console.log('Generate API - Successfully enhanced image with GPT');
+                    console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
                     fusionImageUrl = enhancedImageUrl;
                     
                     // Attempt to delete the intermediate image from pending_enhancement_output

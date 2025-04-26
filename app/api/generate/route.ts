@@ -52,17 +52,6 @@ export async function POST(req: Request) {
     // Log full configuration status
     logConfigStatus();
     
-    // Create the pending_enhancement_output directory if it doesn't exist
-    const outputDirPath = path.join(process.cwd(), 'public', 'pending_enhancement_output');
-    if (!fs.existsSync(outputDirPath)) {
-      try {
-        fs.mkdirSync(outputDirPath, { recursive: true });
-        console.log(`Generate API - Created directory: ${outputDirPath}`);
-      } catch (dirError) {
-        console.error(`Generate API - Error creating directory: ${dirError instanceof Error ? dirError.message : String(dirError)}`);
-      }
-    }
-    
     // Parse the request body
     const body = await req.json();
     console.log("Generate API - Raw request body:", body);
@@ -216,12 +205,14 @@ export async function POST(req: Request) {
       const useOpenAI = process.env.USE_OPENAI_MODEL === 'true';
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
       const useStableDiffusion = process.env.USE_STABLE_DIFFUSION === 'true';
+      const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
       
       console.log('Generate API - Model selection:', { 
         useReplicate, 
         useOpenAI,
         useReplicateBlend,
-        useStableDiffusion
+        useStableDiffusion,
+        useGptEnhancement
       });
 
       let fusionImageUrl: string | null = null;
@@ -264,7 +255,7 @@ export async function POST(req: Request) {
             throw new Error('REPLICATE_API_TOKEN not available');
           }
           
-          // Generate fusion with Replicate Blend
+          // Generate fusion with Replicate Blend - now returns URL directly
           const replicateResult = await generateWithReplicateBlend(
             pokemon1Name,
             pokemon2Name,
@@ -274,93 +265,34 @@ export async function POST(req: Request) {
           
           if (replicateResult) {
             console.log('Generate API - Successfully generated fusion with Replicate Blend');
+            fusionImageUrl = replicateResult;
             
-            // Handle potential object return type with remoteUrl and localUrl
-            let localImagePath: string | null = null;
+            console.log('Generate API - Replicate Blend image URL:', fusionImageUrl);
             
-            if (typeof replicateResult === 'object' && 'remoteUrl' in replicateResult) {
-              // Store the local URL for enhancement
-              localImagePath = replicateResult.localUrl;
-              // Use the remote URL for the fusion image
-              fusionImageUrl = replicateResult.remoteUrl;
-              console.log('Generate API - Image stored locally at:', localImagePath);
-              
-              // Verify if the local file actually exists
-              if (localImagePath) {
-                const fullLocalPath = path.join(process.cwd(), 'public', localImagePath);
-                const fileExists = fs.existsSync(fullLocalPath);
-                const fileSize = fileExists ? fs.statSync(fullLocalPath).size : 0;
-                console.log(`Generate API - Local file verification:
-                  Path: ${fullLocalPath}
-                  Exists: ${fileExists}
-                  Size: ${fileSize} bytes
-                `);
+            // Try to enhance the image with GPT if the environment variable is enabled
+            if (useGptEnhancement && process.env.OPENAI_API_KEY) {
+              try {
+                console.log('Generate API - Attempting to enhance fusion image with GPT');
                 
-                // Create the directory if it doesn't exist (backup check)
-                const dirPath = path.dirname(fullLocalPath);
-                if (!fs.existsSync(dirPath)) {
-                  try {
-                    fs.mkdirSync(dirPath, { recursive: true });
-                    console.log(`Generate API - Created directory: ${dirPath}`);
-                  } catch (dirError) {
-                    console.error(`Generate API - Error creating directory: ${dirError instanceof Error ? dirError.message : String(dirError)}`);
-                  }
+                // Use URL for enhancement
+                const enhancedImageUrl = await enhanceWithDirectGeneration(
+                  pokemon1Name,
+                  pokemon2Name,
+                  fusionImageUrl
+                );
+                
+                if (enhancedImageUrl) {
+                  console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
+                  fusionImageUrl = enhancedImageUrl;
+                } else {
+                  console.log('Generate API - GPT enhancement failed, using original Replicate Blend image');
                 }
-              } else {
-                console.warn('Generate API - No local image path returned from Replicate Blend');
-              }
-              
-              // Try to enhance the image with GPT if the environment variable is enabled
-              const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
-              
-              console.log(`Generate API - Enhancement checks:
-                USE_GPT_VISION_ENHANCEMENT: ${process.env.USE_GPT_VISION_ENHANCEMENT}
-                Enhancement enabled: ${useGptEnhancement}
-                Has OpenAI key: ${!!process.env.OPENAI_API_KEY}
-                Has local image: ${!!localImagePath}
-              `);
-              
-              if (useGptEnhancement && process.env.OPENAI_API_KEY) {
-                try {
-                  console.log('Generate API - Attempting to enhance with GPT enhancement using locally stored image');
-                  
-                  // Use the local file path and remote URL for enhancement
-                  const enhancedImageUrl = await enhanceWithDirectGeneration(
-                    pokemon1Name,
-                    pokemon2Name,
-                    { remoteUrl: fusionImageUrl, localUrl: localImagePath }
-                  );
-                  
-                  if (enhancedImageUrl) {
-                    console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
-                    fusionImageUrl = enhancedImageUrl;
-                    
-                    // Attempt to delete the intermediate image from pending_enhancement_output
-                    try {
-                      if (localImagePath) {
-                        const fullLocalPath = path.join(process.cwd(), 'public', localImagePath);
-                        if (fs.existsSync(fullLocalPath)) {
-                          fs.unlinkSync(fullLocalPath);
-                          console.log(`Generate API - Deleted intermediate image at: ${fullLocalPath}`);
-                        }
-                      }
-                    } catch (deleteError) {
-                      console.error('Generate API - Error deleting intermediate image:', deleteError);
-                      // Continue even if deletion fails
-                    }
-                  } else {
-                    console.log('Generate API - GPT enhancement failed, using original Replicate Blend image');
-                  }
-                } catch (enhancementError) {
-                  console.error('Generate API - Error enhancing with GPT:', enhancementError);
-                  console.log('Generate API - Using original Replicate Blend image');
-                }
-              } else {
-                console.log('Generate API - GPT enhancement not enabled or OpenAI key not available');
+              } catch (enhancementError) {
+                console.error('Generate API - Error enhancing with GPT:', enhancementError);
+                console.log('Generate API - Using original Replicate Blend image');
               }
             } else {
-              // If it's a string, use it directly
-              fusionImageUrl = replicateResult as string;
+              console.log('Generate API - GPT enhancement not enabled or OpenAI key not available');
             }
           } else {
             console.log('Generate API - Replicate Blend failed, will try another model');
@@ -394,8 +326,6 @@ export async function POST(req: Request) {
             console.log('Generate API - Successfully generated fusion with Stable Diffusion 3.5');
             
             // Try to enhance the image with GPT-4 Vision if OpenAI API key is available
-            const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
-            
             if (useGptEnhancement && process.env.OPENAI_API_KEY) {
               try {
                 console.log('Generate API - Attempting to enhance Stable Diffusion image with GPT');
@@ -404,7 +334,7 @@ export async function POST(req: Request) {
                 const enhancedImageUrl = await enhanceWithDirectGeneration(
                   pokemon1Name,
                   pokemon2Name,
-                  { remoteUrl: stableDiffusionImageUrl, localUrl: null }
+                  stableDiffusionImageUrl
                 );
                 
                 if (enhancedImageUrl) {

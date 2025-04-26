@@ -1,16 +1,9 @@
 import Replicate from 'replicate';
-import fs from 'fs';
-import path from 'path';
-import axios from 'axios';
-import sharp from 'sharp';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const API_TIMEOUT = IS_PRODUCTION ? 75000 : 90000; // 75 seconds in production, 90 seconds in development
 const MAX_RETRIES = parseInt(process.env.REPLICATE_MAX_RETRIES || '2', 10);
-
-// Explicitly check SAVE_LOCAL_COPIES - default to true if not set or 'true'
-const SAVE_LOCAL_COPIES = process.env.SAVE_LOCAL_COPIES === undefined || process.env.SAVE_LOCAL_COPIES === 'true';
 
 // Function to create a timeout promise that rejects after a specified time
 function timeout(ms: number): Promise<never> {
@@ -31,93 +24,12 @@ const replicate = new Replicate({
   }
 });
 
-// Helper function to download and save an image
-async function downloadAndSaveImage(imageUrl: string, pokemon1Name: string, pokemon2Name: string, requestId: string): Promise<{ remoteUrl: string, localUrl: string | null }> {
-  try {
-    // Create directory path if it doesn't exist
-    const outputDirPath = path.join(process.cwd(), 'public', 'pending_enhancement_output');
-    if (!fs.existsSync(outputDirPath)) {
-      try {
-        fs.mkdirSync(outputDirPath, { recursive: true });
-        console.log(`[${requestId}] Created directory: ${outputDirPath}`);
-      } catch (dirError) {
-        console.error(`[${requestId}] Error creating directory: ${dirError instanceof Error ? dirError.message : String(dirError)}`);
-        // Continue even if directory creation fails - might already exist with different permissions
-      }
-    }
-
-    // Generate a unique filename based on Pokemon names and timestamp
-    const timestamp = Date.now();
-    const sanitizedPokemon1 = pokemon1Name.replace(/[^a-zA-Z0-9]/g, '');
-    const sanitizedPokemon2 = pokemon2Name.replace(/[^a-zA-Z0-9]/g, '');
-    const filename = `replicate-blend_${sanitizedPokemon1}_${sanitizedPokemon2}_${timestamp}.png`;
-    const filePath = path.join(outputDirPath, filename);
-    const relativeFilePath = `/pending_enhancement_output/${filename}`;
-
-    // Download the image with a timeout
-    console.log(`[${requestId}] Downloading image from ${imageUrl.substring(0, 50)}...`);
-    try {
-      const response = await axios.get(imageUrl, { 
-        responseType: 'arraybuffer', 
-        timeout: 15000, // Increase timeout to 15 seconds
-        maxContentLength: 10 * 1024 * 1024 // 10MB max size
-      });
-      
-      // Save the image using sharp to ensure proper format
-      await sharp(Buffer.from(response.data))
-        .toFormat('png')
-        .toFile(filePath);
-
-      console.log(`[${requestId}] Saved image to ${filePath}`);
-      
-      // Verify the file was actually saved
-      if (fs.existsSync(filePath)) {
-        const stats = fs.statSync(filePath);
-        if (stats.size > 0) {
-          console.log(`[${requestId}] Verified file exists with size: ${stats.size} bytes`);
-          // Return both the remote URL and local path
-          return {
-            remoteUrl: imageUrl,
-            localUrl: relativeFilePath
-          };
-        } else {
-          console.error(`[${requestId}] File was created but has 0 bytes: ${filePath}`);
-          // File exists but is empty, treat as failure
-          return {
-            remoteUrl: imageUrl,
-            localUrl: null
-          };
-        }
-      } else {
-        console.error(`[${requestId}] Failed to save image - file doesn't exist after save operation: ${filePath}`);
-        return {
-          remoteUrl: imageUrl,
-          localUrl: null
-        };
-      }
-    } catch (downloadError) {
-      console.error(`[${requestId}] Error downloading image: ${downloadError instanceof Error ? downloadError.message : String(downloadError)}`);
-      return {
-        remoteUrl: imageUrl,
-        localUrl: null
-      };
-    }
-  } catch (error) {
-    console.error(`[${requestId}] Error in downloadAndSaveImage: ${error instanceof Error ? error.message : String(error)}`);
-    // If we can't save locally, just return the remote URL
-    return {
-      remoteUrl: imageUrl,
-      localUrl: null
-    };
-  }
-}
-
 export async function generateWithReplicateBlend(
   pokemon1Name: string,
   pokemon2Name: string,
   processedImage1: string,
   processedImage2: string
-): Promise<string | null | { remoteUrl: string, localUrl: string | null }> {
+): Promise<string | null> {
   const requestId = `replicate-blend-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const startTime = Date.now();
   
@@ -205,48 +117,10 @@ export async function generateWithReplicateBlend(
     // If output is not a string (URL), just return it as is
     if (typeof output !== 'string') {
       console.error(`[${requestId}] REPLICATE BLEND - ERROR - Output is not a string URL`);
-      return output as string;
+      return null;
     }
     
-    // Save the image locally if enabled
-    if (SAVE_LOCAL_COPIES) {
-      console.log(`[${requestId}] REPLICATE BLEND - Saving image to local storage (SAVE_LOCAL_COPIES=${SAVE_LOCAL_COPIES})`);
-      try {
-        // Use timeout to prevent hanging if download takes too long
-        const downloadPromise = downloadAndSaveImage(output, pokemon1Name, pokemon2Name, requestId);
-        const savedImage = await Promise.race([
-          downloadPromise,
-          timeout(20000) // 20 second timeout for image download/save
-        ]).catch(err => {
-          console.error(`[${requestId}] REPLICATE BLEND - Image save timed out: ${err.message}`);
-          return { remoteUrl: output, localUrl: null };
-        });
-        
-        if (savedImage.localUrl) {
-          console.log(`[${requestId}] REPLICATE BLEND - Image saved successfully to ${savedImage.localUrl}`);
-          
-          // Verify the file exists after saving
-          const fullPath = path.join(process.cwd(), 'public', savedImage.localUrl);
-          if (fs.existsSync(fullPath)) {
-            const stats = fs.statSync(fullPath);
-            console.log(`[${requestId}] REPLICATE BLEND - Verified saved file: ${fullPath} (${stats.size} bytes)`);
-          } else {
-            console.error(`[${requestId}] REPLICATE BLEND - File verification failed: ${fullPath} does not exist`);
-          }
-        } else {
-          console.error(`[${requestId}] REPLICATE BLEND - Failed to save image locally`);
-        }
-        
-        return savedImage;
-      } catch (saveError) {
-        console.error(`[${requestId}] REPLICATE BLEND - Error saving image:`, saveError);
-        // Return just the URL if saving fails
-        return output;
-      }
-    } else {
-      console.log(`[${requestId}] REPLICATE BLEND - Skipping local storage (SAVE_LOCAL_COPIES=${SAVE_LOCAL_COPIES})`);
-      return output;
-    }
+    return output;
   } catch (error) {
     const requestDuration = Date.now() - startTime;
     console.error(`[${requestId}] REPLICATE BLEND - ERROR - Failed after ${requestDuration}ms:`, {

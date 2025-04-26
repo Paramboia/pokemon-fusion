@@ -16,6 +16,7 @@ The system is designed for resilience and flexibility, with environment variable
 - `replicate-blend.ts` - Implementation for the initial fusion using Replicate's blend-images model
 - `dalle.ts` - Enhances the initial fusion using OpenAI's GPT-image-1 model
 - `stable-diffusion.ts` - Implementation for Stable Diffusion 3.5 (requires additional licensing)
+- `config.ts` - Configuration module that sets default environment variables
 
 ## Generation Pipeline
 
@@ -23,19 +24,18 @@ The system attempts to generate a fusion using the following sequence:
 
 1. **Primary Flow**:
    - Replicate Blend creates the initial fusion image (img_1)
-   - This image is stored in the /public/pending_enhancement_output folder
-   - GPT Image Enhancement uses this locally stored image to enhance it, generating a new image (img_2)
+   - The URL of this image is passed directly to the GPT Image Enhancement
+   - GPT Image Enhancement uses the URL to generate a new enhanced image (img_2)
    - The enhanced image (img_2) is shown to the user
-   - The intermediate image (img_1) is deleted from /public/pending_enhancement_output folder
 
 2. **Fallback Flow**:
-   - If Replicate Blend fails, or if it works but GPT enhancement fails, try Stable Diffusion 3.5
+   - If Replicate Blend fails, try Stable Diffusion 3.5
    - If Stable Diffusion 3.5 fails, use the Simple Method (one of the original Pokémon images)
 
 ## Model Approaches
 
 - **Replicate Blend**: Uses two Pokémon images as input to blend their features
-- **GPT Image Enhancement**: Takes the output from Replicate Blend and refines it with the prompt: "Make the image better, ensure clean animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background"
+- **GPT Image Enhancement**: Takes the URL output from Replicate Blend and uses it with a prompt to generate an improved version: "Create an enhanced version of this Pokemon fusion, with clean animation-style outlines, kid-friendly appearance, and pure white background"
 - **Stable Diffusion 3.5**: Uses advanced diffusion techniques to create a fusion based on the two Pokémon
 - **Simple Method**: Uses one of the original Pokémon images as a fallback if all AI generation methods fail
 
@@ -104,7 +104,7 @@ Each model implementation file should follow these patterns:
    - `processedImage1`, `processedImage2` - URLs or base64 of the Pokemon images
    
 2. Return types should be consistent:
-   - Return a structured object with the URL of the generated image on success
+   - Return a URL string or object with the URL of the generated image on success
    - Return `null` if generation fails but doesn't throw an error
    
 3. Include robust error handling:
@@ -120,11 +120,13 @@ Each model implementation file should follow these patterns:
 
 The system uses these environment variables to control behavior:
 
-- `USE_REPLICATE_BLEND` - Enable Replicate Blend for initial fusion
-- `USE_GPT_VISION_ENHANCEMENT` - Enable GPT Image Enhancement for refining the fusion
+- `USE_REPLICATE_BLEND` - Enable Replicate Blend for initial fusion (default: true)
+- `USE_GPT_VISION_ENHANCEMENT` - Enable GPT Image Enhancement for refining the fusion (default: true)
+- `USE_URL_ONLY_ENHANCEMENT` - Use URL-only approach for enhancement without saving files (default: true)
 - `USE_STABLE_DIFFUSION` - Enable Stable Diffusion 3.5 (requires additional licensing)
 - `REPLICATE_API_TOKEN` - API token for Replicate
 - `OPENAI_API_KEY` - API key for OpenAI (for enhancement)
+- `ENHANCEMENT_TIMEOUT` - Timeout for the enhancement process in milliseconds (default: 60000)
 
 ## Error Handling and Fallbacks
 
@@ -139,9 +141,14 @@ The system includes a multi-layered fallback mechanism:
 
 Several optimizations are included:
 
-1. Timeout configuration for API calls to stay within Vercel limits
-2. Retry logic with exponential backoff for resilience
-3. Background conversion of transparent images to white backgrounds
-4. Storage of intermediate results in pending_enhancement_output folder (implemented in replicate-blend.ts)
+1. URL-only approach: Uses direct URLs between services without saving to disk
+   - Eliminates file system operations for greater reliability
+   - Better suited for serverless environments
+   - Reduces latency by eliminating download/upload steps
+   - More scalable and stateless architecture
+
+2. Timeout configuration for API calls to stay within Vercel limits
+3. Retry logic with exponential backoff for resilience
+4. Background conversion of transparent images to white backgrounds
 5. Logging at each step for debugging
 

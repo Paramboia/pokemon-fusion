@@ -5,10 +5,10 @@
 
 // Force set environment variables if not already set
 export function initializeConfig() {
-  // Default to true for image saving
+  // Default to false for image saving (switching to URL-based approach)
   if (process.env.SAVE_LOCAL_COPIES === undefined) {
-    console.log('Setting SAVE_LOCAL_COPIES=true (default)');
-    process.env.SAVE_LOCAL_COPIES = 'true';
+    console.log('Setting SAVE_LOCAL_COPIES=false (default - using URL-based enhancement)');
+    process.env.SAVE_LOCAL_COPIES = 'false';
   }
 
   // Default to true for enhancement
@@ -23,10 +23,16 @@ export function initializeConfig() {
     process.env.USE_REPLICATE_BLEND = 'true';
   }
 
-  // Default to false for skipping local files
+  // Default to true for skipping local files - we now prefer URL-based enhancement
   if (process.env.SKIP_LOCAL_FILES === undefined) {
-    console.log('Setting SKIP_LOCAL_FILES=false (default)');
-    process.env.SKIP_LOCAL_FILES = 'false';
+    console.log('Setting SKIP_LOCAL_FILES=true (default - using URL-based enhancement)');
+    process.env.SKIP_LOCAL_FILES = 'true';
+  }
+
+  // Default to URL-only approach for enhancement
+  if (process.env.USE_URL_ONLY_ENHANCEMENT === undefined) {
+    console.log('Setting USE_URL_ONLY_ENHANCEMENT=true (default)');
+    process.env.USE_URL_ONLY_ENHANCEMENT = 'true';
   }
 
   // Default timeout is 60 seconds
@@ -41,6 +47,7 @@ export function logConfigStatus() {
   console.log('*** Image Generation Configuration ***');
   console.log(`SAVE_LOCAL_COPIES: ${process.env.SAVE_LOCAL_COPIES}`);
   console.log(`USE_GPT_VISION_ENHANCEMENT: ${process.env.USE_GPT_VISION_ENHANCEMENT}`);
+  console.log(`USE_URL_ONLY_ENHANCEMENT: ${process.env.USE_URL_ONLY_ENHANCEMENT}`);
   console.log(`USE_REPLICATE_BLEND: ${process.env.USE_REPLICATE_BLEND}`);
   console.log(`SKIP_LOCAL_FILES: ${process.env.SKIP_LOCAL_FILES}`);
   console.log(`ENHANCEMENT_TIMEOUT: ${process.env.ENHANCEMENT_TIMEOUT}`);

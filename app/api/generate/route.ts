@@ -237,15 +237,28 @@ export async function POST(req: Request) {
             throw new Error('REPLICATE_API_TOKEN not available');
           }
           
-          fusionImageUrl = await generateWithReplicateBlend(
+          // Generate fusion with Replicate Blend
+          const replicateResult = await generateWithReplicateBlend(
             pokemon1Name,
             pokemon2Name,
             processedImage1,
             processedImage2
           );
           
-          if (fusionImageUrl) {
+          if (replicateResult) {
             console.log('Generate API - Successfully generated fusion with Replicate Blend');
+            
+            // Handle potential object return type with remoteUrl and localUrl
+            if (typeof replicateResult === 'object' && 'remoteUrl' in replicateResult) {
+              // Store the local URL for later enhancement if needed
+              const localImagePath = replicateResult.localUrl;
+              // Use the remote URL for the fusion image
+              fusionImageUrl = replicateResult.remoteUrl;
+              console.log('Generate API - Image stored locally at:', localImagePath);
+            } else {
+              // If it's a string, use it directly
+              fusionImageUrl = replicateResult as string;
+            }
           } else {
             console.log('Generate API - Replicate Blend failed, will try another model');
           }
@@ -287,7 +300,8 @@ export async function POST(req: Request) {
                 // Use direct generation instead of image editing
                 const enhancedImageUrl = await enhanceWithDirectGeneration(
                   pokemon1Name,
-                  pokemon2Name
+                  pokemon2Name,
+                  { remoteUrl: stableDiffusionImageUrl, localUrl: null }
                 );
                 
                 if (enhancedImageUrl) {

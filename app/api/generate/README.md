@@ -1,62 +1,38 @@
 # Pokemon Fusion Generation Architecture
 
-This document explains the technical architecture of the Pokemon fusion generation system, to help future developers adapt or extend it.
+This document explains the technical architecture of the Pokemon fusion generation system, to help future developers.
 
 ## Overview
 
-The generation system uses a pipeline approach with multiple AI models, attempting each one in sequence until a successful fusion is generated. The system is designed for resilience and flexibility, with environment variables controlling which models are enabled.
+The generation system uses a two-step process for creating AI-generated Pokémon fusions:
+1. **Replicate Blend**: Creates the initial fusion image by blending features from two Pokémon
+2. **GPT Image Enhancement**: Refines the image using OpenAI's GPT-image-1 model to ensure high quality
+
+The system is designed for resilience and flexibility, with environment variables controlling which models are enabled. If the AI generation fails, the system falls back to the Simple Method.
 
 ## Key Files
 
-- `route.ts` - Main API endpoint handler that orchestrates the generation pipeline
-- `stable-diffusion.ts` - Implementation for Stable Diffusion 3.5
-- `replicate-blend.ts` - Implementation for Replicate's blending model
-- `dalle.ts` - Implementation for DALL-E/OpenAI image models and GPT-4 Vision enhancement
+- `route.ts` - Main API endpoint handler that orchestrates the generation process
+- `replicate-blend.ts` - Implementation for the initial fusion using Replicate's blend-images model
+- `dalle.ts` - Enhances the initial fusion using OpenAI's GPT-image-1 model
+- `stable-diffusion.ts` - Implementation for Stable Diffusion 3.5 (requires additional licensing)
 
 ## Generation Pipeline
 
-The system attempts to generate a fusion using each enabled model in the following order:
+The system attempts to generate a fusion using the following sequence:
 
-1. OpenAI Image Editing (if `useImageEditing` is true)
-2. Replicate Blend (if `USE_REPLICATE_BLEND` is enabled)
-3. Stable Diffusion 3.5 (if `USE_STABLE_DIFFUSION` is enabled)
-   - With optional GPT-4 direct generation enhancement (if `USE_GPT_VISION_ENHANCEMENT` is enabled)
-4. DALL-E 3 (if `USE_OPENAI_MODEL` is enabled) - currently a placeholder
-5. Legacy Replicate model (if `USE_REPLICATE_MODEL` is enabled)
+1. Replicate Blend to create an initial fusion image (if `USE_REPLICATE_BLEND` is enabled)
+2. GPT Image Enhancement to refine the image (if `USE_GPT_VISION_ENHANCEMENT` is enabled)
+3. Stable Diffusion 3.5 as a fallback if the above methods fail (if `USE_STABLE_DIFFUSION` is enabled)
 
-If all models fail, the system falls back to using one of the original Pokemon images.
+If all methods fail, the system falls back to using one of the original Pokémon images (Simple Method).
 
 ## Model Approaches
 
-Different models use different approaches to generate fusions:
-
-- **OpenAI Image Editing**: Uses actual image manipulation to edit/blend two Pokémon images
-- **Replicate Blend**: Uses a specialized model to blend two input images
-- **Stable Diffusion 3.5**: Uses only Pokémon names with text-to-image generation (no image inputs)
-- **GPT-4 Direct Generation**: Creates a new image from scratch based on Pokémon names for higher quality results
-- **Legacy Replicate**: Uses both images and names for generation
-
-## GPT-4 Direct Generation Enhancement
-
-The GPT-4 enhancement is a parallel generation step that runs after Stable Diffusion. Instead of trying to enhance the Stable Diffusion image directly (which can trigger content policy warnings), this approach:
-
-1. Takes the same Pokémon names that were used for Stable Diffusion
-2. Uses OpenAI's GPT-4 Vision model (`gpt-image-1`) to generate a completely new image
-3. Creates a high-quality, polished fusion with clean lines and balanced proportions
-4. Uses carefully crafted generic prompts to avoid content policy issues
-
-### Dealing with Content Policies
-
-OpenAI's models have strict content policies that sometimes flag Pokémon-related imagery. To work around this:
-
-1. We use generic prompts that describe characteristics without using specific names
-2. Instead of "Charizard and Blastoise fusion", we say "a creature with dragon-like and turtle-like features"
-3. We use color descriptions like "orange and blue color palette" instead of direct references
-4. We ensure the prompts focus on artistic elements (clean lines, balanced proportions) rather than specific character traits
-
-This approach is used as a superior alternative to the Stable Diffusion output when available. If the GPT-4 generation fails for any reason, the system falls back to using the Stable Diffusion image.
-
-To enable this feature, set `USE_GPT_VISION_ENHANCEMENT=true` in your environment variables. You must also have an OpenAI API key with access to the GPT-4 Vision model.
+- **Replicate Blend**: Uses two Pokémon images as input to blend their features
+- **GPT Image Enhancement**: Takes the output from Replicate Blend and refines it with the prompt: "Make the image better, ensure clean animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background"
+- **Stable Diffusion 3.5**: Uses advanced diffusion techniques to create a fusion based on the two Pokémon
+- **Simple Method**: Uses one of the original Pokémon images as a fallback if all AI generation methods fail
 
 ## Adding a New Model
 
@@ -79,10 +55,8 @@ const useNewModel = process.env.ENABLE_NEW_MODEL === 'true';
 
 // Update the model selection logging
 console.log('Generate API - Model selection:', { 
-  useReplicate, 
-  useOpenAI,
   useReplicateBlend,
-  useStableDiffusion,
+  useGptEnhancement,
   useNewModel
 });
 
@@ -125,7 +99,7 @@ Each model implementation file should follow these patterns:
    - `processedImage1`, `processedImage2` - URLs or base64 of the Pokemon images
    
 2. Return types should be consistent:
-   - Return `string` with the URL of the generated image on success
+   - Return a structured object with the URL of the generated image on success
    - Return `null` if generation fails but doesn't throw an error
    
 3. Include robust error handling:
@@ -141,21 +115,19 @@ Each model implementation file should follow these patterns:
 
 The system uses these environment variables to control behavior:
 
-- `USE_REPLICATE_MODEL` - Enable legacy Replicate model
-- `USE_OPENAI_MODEL` - Enable DALL-E 3 (placeholder)
-- `USE_REPLICATE_BLEND` - Enable Replicate's blending model
-- `USE_STABLE_DIFFUSION` - Enable Stable Diffusion 3.5
-- `USE_GPT_VISION_ENHANCEMENT` - Enable GPT-4 direct generation enhancement
+- `USE_REPLICATE_BLEND` - Enable Replicate Blend for initial fusion
+- `USE_GPT_VISION_ENHANCEMENT` - Enable GPT Image Enhancement for refining the fusion
+- `USE_STABLE_DIFFUSION` - Enable Stable Diffusion 3.5 (requires additional licensing)
 - `REPLICATE_API_TOKEN` - API token for Replicate
-- `OPENAI_API_KEY` - API key for OpenAI
+- `OPENAI_API_KEY` - API key for OpenAI (for enhancement)
 
 ## Error Handling and Fallbacks
 
-The system includes multiple fallback mechanisms:
+The system includes a multi-layered fallback mechanism:
 
-1. If one model fails, the next one is attempted
-2. If all models fail, the system uses a processed original image
-3. Each model implementation includes retries for API calls
+1. If Replicate Blend fails, try Stable Diffusion 3.5
+2. If Stable Diffusion fails, use one of the original Pokémon images (Simple Method)
+3. Each implementation includes retries for API calls with exponential backoff
 
 ## Optimizations
 
@@ -164,4 +136,21 @@ Several optimizations are included:
 1. Timeout configuration for API calls to stay within Vercel limits
 2. Retry logic with exponential backoff for resilience
 3. Background conversion of transparent images to white backgrounds
-4. Logging at each step for debugging 
+4. Storage of intermediate results in pending_enhancement_output folder (implemented in replicate-blend.ts)
+5. Logging at each step for debugging 
+
+## Step by Step Tasks to Model Architecture Changes
+
+The following tasks need to be completed to ensure the codebase follows the architecture outlined in this document:
+
+- [x] Create documentation (this README) outlining the architecture
+- [x] Update dalle.ts to implement proper enhanceWithDirectGeneration function
+- [x] Fix the function signature in dalle.ts to match route.ts usage
+- [x] Update route.ts to use the proper function call with correct parameters
+- [x] Ensure consistent error handling across all model implementations
+- [x] Add proper fallback mechanisms between models
+- [x] Update environment variable checks for better clarity
+- [x] Improve logging for debugging and monitoring
+- [x] Add support for model-specific timeouts
+- [x] Implement storage of intermediate results in pending_enhancement_output folder
+- [ ] Test the full generation pipeline with different combinations of models 

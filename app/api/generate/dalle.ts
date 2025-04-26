@@ -18,7 +18,7 @@ const openai = new OpenAI({
 });
 
 // Control how image enhancement works with environment variables
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '45000', 10); // 45 seconds default
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '90000', 10); // 90 seconds default
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Function to create a timeout promise that rejects after a specified time
@@ -42,7 +42,7 @@ export async function enhanceWithDirectGeneration(
   
   // Force log this message to ensure it's visible in production
   console.warn(`[${requestId}] DALLE ENHANCEMENT - START - ${pokemon1Name} + ${pokemon2Name} at ${new Date().toISOString()}`);
-  console.log(`[${requestId}] DALLE ENHANCEMENT - Image URL: ${imageUrl?.substring(0, 50)}...`);
+  console.log(`[${requestId}] DALLE ENHANCEMENT - Original image URL: ${imageUrl?.substring(0, 50)}...`);
   
   // If we have an image source and no OpenAI API key, just return the original image
   if (imageUrl && !process.env.OPENAI_API_KEY) {
@@ -75,10 +75,8 @@ export async function enhanceWithDirectGeneration(
   console.log(`[${requestId}] DALLE ENHANCEMENT - API Key check: ${process.env.OPENAI_API_KEY ? `present (${process.env.OPENAI_API_KEY.length} chars)` : 'missing'}`);
   
   try {
-    // Create a timeout controller for axios requests
-    const controller = new AbortController();
+    // Create a timeout controller
     const timeoutId = setTimeout(() => {
-      controller.abort();
       console.warn(`[${requestId}] DALLE ENHANCEMENT - Request aborted due to timeout after ${ENHANCEMENT_TIMEOUT}ms`);
     }, ENHANCEMENT_TIMEOUT);
     
@@ -86,64 +84,23 @@ export async function enhanceWithDirectGeneration(
       // Force log this to ensure it appears in production logs
       console.warn(`[${requestId}] DALLE ENHANCEMENT - API CALL STARTING at ${new Date().toISOString()}`);
       
-      let response;
+      // Create a very detailed prompt that describes the fusion without needing the image input
+      const detailedPrompt = `Make the image better, ensure clean animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background`;
       
-      // Check if we have a valid remote URL to use
-      if (imageUrl) {
-        console.log(`[${requestId}] DALLE ENHANCEMENT - Using remote URL for image: ${imageUrl.substring(0, 50)}...`);
-        
-        try {
-          // Always use URL-based generation which is more reliable in serverless environments
-          console.log(`[${requestId}] DALLE ENHANCEMENT - Using direct URL-based generation`);
-          
-          // This prompt works better for text-to-image when we don't have local file access
-          const enhancementPrompt = `Create an enhanced version of this Pokemon fusion of ${pokemon1Name} and ${pokemon2Name}.
-            Make it more vibrant with clean animation-style outlines, maintain kid-friendly appearance, 
-            and ensure completely pure white background. Improve the fusion design while keeping the 
-            same pose and overall characteristics. Make it look like official Pokémon art.`;
-          
-          // Use the URL-based method through the OpenAI client directly
-          response = await Promise.race([
-            openai.images.generate({
-              model: "gpt-image-1",
-              prompt: enhancementPrompt,
-              n: 1,
-              size: "1024x1024"
-            }),
-            timeout(ENHANCEMENT_TIMEOUT * 0.8) // 80% of the main timeout
-          ]).catch(err => {
-            console.error(`[${requestId}] DALLE ENHANCEMENT - Generation request failed: ${err.message}`);
-            throw err;
-          });
-          
-          console.log(`[${requestId}] DALLE ENHANCEMENT - URL-based generation successful`);
-        } catch (genError) {
-          console.error(`[${requestId}] DALLE ENHANCEMENT - Error with URL-based generation:`, 
-            genError instanceof Error ? {
-              message: genError.message,
-              name: genError.name,
-              stack: genError.stack?.split('\n')[0]
-            } : genError
-          );
-          
-          if (genError instanceof Error && 
-             (genError.message.includes('timeout') || 
-              genError.message.includes('abort') || 
-              genError.message.includes('aborted'))) {
-            console.warn(`[${requestId}] DALLE ENHANCEMENT - Request timed out or was aborted, using original image`);
-            return imageUrl;
-          }
-          
-          // Fall back to the original image
-          console.log(`[${requestId}] DALLE ENHANCEMENT - Generation failed, returning original image`);
-          return imageUrl;
-        }
-      } else {
-        console.error(`[${requestId}] DALLE ENHANCEMENT - No remote image URL provided`);
-        return null;
-      }
+      console.log(`[${requestId}] DALLE ENHANCEMENT - Using text-to-image generation with detailed prompt`);
       
-      // Clear the timeout since we're done with the API call
+      // Generate a completely new image using text-to-image
+      const response = await openai.images.generate({
+        model: "dall-e-3", // Use DALL-E 3 for higher quality
+        prompt: detailedPrompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard"
+      });
+      
+      console.log(`[${requestId}] DALLE ENHANCEMENT - Text-to-image generation completed`);
+      
+      // Clear the timeout
       clearTimeout(timeoutId);
       
       const requestDuration = Date.now() - startTime;
@@ -166,28 +123,28 @@ export async function enhanceWithDirectGeneration(
     } catch (error) {
       clearTimeout(timeoutId);
       
-      // Check for organization verification error
-      if (error instanceof Error && 
-          error.message && 
-          error.message.includes('organization verification')) {
-        console.error(`[${requestId}] DALLE ENHANCEMENT - Organization verification required. Please visit: https://help.openai.com/en/articles/10910291-api-organization-verification`);
-      }
+      // Handle common error types
+      if (error instanceof Error) {
+        console.error(`[${requestId}] DALLE ENHANCEMENT - Error type: ${error.name}`);
+        console.error(`[${requestId}] DALLE ENHANCEMENT - Error message: ${error.message}`);
+        
+        // Check for organization verification error
+        if (error.message.includes('organization verification')) {
+          console.error(`[${requestId}] DALLE ENHANCEMENT - Organization verification required. Please visit: https://help.openai.com/en/articles/10910291-api-organization-verification`);
+        }
 
-      // Check for content policy violation
-      if (error instanceof Error && 
-          (error.message?.includes('content policy') || error.message?.includes('safety system'))) {
-        console.error(`[${requestId}] DALLE ENHANCEMENT - Content policy violation: The request was rejected by the moderation system`);
+        // Check for content policy violation
+        if (error.message.includes('content policy') || error.message.includes('safety system')) {
+          console.error(`[${requestId}] DALLE ENHANCEMENT - Content policy violation: The request was rejected by the moderation system`);
+        }
+        
+        // Check for timeout or aborted requests
+        if (error.message.includes('timeout') || error.message.includes('abort') || error.message.includes('aborted')) {
+          console.error(`[${requestId}] DALLE ENHANCEMENT - Request timed out or was aborted: ${error.message}`);
+        }
       }
       
-      // Check for timeout or aborted requests
-      if (error instanceof Error && 
-          (error.message?.includes('timeout') || 
-           error.message?.includes('abort') || 
-           error.message?.includes('aborted'))) {
-        console.error(`[${requestId}] DALLE ENHANCEMENT - Request timed out or was aborted: ${error.message}`);
-      }
-      
-      console.error(`[${requestId}] DALLE ENHANCEMENT - Error:`, error);
+      console.error(`[${requestId}] DALLE ENHANCEMENT - Error using OpenAI API`);
       return imageUrl;
     }
   } catch (error) {
@@ -205,13 +162,8 @@ async function performTextToImageGeneration(
   pokemon2Name: string,
   controller: AbortController
 ): Promise<any> {
-  // This is our most reliable prompt that works consistently with content policies
-  const enhancementPrompt = `A digital illustration of an original animated creature design combining traits of ${pokemon1Name} and ${pokemon2Name}.
-    The creature is a fusion of these two Pokémon species with balanced features from both.
-    Style: Clean animation with smooth outlines, kid friendly
-    Background: Pure white
-    Composition: Single character centered in the frame
-    Details: Balanced proportions, friendly appearance, polished finish`;
+  // This is our simple prompt that works consistently with content policies
+  const enhancementPrompt = `Make the image better, ensure clean animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background`;
   
   console.log(`[${requestId}] DALLE ENHANCEMENT - Generating image with text-to-image prompt`);
 

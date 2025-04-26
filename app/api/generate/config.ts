@@ -37,8 +37,8 @@ export function initializeConfig() {
 
   // Default timeout is 60 seconds
   if (process.env.ENHANCEMENT_TIMEOUT === undefined) {
-    console.log('Setting ENHANCEMENT_TIMEOUT=60000 (default)');
-    process.env.ENHANCEMENT_TIMEOUT = '60000';
+    console.log('Setting ENHANCEMENT_TIMEOUT=90000 (default - 90 seconds)');
+    process.env.ENHANCEMENT_TIMEOUT = '90000';
   }
 }
 

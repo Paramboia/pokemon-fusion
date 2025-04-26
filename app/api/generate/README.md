@@ -35,7 +35,7 @@ The system attempts to generate a fusion using the following sequence:
 ## Model Approaches
 
 - **Replicate Blend**: Uses two Pokémon images as input to blend their features
-- **GPT Image Enhancement**: Takes the URL output from Replicate Blend and uses it with a prompt to generate an improved version: "Create an enhanced version of this Pokemon fusion, with clean animation-style outlines, kid-friendly appearance, and pure white background"
+- **GPT Image Enhancement**: Takes the URL output from Replicate Blend and uses it with a simple prompt to generate an improved version: "Make the image better, ensure clean animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background"
 - **Stable Diffusion 3.5**: Uses advanced diffusion techniques to create a fusion based on the two Pokémon
 - **Simple Method**: Uses one of the original Pokémon images as a fallback if all AI generation methods fail
 
@@ -126,7 +126,7 @@ The system uses these environment variables to control behavior:
 - `USE_STABLE_DIFFUSION` - Enable Stable Diffusion 3.5 (requires additional licensing)
 - `REPLICATE_API_TOKEN` - API token for Replicate
 - `OPENAI_API_KEY` - API key for OpenAI (for enhancement)
-- `ENHANCEMENT_TIMEOUT` - Timeout for the enhancement process in milliseconds (default: 60000)
+- `ENHANCEMENT_TIMEOUT` - Timeout for the enhancement process in milliseconds (default: 90000 - 90 seconds)
 
 ## Error Handling and Fallbacks
 
@@ -146,6 +146,7 @@ Several optimizations are included:
    - Better suited for serverless environments
    - Reduces latency by eliminating download/upload steps
    - More scalable and stateless architecture
+   - Image URLs are passed directly from Replicate to DALL-E with no intermediate file storage
 
 2. Timeout configuration for API calls to stay within Vercel limits
 3. Retry logic with exponential backoff for resilience

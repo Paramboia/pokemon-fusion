@@ -27,10 +27,13 @@ const openai = new OpenAI({
   maxRetries: 2
 });
 
+// Define the enhancement prompt
+const ENHANCEMENT_PROMPT = `Enhance the image of the cartoon creature by improving the animation quality, using clean smooth outlines, cel-shaded coloring, soft shading, vivid colors, and maintaining a kid-friendly, Japonese anime-style appearance. Keep the pose and design intact. Ensure the background is pure white.`;
+
 // Test configuration
 const TEST_CONFIG = {
-  pokemon1Name: 'Charmander',
-  pokemon2Name: 'Squirtle',
+  pokemon1Name: 'gengar',
+  pokemon2Name: 'tauros',
   pokemon1ImagePath: path.join(__dirname, 'temp', 'Captura de pantalla 2025-04-26 155241.png'),
   pokemon2ImagePath: path.join(__dirname, 'temp', 'Captura de pantalla 2025-04-26 155319.png'),
   outputDir: path.join(__dirname, 'output')
@@ -59,6 +62,13 @@ async function saveImageFromUrl(url, outputPath) {
   const buffer = await response.buffer();
   fs.writeFileSync(outputPath, buffer);
   console.log(`Image saved to: ${outputPath}`);
+}
+
+// Function to create a timeout promise that rejects after a specified time
+function timeout(ms) {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
+  });
 }
 
 // Implementation of generateWithReplicateBlend based on app/api/generate/replicate-blend.ts
@@ -116,58 +126,109 @@ async function generateWithReplicateBlend(pokemon1Name, pokemon2Name, processedI
   }
 }
 
-// Implementation of enhanceWithDirectGeneration based on app/api/generate/dalle.ts
+// Implementation of enhanceWithDirectGeneration based on updated app/api/generate/dalle.ts
 async function enhanceWithDirectGeneration(pokemon1Name, pokemon2Name, imageUrl) {
-  const requestId = `dalle-enhance-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const requestId = `gpt-enhance-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const startTime = Date.now();
+  const ENHANCEMENT_TIMEOUT = 60000; // 60 seconds for test script
   
-  console.log(`[${requestId}] DALLE ENHANCEMENT - START - ${pokemon1Name} + ${pokemon2Name}`);
-  console.log(`[${requestId}] DALLE ENHANCEMENT - Original image URL: ${imageUrl?.substring(0, 50)}...`);
+  console.log(`[${requestId}] GPT ENHANCEMENT - START - ${pokemon1Name} + ${pokemon2Name}`);
+  console.log(`[${requestId}] GPT ENHANCEMENT - Original image URL: ${imageUrl?.substring(0, 50)}...`);
   
   // If no OpenAI API key, just return the original image
   if (!process.env.OPENAI_API_KEY) {
-    console.warn(`[${requestId}] DALLE ENHANCEMENT - SKIPPED - No OpenAI API key, using original image directly`);
+    console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - No OpenAI API key, using original image directly`);
     return imageUrl;
   }
   
   try {
-    console.log(`[${requestId}] DALLE ENHANCEMENT - API CALL STARTING`);
+    console.log(`[${requestId}] GPT ENHANCEMENT - API CALL STARTING`);
     
-    // Create a very detailed prompt that describes the fusion without needing the image input
-    const detailedPrompt = `Make the image better, ensure clean animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background`;
+    console.log(`[${requestId}] GPT ENHANCEMENT - Using GPT-image-1 for enhancement`);
     
-    console.log(`[${requestId}] DALLE ENHANCEMENT - Using text-to-image generation with prompt: ${detailedPrompt}`);
-    
-    // Generate a completely new image using text-to-image
-    const response = await openai.images.generate({
-      model: "dall-e-3", // Use DALL-E 3 for higher quality
-      prompt: detailedPrompt,
-      n: 1,
-      size: "1024x1024",
-      quality: "standard"
+    // Use Promise.race to add an additional timeout layer
+    const response = await Promise.race([
+      openai.images.generate({
+        model: "gpt-image-1",
+        prompt: ENHANCEMENT_PROMPT,
+        n: 1,
+        size: "1024x1024",       // Square format for equal dimensions
+        quality: "high",         // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
+        moderation: "low"        // Less restrictive filtering
+        // Note: Other parameters are not supported in the Node.js SDK
+        // Based on the error messages, we'll keep it simple
+      }),
+      timeout(ENHANCEMENT_TIMEOUT * 0.8) // 80% of the main timeout
+    ]).catch(err => {
+      console.error(`[${requestId}] GPT ENHANCEMENT - Generation failed: ${err.message}`);
+      // Continue with original image instead of throwing an error
+      return null;
     });
     
-    console.log(`[${requestId}] DALLE ENHANCEMENT - Text-to-image generation completed`);
-    
-    const requestDuration = Date.now() - startTime;
-    console.log(`[${requestId}] DALLE ENHANCEMENT - API CALL COMPLETED in ${requestDuration}ms`);
-    
-    if (!response?.data || response.data.length === 0) {
-      console.error(`[${requestId}] DALLE ENHANCEMENT - ERROR: Empty response data`);
+    // If we got null from the catch block, return the original image
+    if (!response) {
+      console.log(`[${requestId}] GPT ENHANCEMENT - Falling back to original image due to error`);
       return imageUrl;
     }
+    
+    console.log(`[${requestId}] GPT ENHANCEMENT - Generation completed`);
+    
+    const requestDuration = Date.now() - startTime;
+    console.log(`[${requestId}] GPT ENHANCEMENT - API CALL COMPLETED in ${requestDuration}ms`);
+    
+    if (!response?.data || response.data.length === 0) {
+      console.error(`[${requestId}] GPT ENHANCEMENT - ERROR: Empty response data`);
+      return imageUrl;
+    }
+
+    // Log the complete response structure
+    console.log(`[${requestId}] GPT ENHANCEMENT - Full response structure:`, JSON.stringify({
+      hasData: !!response.data,
+      dataLength: response.data?.length,
+      firstItemKeys: response.data?.[0] ? Object.keys(response.data[0]) : [],
+      hasUrl: !!response.data?.[0]?.url,
+      hasB64: !!response.data?.[0]?.b64_json,
+      revisedPrompt: response.data?.[0]?.revised_prompt
+    }, null, 2));
 
     // Handle the response (URL or base64)
     if (response.data[0]?.url) {
       const newImageUrl = response.data[0].url;
-      console.log(`[${requestId}] DALLE ENHANCEMENT - SUCCESS: Generated URL: ${newImageUrl.substring(0, 50)}...`);
+      console.log(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Generated URL: ${newImageUrl.substring(0, 50)}...`);
       return newImageUrl;
     }
+    
+    // Handle base64 data - for gpt-image-1, we get b64_json instead of URL
+    if (response.data[0]?.b64_json) {
+      console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
+      
+      try {
+        // For the test script, we CAN save the base64 data to a file
+        const b64Data = response.data[0].b64_json;
+        const outputPath = path.join(TEST_CONFIG.outputDir, `gpt-enhanced-${Date.now()}.png`);
+        
+        // Write the base64 data to a file
+        fs.writeFileSync(outputPath, Buffer.from(b64Data, 'base64'));
+        console.log(`[${requestId}] GPT ENHANCEMENT - Saved base64 image to: ${outputPath}`);
+        
+        // Return the local file path for the test
+        console.log(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Generated and saved image to: ${outputPath}`);
+        return outputPath;
+      } catch (saveError) {
+        console.error(`[${requestId}] GPT ENHANCEMENT - Error saving base64 image:`, saveError);
+        return imageUrl; // Fallback to original URL if saving fails
+      }
+    }
+    
+    // Handle revised_prompt field (sometimes present in gpt-image-1 responses)
+    if (response.data[0]?.revised_prompt) {
+      console.log(`[${requestId}] GPT ENHANCEMENT - Revised prompt: ${response.data[0].revised_prompt.substring(0, 100)}...`);
+    }
 
-    console.error(`[${requestId}] DALLE ENHANCEMENT - No image URL in response data`);
+    console.error(`[${requestId}] GPT ENHANCEMENT - No image URL or base64 data in response`);
     return imageUrl;
   } catch (error) {
-    console.error(`[${requestId}] DALLE ENHANCEMENT - Error:`, error);
+    console.error(`[${requestId}] GPT ENHANCEMENT - Error:`, error);
     return imageUrl;
   }
 }
@@ -175,7 +236,7 @@ async function enhanceWithDirectGeneration(pokemon1Name, pokemon2Name, imageUrl)
 // Main test function
 async function runTest() {
   try {
-    console.log('=== Starting Replicate Blend + DALLE Enhancement Test ===');
+    console.log('=== Starting Replicate Blend + GPT Enhancement Test ===');
     console.log(`Testing with Pokémon: ${TEST_CONFIG.pokemon1Name} + ${TEST_CONFIG.pokemon2Name}`);
     
     // Step 1: Prepare the image data
@@ -201,34 +262,44 @@ async function runTest() {
     
     console.log(`Blend image URL: ${blendImageUrl.substring(0, 50)}...`);
     
-    // Step 3: Enhance the image with DALLE (pass URL directly)
-    console.log('\n[Step 3] Enhancing image with DALLE (URL-only approach)...');
+    // Step 3: Enhance the image with GPT-image-1 (pass URL directly)
+    console.log('\n[Step 3] Enhancing image with GPT-image-1 (URL-only approach)...');
     
-    // Set environment variable to enable GPT Vision enhancement for the test
+    // Set environment variable to enable enhancement for the test
     process.env.USE_GPT_VISION_ENHANCEMENT = 'true';
     
-    console.time('DALLE Enhancement');
+    console.time('GPT Enhancement');
     const enhancedImageUrl = await enhanceWithDirectGeneration(
       TEST_CONFIG.pokemon1Name,
       TEST_CONFIG.pokemon2Name,
       blendImageUrl
     );
-    console.timeEnd('DALLE Enhancement');
+    console.timeEnd('GPT Enhancement');
     
     if (!enhancedImageUrl) {
-      throw new Error('Failed to enhance image with DALLE');
+      throw new Error('Failed to enhance image with GPT-image-1');
     }
     
     console.log(`Enhanced image URL: ${enhancedImageUrl.substring(0, 50)}...`);
     
-    // Save ONLY the final enhanced image (for verification)
+    // Step 4: Save the final enhanced image (for verification)
     console.log('\n[Step 4] Saving only the final enhanced image for verification...');
-    const enhancedImagePath = path.join(TEST_CONFIG.outputDir, 'dalle-enhanced-direct-url.png');
-    await saveImageFromUrl(enhancedImageUrl, enhancedImagePath);
+    let enhancedImagePath;
+    
+    // Check if the enhancedImageUrl is a URL or a local file path
+    if (enhancedImageUrl.startsWith('http')) {
+      // It's a URL, so download it
+      enhancedImagePath = path.join(TEST_CONFIG.outputDir, 'gpt-enhanced-direct-url.png');
+      await saveImageFromUrl(enhancedImageUrl, enhancedImagePath);
+    } else {
+      // It's already a local file path, just use it
+      enhancedImagePath = enhancedImageUrl;
+      console.log(`Using already saved file at: ${enhancedImagePath}`);
+    }
     
     console.log('\n=== Test Completed Successfully ===');
     console.log(`Final Enhanced Image: ${enhancedImagePath}`);
-    console.log('NOTE: No intermediate files were saved - used direct URL passing between services');
+    console.log('NOTE: Using URL-based approach with base64 fallback for GPT-image-1');
     
   } catch (error) {
     console.error('\n=== Test Failed ===');

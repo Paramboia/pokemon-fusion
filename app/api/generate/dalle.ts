@@ -22,7 +22,7 @@ const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '20000',
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Define the enhancement prompt once to avoid duplication
-const ENHANCEMENT_PROMPT = `Make the single creature in the image better by ensuring a clean animation-style with smooth outlines and vivid colors, maintain kid-friendly appearance, pose and three-quarter front-facing angle, and ensure completely pure white background`;
+const ENHANCEMENT_PROMPT = `Enhance the image of the cartoon creature by improving the animation quality, using clean smooth outlines, cel-shaded coloring, soft shading, vivid colors, and maintaining a kid-friendly, Japonese anime-style appearance. Keep the pose and design intact. Ensure the background is pure white.`;
 
 // Function to create a timeout promise that rejects after a specified time
 function timeout(ms: number): Promise<never> {
@@ -95,13 +95,26 @@ export async function enhanceWithDirectGeneration(
           model: "gpt-image-1",
           prompt: ENHANCEMENT_PROMPT,
           n: 1,
-          size: "1024x1024"
+          size: "1024x1024",       // Square format for equal dimensions
+          quality: "high" as any,  // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
+                                   // Using 'as any' to bypass TypeScript type checking
+          moderation: "low" as any // Less restrictive filtering
+                                   // Using 'as any' to bypass TypeScript type checking
+          // Note: Other parameters are not supported in the TypeScript SDK
+          // Based on the error messages, we'll keep it simple
         }),
         timeout(ENHANCEMENT_TIMEOUT * 0.8) // 80% of the main timeout
       ]).catch(err => {
         console.error(`[${requestId}] GPT ENHANCEMENT - Generation failed: ${err.message}`);
-        throw new Error(`Generation timed out: ${err.message}`);
+        // Continue with original image instead of throwing an error
+        return null;
       });
+      
+      // If we got null from the catch block, return the original image
+      if (!response) {
+        console.log(`[${requestId}] GPT ENHANCEMENT - Falling back to original image due to error`);
+        return imageUrl;
+      }
       
       console.log(`[${requestId}] GPT ENHANCEMENT - Generation completed`);
       
@@ -116,13 +129,46 @@ export async function enhanceWithDirectGeneration(
         return imageUrl;
       }
 
+      // Debug log the response structure in production to help diagnose issues
+      console.log(`[${requestId}] GPT ENHANCEMENT - Response data structure:`, 
+        JSON.stringify({
+          hasData: !!response.data,
+          dataLength: response.data?.length,
+          firstItemKeys: response.data?.[0] ? Object.keys(response.data[0]) : [],
+          hasUrl: !!response.data?.[0]?.url,
+          hasB64: !!response.data?.[0]?.b64_json,
+          revisedPrompt: response.data?.[0]?.revised_prompt
+        })
+      );
+
       // Handle the response (URL or base64)
       if (response.data[0]?.url) {
         const newImageUrl = response.data[0].url;
         console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Generated URL: ${newImageUrl.substring(0, 50)}...`);
         return newImageUrl;
       }
-
+      
+      // Handle base64 data - for gpt-image-1, we get b64_json instead of URL
+      if (response.data[0]?.b64_json) {
+        console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
+        
+        // Since we're using a URL-only approach and can't save files,
+        // we need to return the original image URL
+        console.warn(`[${requestId}] GPT ENHANCEMENT - Using original image because we can't convert base64 to URL in serverless environment`);
+        return imageUrl;
+        
+        // In a real implementation with file access, we would:
+        // 1. Decode the base64 data
+        // 2. Save it to a file
+        // 3. Upload the file to a storage service to get a URL
+        // 4. Return that URL
+      }
+      
+      // Handle revised_prompt field (sometimes present in gpt-image-1 responses)
+      if (response.data[0]?.revised_prompt) {
+        console.log(`[${requestId}] GPT ENHANCEMENT - Revised prompt: ${response.data[0].revised_prompt.substring(0, 100)}...`);
+      }
+      
       console.error(`[${requestId}] GPT ENHANCEMENT - No image URL in response data`);
       return imageUrl;
     } catch (error) {

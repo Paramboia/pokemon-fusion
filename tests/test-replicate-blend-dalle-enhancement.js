@@ -28,9 +28,10 @@ const openai = new OpenAI({
 });
 
 // Define the enhancement prompt
-const ENHANCEMENT_PROMPT = `Enhance the uploaded creature image to be kid-friendly look of official Pokémon artwork while keeping its original pose, structure, and features intact.
-Refine the quality by applying clean, smooth outlines, cel-shaded coloring, soft anime-style shading, and vibrant colors.
-Ensure the background is pure white.`;
+const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration to create a kid-friendly anime-style monster companion character.
+Keep the same pose of the original image.
+Draw it with clean, smooth outlines, cel-shaded coloring, soft shading, and vibrant, appealing colors.
+Maintain a pure white background.`;
 
 // Test configuration
 const TEST_CONFIG = {

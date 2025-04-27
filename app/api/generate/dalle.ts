@@ -8,13 +8,13 @@ import FormData from 'form-data';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const API_TIMEOUT = IS_PRODUCTION ? 25000 : 45000; // 25 seconds in production (to fit within 60s limit), 45 seconds in development
+const API_TIMEOUT = IS_PRODUCTION ? 120000 : 180000; // 2 minutes in production, 3 minutes in development (increased from before)
 
 // Initialize OpenAI client with timeout
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   timeout: API_TIMEOUT,
-  maxRetries: 2, // Add retry capability
+  maxRetries: 3, // Increased from 2 to 3
 });
 
 // Control how image enhancement works with environment variables
@@ -98,6 +98,13 @@ export async function enhanceWithDirectGeneration(
       console.warn(`[${requestId}] GPT ENHANCEMENT - API CALL STARTING at ${new Date().toISOString()}`);
       
       console.log(`[${requestId}] GPT ENHANCEMENT - Using GPT-image-1 for enhancement`);
+      console.log(`[${requestId}] GPT ENHANCEMENT - Sending params:`, {
+        model: "gpt-image-1",
+        promptLength: ENHANCEMENT_PROMPT.length,
+        n: 1,
+        size: "1024x1024",
+        quality: "high"
+      });
       
       // Use Promise.race to add an additional timeout layer
       const response = await Promise.race([
@@ -106,13 +113,8 @@ export async function enhanceWithDirectGeneration(
           prompt: ENHANCEMENT_PROMPT,
           n: 1,
           size: "1024x1024",       // Square format for equal dimensions
-          quality: "high" as any,  // High quality
-          // Use type assertion to bypass TypeScript type checking for custom parameters
-          ...({
-            background: "transparent",  // Transparent background
-            moderation: "low"           // Less restrictive filtering
-          } as any)
-          // Note: These parameters are supported by the API but not in the TypeScript definitions
+          quality: "high" as any   // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
+          // Note: Removed background and moderation parameters as they might cause API issues
         }),
         timeout(ENHANCEMENT_TIMEOUT * 0.8) // 80% of the main timeout
       ]).catch(err => {
@@ -153,9 +155,7 @@ export async function enhanceWithDirectGeneration(
           errorMessage: response instanceof Error ? response.message : null,
           usedParams: {
             model: "gpt-image-1",
-            quality: "high",
-            background: "transparent", 
-            moderation: "low"
+            quality: "high"
           }
         })
       );
@@ -167,12 +167,99 @@ export async function enhanceWithDirectGeneration(
         return newImageUrl;
       }
       
-      // For GPT-image-1, we will no longer handle base64 data
-      // This simplifies our code and ensures consistent URL-based responses
+      // Handle base64 data - important for gpt-image-1 which sometimes returns b64_json instead of URL
+      if (response.data[0]?.b64_json) {
+        console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
+        
+        try {
+          // Upload the base64 data to Supabase Storage
+          const { getSupabaseAdminClient } = await import('@/lib/supabase-server');
+          const supabase = await getSupabaseAdminClient();
+          
+          if (!supabase) {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get Supabase client`);
+            return imageUrl;
+          }
+          
+          // Generate a unique filename
+          const fileName = `fusion-gpt-enhanced-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
+          const filePath = fileName; // Just the filename, not in a subfolder
+          
+          // Convert base64 to binary data (remove data:image/png;base64, prefix if present)
+          const b64Data = response.data[0].b64_json;
+          const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
+          
+          // Double-check that bucket exists before uploading
+          const { data: buckets } = await supabase.storage.listBuckets();
+          const bucketName = 'fusions';
+          const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+          
+          if (!bucketExists) {
+            console.log(`[${requestId}] GPT ENHANCEMENT - Bucket '${bucketName}' doesn't exist, creating it...`);
+            const { error: createError } = await supabase.storage.createBucket(bucketName, {
+              public: true,
+              allowedMimeTypes: ['image/png', 'image/jpeg'],
+              fileSizeLimit: 5242880 // 5MB
+            });
+            
+            if (createError) {
+              console.error(`[${requestId}] GPT ENHANCEMENT - Error creating bucket:`, createError);
+              return imageUrl;
+            }
+            console.log(`[${requestId}] GPT ENHANCEMENT - Bucket '${bucketName}' created successfully`);
+          }
+          
+          // Upload to Supabase Storage
+          const { data: storageData, error: storageError } = await supabase
+            .storage
+            .from('fusions') // Using 'fusions' bucket
+            .upload(filePath, Buffer.from(base64Data, 'base64'), {
+              contentType: 'image/png',
+              cacheControl: '3600',
+              upsert: true // Set to true to overwrite if file exists (was false before)
+            });
+          
+          if (storageError) {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
+            return imageUrl;
+          }
+          
+          // Get the public URL
+          const { data: publicUrlData } = supabase
+            .storage
+            .from('fusions') // Using 'fusions' bucket
+            .getPublicUrl(filePath);
+          
+          if (publicUrlData?.publicUrl) {
+            const newImageUrl = publicUrlData.publicUrl;
+            console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded and generated URL: ${newImageUrl.substring(0, 50)}...`);
+            return newImageUrl;
+          } else {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL`);
+            return imageUrl;
+          }
+        } catch (uploadError) {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
+          return imageUrl; // Fallback to original image if upload fails
+        }
+      }
       
       // Handle revised_prompt field (sometimes present in gpt-image-1 responses)
       if (response.data[0]?.revised_prompt) {
         console.log(`[${requestId}] GPT ENHANCEMENT - Revised prompt: ${response.data[0].revised_prompt.substring(0, 100)}...`);
+      }
+      
+      // If we got here but have no URL, log detailed information about the response
+      if (!response.data[0]?.url) {
+        console.error(`[${requestId}] GPT ENHANCEMENT - No image URL in response data. Full response structure:`, 
+          JSON.stringify({
+            dataType: typeof response.data,
+            isArray: Array.isArray(response.data),
+            dataLength: Array.isArray(response.data) ? response.data.length : 0,
+            firstItemKeys: response.data?.[0] ? Object.keys(response.data[0]) : [],
+            firstItem: response.data?.[0] ? JSON.stringify(response.data[0]).substring(0, 200) + '...' : null
+          })
+        );
       }
       
       console.error(`[${requestId}] GPT ENHANCEMENT - No image URL in response data`);

@@ -543,6 +543,7 @@ export async function POST(req: Request) {
         pokemon1Name,
         pokemon2Name,
         fusionData: result.data,
+        isLocalFallback: false,
         message: 'Fusion generated successfully'
       });
 

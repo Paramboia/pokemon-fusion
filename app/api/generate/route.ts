@@ -275,6 +275,11 @@ export async function POST(req: Request) {
             if (useGptEnhancement && process.env.OPENAI_API_KEY) {
               try {
                 console.log('Generate API - Attempting to enhance fusion image with GPT');
+                console.log('Generate API - Enhancement flags:', {
+                  useGptEnhancement,
+                  hasApiKey: !!process.env.OPENAI_API_KEY,
+                  USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT
+                });
                 
                 // Use URL for enhancement
                 const enhancedImageUrl = await enhanceWithDirectGeneration(
@@ -285,6 +290,7 @@ export async function POST(req: Request) {
                 
                 if (enhancedImageUrl) {
                   console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
+                  console.log('Generate API - Enhanced URL is different from original:', enhancedImageUrl !== fusionImageUrl);
                   fusionImageUrl = enhancedImageUrl;
                 } else {
                   console.log('Generate API - GPT enhancement failed, using original Replicate Blend image');
@@ -294,7 +300,11 @@ export async function POST(req: Request) {
                 console.log('Generate API - Using original Replicate Blend image');
               }
             } else {
-              console.log('Generate API - GPT enhancement not enabled or OpenAI key not available');
+              console.log('Generate API - GPT enhancement not enabled or OpenAI key not available:', {
+                useGptEnhancement,
+                hasApiKey: !!process.env.OPENAI_API_KEY,
+                useGptEnhancementValue: process.env.USE_GPT_VISION_ENHANCEMENT
+              });
             }
           } else {
             console.log('Generate API - Replicate Blend failed, will try another model');

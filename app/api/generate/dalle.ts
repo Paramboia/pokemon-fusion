@@ -143,7 +143,15 @@ export async function enhanceWithDirectGeneration(
           firstItemKeys: response.data?.[0] ? Object.keys(response.data[0]) : [],
           hasUrl: !!response.data?.[0]?.url,
           hasB64: !!response.data?.[0]?.b64_json,
-          revisedPrompt: response.data?.[0]?.revised_prompt
+          revisedPrompt: response.data?.[0]?.revised_prompt,
+          errorType: response instanceof Error ? response.name : null,
+          errorMessage: response instanceof Error ? response.message : null,
+          usedParams: {
+            model: "gpt-image-1",
+            quality: "high",
+            background: "transparent", 
+            moderation: "low"
+          }
         })
       );
 

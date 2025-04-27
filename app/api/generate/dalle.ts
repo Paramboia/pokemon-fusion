@@ -39,13 +39,18 @@ function timeout(ms: number): Promise<never> {
 /**
  * Enhance a Pokemon fusion image using GPT-image-1 model
  * This takes a URL from Replicate Blend and enhances it
+ * Returns either:
+ * - A URL string if OpenAI returns a URL
+ * - An object with base64 data if OpenAI returns base64 (for route.ts to handle)
+ * - The original URL if enhancement fails
  */
 export async function enhanceWithDirectGeneration(
   pokemon1Name: string,
   pokemon2Name: string,
-  imageUrl?: string
-): Promise<string | null> {
-  const requestId = `gpt-enhance-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  imageUrl: string,
+  retryCount = 0,
+  requestId = `gpt-image-${Date.now()}`
+): Promise<string> {
   const startTime = Date.now();
   
   // Force log this message to ensure it's visible in production
@@ -66,7 +71,7 @@ export async function enhanceWithDirectGeneration(
       console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - Using original image due to API key format issue`);
       return imageUrl;
     }
-    return null;
+    return imageUrl;
   }
   
   // Check that environment flag is enabled
@@ -77,7 +82,7 @@ export async function enhanceWithDirectGeneration(
       console.warn(`[${requestId}] GPT ENHANCEMENT - Using original image directly (enhancement disabled)`);
       return imageUrl;
     }
-    return null;
+    return imageUrl;
   }
   
   console.log(`[${requestId}] GPT ENHANCEMENT - API Key check: ${process.env.OPENAI_API_KEY ? `present (${process.env.OPENAI_API_KEY.length} chars)` : 'missing'}`);
@@ -101,13 +106,13 @@ export async function enhanceWithDirectGeneration(
           prompt: ENHANCEMENT_PROMPT,
           n: 1,
           size: "1024x1024",       // Square format for equal dimensions
-          quality: "high" as any, // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
-          background: "transparent" as any,  // Transparent background
-                                   // Using 'as any' to bypass TypeScript type checking
-          moderation: "low" as any // Less restrictive filtering
-                                   // Using 'as any' to bypass TypeScript type checking
-          // Note: Other parameters are not supported in the TypeScript SDK
-          // Based on the error messages, we'll keep it simple
+          quality: "high" as any,  // High quality
+          // Use type assertion to bypass TypeScript type checking for custom parameters
+          ...({
+            background: "transparent",  // Transparent background
+            moderation: "low"           // Less restrictive filtering
+          } as any)
+          // Note: These parameters are supported by the API but not in the TypeScript definitions
         }),
         timeout(ENHANCEMENT_TIMEOUT * 0.8) // 80% of the main timeout
       ]).catch(err => {
@@ -162,62 +167,8 @@ export async function enhanceWithDirectGeneration(
         return newImageUrl;
       }
       
-      // Handle base64 data - for gpt-image-1, we get b64_json instead of URL
-      if (response.data[0]?.b64_json) {
-        console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
-        
-        try {
-          // Upload the base64 data to Supabase Storage
-          const { getSupabaseAdminClient } = await import('@/lib/supabase-server');
-          const supabase = await getSupabaseAdminClient();
-          
-          if (!supabase) {
-            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get Supabase client`);
-            return imageUrl;
-          }
-          
-          // Generate a unique filename
-          const fileName = `fusion-gpt-enhanced-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
-          const filePath = `fusions/${fileName}`;
-          
-          // Convert base64 to binary data (remove data:image/png;base64, prefix if present)
-          const b64Data = response.data[0].b64_json;
-          const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
-          
-          // Upload to Supabase Storage
-          const { data: storageData, error: storageError } = await supabase
-            .storage
-            .from('pokemon-fusion')
-            .upload(filePath, Buffer.from(base64Data, 'base64'), {
-              contentType: 'image/png',
-              cacheControl: '3600',
-              upsert: false
-            });
-          
-          if (storageError) {
-            console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
-            return imageUrl;
-          }
-          
-          // Get the public URL
-          const { data: publicUrlData } = supabase
-            .storage
-            .from('pokemon-fusion')
-            .getPublicUrl(filePath);
-          
-          if (publicUrlData?.publicUrl) {
-            const newImageUrl = publicUrlData.publicUrl;
-            console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded and generated URL: ${newImageUrl.substring(0, 50)}...`);
-            return newImageUrl;
-          } else {
-            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL`);
-            return imageUrl;
-          }
-        } catch (uploadError) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
-          return imageUrl; // Fallback to original image if upload fails
-        }
-      }
+      // For GPT-image-1, we will no longer handle base64 data
+      // This simplifies our code and ensures consistent URL-based responses
       
       // Handle revised_prompt field (sometimes present in gpt-image-1 responses)
       if (response.data[0]?.revised_prompt) {

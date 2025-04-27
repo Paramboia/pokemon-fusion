@@ -281,19 +281,18 @@ export async function POST(req: Request) {
                   USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT
                 });
                 
-                // Use URL for enhancement
+                // Use URL for enhancement - returns a URL string directly
                 const enhancedImageUrl = await enhanceWithDirectGeneration(
                   pokemon1Name,
                   pokemon2Name,
                   fusionImageUrl
                 );
                 
-                if (enhancedImageUrl) {
+                if (enhancedImageUrl && enhancedImageUrl !== fusionImageUrl) {
                   console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
-                  console.log('Generate API - Enhanced URL is different from original:', enhancedImageUrl !== fusionImageUrl);
                   fusionImageUrl = enhancedImageUrl;
                 } else {
-                  console.log('Generate API - GPT enhancement failed, using original Replicate Blend image');
+                  console.log('Generate API - GPT enhancement returned original URL or failed, using original Replicate Blend image');
                 }
               } catch (enhancementError) {
                 console.error('Generate API - Error enhancing with GPT:', enhancementError);
@@ -342,18 +341,18 @@ export async function POST(req: Request) {
               try {
                 console.log('Generate API - Attempting to enhance Stable Diffusion image with GPT');
                 
-                // Use direct generation instead of image editing (no local file for Stable Diffusion)
+                // Use direct generation for enhancement
                 const enhancedImageUrl = await enhanceWithDirectGeneration(
                   pokemon1Name,
                   pokemon2Name,
                   stableDiffusionImageUrl
                 );
                 
-                if (enhancedImageUrl) {
-                  console.log('Generate API - Successfully enhanced Stable Diffusion image with GPT');
+                if (enhancedImageUrl && enhancedImageUrl !== stableDiffusionImageUrl) {
+                  console.log(`Generate API - Successfully enhanced Stable Diffusion image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
                   fusionImageUrl = enhancedImageUrl;
                 } else {
-                  console.log('Generate API - GPT enhancement failed, using original Stable Diffusion image');
+                  console.log('Generate API - GPT enhancement returned original URL or failed, using original Stable Diffusion image');
                   fusionImageUrl = stableDiffusionImageUrl;
                 }
               } catch (enhancementError) {

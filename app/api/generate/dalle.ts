@@ -22,7 +22,9 @@ const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '20000',
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Define the enhancement prompt once to avoid duplication
-const ENHANCEMENT_PROMPT = `Enhance the image of the cartoon creature by improving the animation quality, using clean smooth outlines, cel-shaded coloring, soft shading, vivid colors, and maintaining a kid-friendly, Japonese anime-style appearance. Keep the pose and design intact. Ensure the background is pure white.`;
+const ENHANCEMENT_PROMPT = `Enhance the uploaded creature image to be kid-friendly look of official Pokémon artwork while keeping its original pose, structure, and features intact.
+Refine the quality by applying clean, smooth outlines, cel-shaded coloring, soft anime-style shading, and vibrant colors.
+Ensure the background is pure white.`;
 
 // Function to create a timeout promise that rejects after a specified time
 function timeout(ms: number): Promise<never> {

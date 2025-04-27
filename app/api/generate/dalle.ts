@@ -18,7 +18,7 @@ const openai = new OpenAI({
 });
 
 // Control how image enhancement works with environment variables
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '20000', 10); // 20 seconds default for production
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '55000 ', 10); // 55 seconds default for production
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Define the enhancement prompt once to avoid duplication

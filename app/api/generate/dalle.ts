@@ -22,10 +22,12 @@ const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '20000',
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Define the enhancement prompt once to avoid duplication
-const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration to create a kid-friendly anime-style monster companion character.
-Keep the same pose of the original image.
-Draw it with clean, smooth outlines, cel-shaded coloring, soft shading, and vibrant, appealing colors.
-Maintain a pure white background.`;
+const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration.
+Recreate the same creature design, keeping the body structure, pose, key features intact, and same color palette.
+Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
+The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
+Do not change the creature into a different animal, and do not change its overall body orientation.
+Ensure the background is transparent.`;
 
 // Function to create a timeout promise that rejects after a specified time
 function timeout(ms: number): Promise<never> {
@@ -99,7 +101,8 @@ export async function enhanceWithDirectGeneration(
           prompt: ENHANCEMENT_PROMPT,
           n: 1,
           size: "1024x1024",       // Square format for equal dimensions
-          quality: "high" as any,  // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
+          quality: "high" as any, // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
+          background: "transparent" as any,  // Transparent background
                                    // Using 'as any' to bypass TypeScript type checking
           moderation: "low" as any // Less restrictive filtering
                                    // Using 'as any' to bypass TypeScript type checking
@@ -217,7 +220,12 @@ async function performTextToImageGeneration(
   controller: AbortController
 ): Promise<any> {
   // This is our simple prompt that works consistently with content policies
-  const enhancementPrompt = `Make the single creature in the image better by ensuring a clean animation-style with smooth outlines and vivid colors, maintain kid-friendly appearance, pose and three-quarter front-facing angle, and ensure completely pure white background`;
+  const enhancementPrompt = `Use the uploaded image as inspiration.
+Recreate the same creature design, keeping the body structure, pose, key features intact, and same color palette.
+Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
+The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
+Do not change the creature into a different animal, and do not change its overall body orientation.
+Ensure the background is transparent.`;
   
   console.log(`[${requestId}] DALLE ENHANCEMENT - Generating image with text-to-image prompt`);
 

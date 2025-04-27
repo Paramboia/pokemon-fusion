@@ -28,10 +28,12 @@ const openai = new OpenAI({
 });
 
 // Define the enhancement prompt
-const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration to create a kid-friendly anime-style monster companion character.
-Keep the same pose of the original image.
-Draw it with clean, smooth outlines, cel-shaded coloring, soft shading, and vibrant, appealing colors.
-Maintain a pure white background.`;
+const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration.
+Recreate the same creature design, keeping the body structure, pose, key features intact, and same color palette.
+Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
+The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
+Do not change the creature into a different animal, and do not change its overall body orientation.
+Ensure the background is transparent.`;
 
 // Test configuration
 const TEST_CONFIG = {
@@ -156,7 +158,8 @@ async function enhanceWithDirectGeneration(pokemon1Name, pokemon2Name, imageUrl)
         prompt: ENHANCEMENT_PROMPT,
         n: 1,
         size: "1024x1024",       // Square format for equal dimensions
-        quality: "high",         // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
+        quality: "high",  // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
+        background:"transparent",       // Transparent background
         moderation: "low"        // Less restrictive filtering
         // Note: Other parameters are not supported in the Node.js SDK
         // Based on the error messages, we'll keep it simple

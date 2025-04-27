@@ -337,7 +337,38 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   const backgroundColor = isDarkTheme ? '#1f2937' : '#ffffff' // dark gray for dark mode, white for light mode
 
   // Check if the fusion is using a local fallback
-  const isLocalFallback = 'isLocalFallback' in fusion ? fusion.isLocalFallback : false;
+  // IMPORTANT: Override isLocalFallback to false for fusions in Supabase storage
+  let isLocalFallback = 'isLocalFallback' in fusion ? fusion.isLocalFallback : false;
+  
+  // Get the fusion image URL
+  const fusionImageUrl = 'fusionImage' in fusion ? fusion.fusionImage : fusion.fusion_image;
+
+  // If the fusion image URL contains Supabase storage URL, it's not a local fallback
+  // Also force override to false for any images in our storage, since they are AI generated
+  if (typeof fusionImageUrl === 'string') {
+    if (
+      // Check for Supabase storage URLs
+      fusionImageUrl.includes('supabase') || 
+      // Also check for our domain and storage path
+      fusionImageUrl.includes('pokemon-fusion.com') ||
+      // Any fusion stored in storage (not official artwork or placeholders)
+      (fusionImageUrl.includes('storage') && !fusionImageUrl.includes('official-artwork'))
+    ) {
+      // This is an AI-generated fusion stored in our system, force override isLocalFallback
+      console.log('Forcing isLocalFallback to FALSE for AI-generated fusion:', 
+        fusionImageUrl.substring(0, 50) + '...');
+      isLocalFallback = false;
+    }
+  }
+  
+  // Debug: Log the value of isLocalFallback and the fusion object
+  console.log(`DEBUG FusionCard [${fusion.id}]:`, {
+    originalIsLocalFallback: 'isLocalFallback' in fusion ? fusion.isLocalFallback : false,
+    finalIsLocalFallback: isLocalFallback,
+    fusionImageUrl: typeof fusionImageUrl === 'string' ? fusionImageUrl.substring(0, 50) + '...' : 'not a string',
+    isInSupabase: typeof fusionImageUrl === 'string' && fusionImageUrl.includes('supabase'),
+    isOfficialArtwork: typeof fusionImageUrl === 'string' && fusionImageUrl.includes('official-artwork')
+  });
 
   return (
     <div 

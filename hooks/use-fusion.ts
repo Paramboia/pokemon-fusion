@@ -188,11 +188,37 @@ export function useFusion() {
         console.log('Fusion generated successfully:', data);
         setFusionImage(data.output || data.fusionImage);
         setFusionId(data.id);
-        setIsLocalFallback(data.isLocalFallback || false);
+        
+        // DEBUG: Log details about isLocalFallback flag
+        console.log('DEBUG isLocalFallback:', {
+          isPropertyPresent: 'isLocalFallback' in data,
+          valueInResponse: data.isLocalFallback,
+          valueAfterFallback: data.isLocalFallback || false,
+          valueType: typeof data.isLocalFallback
+        });
+        
+        // Make sure isLocalFallback is explicitly set to false for stored fusions
+        const finalIsLocalFallback = data.isLocalFallback || false;
+        setIsLocalFallback(finalIsLocalFallback);
         setFusionName(data.fusionName || generatedFusionName);
         
+        // Store the fusion data in localStorage for debugging
+        // Make sure we explicitly include isLocalFallback: false for proper fusion types
+        try {
+          const fusionForStorage = {
+            ...data,
+            isLocalFallback: finalIsLocalFallback,
+            output: data.output || data.fusionImage,
+            fusionName: data.fusionName || generatedFusionName
+          };
+          localStorage.setItem('lastGeneratedFusion', JSON.stringify(fusionForStorage));
+          console.log('Fusion data saved to localStorage with isLocalFallback =', finalIsLocalFallback);
+        } catch (storageError) {
+          console.error('Failed to store fusion data in localStorage:', storageError);
+        }
+        
         // Show appropriate success message
-        if (data.isLocalFallback) {
+        if (finalIsLocalFallback) {
           toast.success('Showing simplified fusion.');
         } else {
           toast.success('AI Fusion generated successfully!');

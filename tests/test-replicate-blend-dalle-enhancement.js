@@ -29,10 +29,10 @@ const openai = new OpenAI({
 
 // Define the enhancement prompt
 const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration.
-Recreate the same creature design, keeping the body structure, pose, key features intact, and same color palette.
+Recreate the same figure design, keeping the body structure, pose, key features intact, and same color palette.
 Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
 The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
-Do not change the creature into a different animal, and do not change its overall body orientation.
+Do not change the figure into a different animal, and do not change its overall body orientation.
 Ensure the background is transparent.`;
 
 // Test configuration

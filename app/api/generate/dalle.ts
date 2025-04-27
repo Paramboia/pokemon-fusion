@@ -23,10 +23,10 @@ const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Define the enhancement prompt once to avoid duplication
 const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration.
-Recreate the same creature design, keeping the body structure, pose, key features intact, and same color palette.
+Recreate the same figure design, keeping the body structure, pose, key features intact, and same color palette.
 Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
 The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
-Do not change the creature into a different animal, and do not change its overall body orientation.
+Do not change the figure into a different animal, and do not change its overall body orientation.
 Ensure the background is transparent.`;
 
 // Function to create a timeout promise that rejects after a specified time
@@ -166,16 +166,57 @@ export async function enhanceWithDirectGeneration(
       if (response.data[0]?.b64_json) {
         console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
         
-        // Since we're using a URL-only approach and can't save files,
-        // we need to return the original image URL
-        console.warn(`[${requestId}] GPT ENHANCEMENT - Using original image because we can't convert base64 to URL in serverless environment`);
-        return imageUrl;
-        
-        // In a real implementation with file access, we would:
-        // 1. Decode the base64 data
-        // 2. Save it to a file
-        // 3. Upload the file to a storage service to get a URL
-        // 4. Return that URL
+        try {
+          // Upload the base64 data to Supabase Storage
+          const { getSupabaseAdminClient } = await import('@/lib/supabase-server');
+          const supabase = await getSupabaseAdminClient();
+          
+          if (!supabase) {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get Supabase client`);
+            return imageUrl;
+          }
+          
+          // Generate a unique filename
+          const fileName = `fusion-gpt-enhanced-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
+          const filePath = `fusions/${fileName}`;
+          
+          // Convert base64 to binary data (remove data:image/png;base64, prefix if present)
+          const b64Data = response.data[0].b64_json;
+          const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
+          
+          // Upload to Supabase Storage
+          const { data: storageData, error: storageError } = await supabase
+            .storage
+            .from('pokemon-fusion')
+            .upload(filePath, Buffer.from(base64Data, 'base64'), {
+              contentType: 'image/png',
+              cacheControl: '3600',
+              upsert: false
+            });
+          
+          if (storageError) {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
+            return imageUrl;
+          }
+          
+          // Get the public URL
+          const { data: publicUrlData } = supabase
+            .storage
+            .from('pokemon-fusion')
+            .getPublicUrl(filePath);
+          
+          if (publicUrlData?.publicUrl) {
+            const newImageUrl = publicUrlData.publicUrl;
+            console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded and generated URL: ${newImageUrl.substring(0, 50)}...`);
+            return newImageUrl;
+          } else {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL`);
+            return imageUrl;
+          }
+        } catch (uploadError) {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
+          return imageUrl; // Fallback to original image if upload fails
+        }
       }
       
       // Handle revised_prompt field (sometimes present in gpt-image-1 responses)
@@ -229,10 +270,10 @@ async function performTextToImageGeneration(
 ): Promise<any> {
   // This is our simple prompt that works consistently with content policies
   const enhancementPrompt = `Use the uploaded image as inspiration.
-Recreate the same creature design, keeping the body structure, pose, key features intact, and same color palette.
+Recreate the same figure design, keeping the body structure, pose, key features intact, and same color palette.
 Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
 The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
-Do not change the creature into a different animal, and do not change its overall body orientation.
+Do not change the figure into a different animal, and do not change its overall body orientation.
 Ensure the background is transparent.`;
   
   console.log(`[${requestId}] DALLE ENHANCEMENT - Generating image with text-to-image prompt`);

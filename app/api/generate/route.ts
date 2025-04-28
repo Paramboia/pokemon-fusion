@@ -28,6 +28,9 @@ console.log('Generate API - USE_STABLE_DIFFUSION:', process.env.USE_STABLE_DIFFU
 console.log('Generate API - USE_GPT_VISION_ENHANCEMENT:', process.env.USE_GPT_VISION_ENHANCEMENT);
 console.log('Generate API - SAVE_LOCAL_COPIES:', process.env.SAVE_LOCAL_COPIES);
 
+// Track last successful image generation for fallback
+let lastSuccessfulImageUrl: string | null = null;
+
 // Function to get Pokémon image URL by ID
 function getPokemonImageUrl(id: number): string {
   // Use the official Pokémon sprites from PokeAPI
@@ -269,6 +272,9 @@ export async function POST(req: Request) {
             console.log('Generate API - Successfully generated fusion with Replicate Blend');
             fusionImageUrl = replicateResult;
             
+            // Store the successful Replicate result for fallback
+            lastSuccessfulImageUrl = replicateResult;
+            
             console.log('Generate API - Replicate Blend image URL:', fusionImageUrl);
             
             // Try to enhance the image with GPT if the environment variable is enabled
@@ -355,6 +361,9 @@ export async function POST(req: Request) {
           
           if (stableDiffusionImageUrl) {
             console.log('Generate API - Successfully generated fusion with Stable Diffusion 3.5');
+            
+            // Store the successful Stable Diffusion result for fallback
+            lastSuccessfulImageUrl = stableDiffusionImageUrl;
             
             // Try to enhance the image with GPT-4 Vision if OpenAI API key is available
             if (useGptEnhancement && process.env.OPENAI_API_KEY) {
@@ -460,6 +469,10 @@ export async function POST(req: Request) {
           
           // Get the first image from the output
           fusionImageUrl = output[0];
+          
+          // Store the successful legacy Replicate result for fallback
+          lastSuccessfulImageUrl = output[0];
+          
           console.log('Generate API - Fusion image URL from legacy Replicate:', fusionImageUrl);
         } catch (replicateError) {
           console.error('Generate API - Error with legacy Replicate:', replicateError);
@@ -570,9 +583,67 @@ export async function POST(req: Request) {
     } catch (error) {
       console.error('Generate API - Error generating fusion:', error);
 
+      // Check if we already generated an image with Replicate Blend
+      if (lastSuccessfulImageUrl) {
+        console.log('Generate API - Using last successful image from Replicate as fallback:', lastSuccessfulImageUrl.substring(0, 50) + '...');
+        
+        // Try to save the Replicate-generated fusion
+        try {
+          // This is NOT a simple fusion - we're using the AI-generated image from Replicate
+          const fallbackResult = await saveFusion({
+            userId: userUuid || userId,
+            pokemon1Id,
+            pokemon2Id,
+            pokemon1Name,
+            pokemon2Name,
+            fusionName,
+            fusionImage: lastSuccessfulImageUrl,
+            isSimpleFusion: false // Not a simple fusion since we're using the AI-generated image
+          });
+
+          if (fallbackResult.error) {
+            console.error('Generate API - Error saving Replicate fallback fusion:', fallbackResult.error);
+            return NextResponse.json({ 
+              error: 'Error saving Replicate fallback fusion',
+              details: error instanceof Error ? error.message : String(error),
+              fallbackError: fallbackResult.error
+            }, { status: 500 });
+          }
+
+          // Safely access the fusion ID
+          let fusionId = uuidv4();
+          if (fallbackResult.data && typeof fallbackResult.data === 'object') {
+            if ('id' in fallbackResult.data) {
+              fusionId = String(fallbackResult.data.id);
+            } else if (Array.isArray(fallbackResult.data) && fallbackResult.data.length > 0 && 
+                      typeof fallbackResult.data[0] === 'object' && 'id' in fallbackResult.data[0]) {
+              fusionId = String(fallbackResult.data[0].id);
+            }
+          }
+
+          // Return the Replicate fallback result
+          return NextResponse.json({
+            id: fusionId,
+            output: lastSuccessfulImageUrl,
+            fusionName,
+            pokemon1Id,
+            pokemon2Id,
+            pokemon1Name,
+            pokemon2Name,
+            fusionData: fallbackResult.data,
+            isLocalFallback: false, // Not using the simple fusion
+            message: 'Fusion generated with Replicate (enhancement failed)'
+          });
+        } catch (replicateFallbackError) {
+          console.error('Generate API - Error with Replicate fallback fusion:', replicateFallbackError);
+          // Continue to simple fallback if saving the Replicate image fails
+        }
+      }
+
+      // If we don't have a successful Replicate image or saving it failed, fall back to the simple method
       // Use one of the processed original images as a fallback
       const fallbackImageUrl = processedImage1;
-      console.log('Generate API - Using processed image as fallback:', fallbackImageUrl);
+      console.log('Generate API - Using processed image as Simple Method fallback:', fallbackImageUrl);
 
       // Try to save the fallback fusion
       try {

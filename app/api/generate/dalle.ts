@@ -131,7 +131,13 @@ export async function enhanceWithDirectGeneration(
         }),
         timeout(ENHANCEMENT_STRICT_TIMEOUT * 0.9) // 90% of the strict timeout to allow for cleanup
       ]).catch(err => {
-        console.error(`[${requestId}] GPT ENHANCEMENT - Generation failed: ${err.message}`);
+        // Explicitly handle AbortError which is common in production
+        if (err.name === 'AbortError' || err.message.includes('abort') || err.message.includes('aborted')) {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Request was aborted: ${err.message}`);
+          console.warn(`[${requestId}] GPT ENHANCEMENT - Returning original image due to AbortError`);
+        } else {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Generation failed: ${err.message}`);
+        }
         // Continue with original image instead of throwing an error
         return null;
       });

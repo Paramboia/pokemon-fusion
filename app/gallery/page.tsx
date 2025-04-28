@@ -6,7 +6,7 @@ import { Fusion } from "@/types";
 import FusionCard from "@/components/fusion-card";
 import { SparklesText } from "@/components/ui";
 import { Loader2, AlertCircle } from "lucide-react";
-import { FavoritesAuthGate } from "@/components/favorites-auth-gate";
+import { GalleryAuthGate } from "@/components/gallery-auth-gate";
 import { useAuthContext } from "@/contexts/auth-context";
 import { useAuth } from "@clerk/nextjs";
 import { 
@@ -132,7 +132,7 @@ export default function GalleryPage() {
         </p>
       </div>
 
-      <FavoritesAuthGate>
+      <GalleryAuthGate>
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -213,7 +213,7 @@ export default function GalleryPage() {
             </div>
           </>
         )}
-      </FavoritesAuthGate>
+      </GalleryAuthGate>
     </div>
   );
 } 

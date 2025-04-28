@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { MoonIcon, SunIcon, Menu, Home, Flame, Heart } from "lucide-react";
+import { MoonIcon, SunIcon, Menu, Home, Flame, Heart, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
@@ -78,6 +78,16 @@ export function Header() {
                 <Heart className="h-5 w-5" />
                 <span>Favorites</span>
               </Link>
+              <Link
+                href="/gallery"
+                className={cn(
+                  "flex items-center space-x-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors",
+                  isActive("/gallery") && "text-gray-900 dark:text-white font-medium"
+                )}
+              >
+                <Palette className="h-5 w-5" />
+                <span>Gallery</span>
+              </Link>
             </div>
           </div>
           <div className="flex items-center space-x-4">
@@ -139,6 +149,17 @@ export function Header() {
             >
               <Heart className="h-5 w-5 mr-2" />
               <span>Favorites</span>
+            </Link>
+            <Link
+              href="/gallery"
+              className={cn(
+                "flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
+                isActive("/gallery") && "text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700"
+              )}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Palette className="h-5 w-5 mr-2" />
+              <span>Gallery</span>
             </Link>
           </div>
         )}

@@ -13,13 +13,26 @@ const API_TIMEOUT = IS_PRODUCTION ? 120000 : 180000; // 2 minutes in production,
 // Initialize OpenAI client with timeout
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: API_TIMEOUT,
-  maxRetries: 3, // Increased from 2 to 3
+  timeout: IS_PRODUCTION ? 35000 : 50000, // Reduced from previous values to be more realistic
+  maxRetries: 1, // Reduced from 3 to 1 - we want to fail fast in enhancement context
+  // Adjust retry settings for faster failures
+  defaultQuery: {
+  },
+  // Add custom headers for improved tracking
+  defaultHeaders: {
+    'X-Request-Source': 'pokemon-fusion-app',
+    'X-Environment': IS_PRODUCTION ? 'production' : 'development'
+  }
 });
 
 // Control how image enhancement works with environment variables
 const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '55000 ', 10); // 55 seconds default for production
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
+
+// Set a stricter timeout for enhancement within the 60-second Vercel function limit
+// In production, we need to finish enhancement within ~30 seconds to leave time for other operations
+// In development, we can be more generous
+const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 45000 : 45000; // 45 seconds in production, 45 in development
 
 // Define the enhancement prompt once to avoid duplication
 const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration.
@@ -90,8 +103,8 @@ export async function enhanceWithDirectGeneration(
   try {
     // Create a timeout controller
     const timeoutId = setTimeout(() => {
-      console.warn(`[${requestId}] GPT ENHANCEMENT - Request aborted due to timeout after ${ENHANCEMENT_TIMEOUT}ms`);
-    }, ENHANCEMENT_TIMEOUT);
+      console.warn(`[${requestId}] GPT ENHANCEMENT - Request aborted due to timeout after ${ENHANCEMENT_STRICT_TIMEOUT}ms`);
+    }, ENHANCEMENT_STRICT_TIMEOUT);
     
     try {
       // Force log this to ensure it appears in production logs
@@ -116,7 +129,7 @@ export async function enhanceWithDirectGeneration(
           quality: "high" as any   // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
           // Note: Removed background and moderation parameters as they might cause API issues
         }),
-        timeout(ENHANCEMENT_TIMEOUT * 0.8) // 80% of the main timeout
+        timeout(ENHANCEMENT_STRICT_TIMEOUT * 0.9) // 90% of the strict timeout to allow for cleanup
       ]).catch(err => {
         console.error(`[${requestId}] GPT ENHANCEMENT - Generation failed: ${err.message}`);
         // Continue with original image instead of throwing an error
@@ -246,102 +259,19 @@ export async function enhanceWithDirectGeneration(
       
       // Handle revised_prompt field (sometimes present in gpt-image-1 responses)
       if (response.data[0]?.revised_prompt) {
-        console.log(`[${requestId}] GPT ENHANCEMENT - Revised prompt: ${response.data[0].revised_prompt.substring(0, 100)}...`);
+        console.log(`[${requestId}] GPT ENHANCEMENT - Revised prompt: ${response.data[0].revised_prompt}`);
       }
       
-      // If we got here but have no URL, log detailed information about the response
-      if (!response.data[0]?.url) {
-        console.error(`[${requestId}] GPT ENHANCEMENT - No image URL in response data. Full response structure:`, 
-          JSON.stringify({
-            dataType: typeof response.data,
-            isArray: Array.isArray(response.data),
-            dataLength: Array.isArray(response.data) ? response.data.length : 0,
-            firstItemKeys: response.data?.[0] ? Object.keys(response.data[0]) : [],
-            firstItem: response.data?.[0] ? JSON.stringify(response.data[0]).substring(0, 200) + '...' : null
-          })
-        );
-      }
-      
-      console.error(`[${requestId}] GPT ENHANCEMENT - No image URL in response data`);
-      return imageUrl;
+      // If we don't have a URL, return the original image
+      return imageUrl; // Always return the original URL if we don't have a new one
     } catch (error) {
       clearTimeout(timeoutId);
-      
-      // Handle common error types
-      if (error instanceof Error) {
-        console.error(`[${requestId}] GPT ENHANCEMENT - Error type: ${error.name}`);
-        console.error(`[${requestId}] GPT ENHANCEMENT - Error message: ${error.message}`);
-        
-        // Check for organization verification error
-        if (error.message.includes('organization verification')) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Organization verification required. Please visit: https://help.openai.com/en/articles/10910291-api-organization-verification`);
-        }
-
-        // Check for content policy violation
-        if (error.message.includes('content policy') || error.message.includes('safety system')) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Content policy violation: The request was rejected by the moderation system`);
-        }
-        
-        // Check for timeout or aborted requests
-        if (error.message.includes('timeout') || error.message.includes('abort') || error.message.includes('aborted')) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Request timed out or was aborted: ${error.message}`);
-        }
-      }
-      
-      console.error(`[${requestId}] GPT ENHANCEMENT - Error using OpenAI API`);
-      return imageUrl;
+      console.error(`[${requestId}] GPT ENHANCEMENT - Error:`, error);
+      return imageUrl; // Always return the original URL on error
     }
   } catch (error) {
     console.error(`[${requestId}] GPT ENHANCEMENT - Unexpected error:`, error);
-    return imageUrl;
-  }
-}
-
-/**
- * Helper function to perform text-to-image generation
- */
-async function performTextToImageGeneration(
-  requestId: string,
-  pokemon1Name: string,
-  pokemon2Name: string,
-  controller: AbortController
-): Promise<any> {
-  // This is our simple prompt that works consistently with content policies
-  const enhancementPrompt = `Use the uploaded image as inspiration.
-Recreate the same figure design, keeping the body structure, pose, key features intact, and same color palette.
-Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
-The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
-Do not change the figure into a different animal, and do not change its overall body orientation.
-Ensure the background is transparent.`;
-  
-  console.log(`[${requestId}] DALLE ENHANCEMENT - Generating image with text-to-image prompt`);
-
-  // Generate a new image using GPT-image-1
-  try {
-    // Use Promise.race to add an additional timeout layer
-    return await Promise.race([
-      openai.images.generate({
-        model: "gpt-image-1",
-        prompt: enhancementPrompt,
-        n: 1,
-        size: "1024x1024"
-      }),
-      timeout(ENHANCEMENT_TIMEOUT * 0.8) // 80% of the main timeout
-    ]).catch(err => {
-      console.error(`[${requestId}] DALLE ENHANCEMENT - Text-to-image generation failed: ${err.message}`);
-      throw new Error(`Text-to-image generation timed out: ${err.message}`);
-    });
-  } catch (error) {
-    console.error(`[${requestId}] DALLE ENHANCEMENT - Text-to-image generation error:`, 
-      error instanceof Error ? {
-        message: error.message,
-        name: error.name,
-        stack: error.stack?.split('\n')[0]
-      } : error
-    );
-    
-    // Re-throw to allow the caller to handle
-    throw error;
+    return imageUrl; // Always return the original URL on unexpected error
   }
 }
 
@@ -379,4 +309,4 @@ function deleteLocalImage(filePath: string, requestId: string): void {
   } else {
     console.log(`[${requestId}] DALLE ENHANCEMENT - Local image not found: ${filePath}`);
   }
-} 
+}

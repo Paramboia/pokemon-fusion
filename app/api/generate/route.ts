@@ -281,22 +281,42 @@ export async function POST(req: Request) {
                   USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT
                 });
                 
-                // Use URL for enhancement - returns a URL string directly
-                const enhancedImageUrl = await enhanceWithDirectGeneration(
-                  pokemon1Name,
-                  pokemon2Name,
-                  fusionImageUrl
-                );
+                // Check how much time has elapsed since the start of the request
+                const currentTime = Date.now();
+                const startTime = req.headers.get('x-vercel-deployment-url') ? 
+                  parseInt(req.headers.get('x-request-start') || '0', 10) : 
+                  process.hrtime()[0] * 1000; // Fallback to process.hrtime if header not available
                 
-                if (enhancedImageUrl && enhancedImageUrl !== fusionImageUrl) {
-                  console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
-                  fusionImageUrl = enhancedImageUrl;
+                const elapsedTime = currentTime - startTime;
+                const remainingTime = 55000 - elapsedTime; // 55 seconds max for Vercel functions (leaving 5s buffer)
+                
+                console.log(`Generate API - Time check before enhancement: ${elapsedTime}ms elapsed, ${remainingTime}ms remaining`);
+                
+                // Skip enhancement if we're running low on time (less than 15 seconds remaining)
+                if (remainingTime < 15000) {
+                  console.warn('Generate API - Skipping enhancement due to time constraints');
+                  console.log('Generate API - Using original Replicate Blend image to avoid timeout');
+                  // fusionImageUrl is already set to the Replicate Blend result
                 } else {
-                  console.log('Generate API - GPT enhancement returned original URL or failed, using original Replicate Blend image');
+                  // Use URL for enhancement - returns a URL string directly
+                  const enhancedImageUrl = await enhanceWithDirectGeneration(
+                    pokemon1Name,
+                    pokemon2Name,
+                    fusionImageUrl
+                  );
+                  
+                  if (enhancedImageUrl && enhancedImageUrl !== fusionImageUrl) {
+                    console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
+                    fusionImageUrl = enhancedImageUrl;
+                  } else {
+                    console.log('Generate API - GPT enhancement returned original URL or failed, using original Replicate Blend image');
+                    // fusionImageUrl is already set to the Replicate Blend result, so no need to set it again
+                  }
                 }
               } catch (enhancementError) {
                 console.error('Generate API - Error enhancing with GPT:', enhancementError);
                 console.log('Generate API - Using original Replicate Blend image');
+                // No need to explicitly set fusionImageUrl here since we kept the original value
               }
             } else {
               console.log('Generate API - GPT enhancement not enabled or OpenAI key not available:', {

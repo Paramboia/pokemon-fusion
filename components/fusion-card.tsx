@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Heart, Download, Send } from 'lucide-react'
+import { Heart, Download, Send, Trophy } from 'lucide-react'
 import { Card, Button } from '@/components/ui'
 import { downloadImage } from '@/lib/utils'
 import { dbService, FusionDB } from '@/lib/supabase-client'
@@ -10,6 +10,7 @@ import { useUser, useAuth } from "@clerk/nextjs";
 import { toast } from 'sonner'
 import { useTheme } from 'next-themes'
 import { Fusion } from '@/types'
+import { cn } from '@/lib/utils'
 
 // Create a union type that can be either Fusion or FusionDB
 type FusionCardData = Fusion | FusionDB;
@@ -20,9 +21,10 @@ interface FusionCardProps {
   onLike?: (id: string) => void
   showActions?: boolean
   showFallbackWarning?: boolean
+  rank?: 1 | 2 | 3 // Add rank prop for top fusions in Popular page
 }
 
-export default function FusionCard({ fusion, onDelete, onLike, showActions = true, showFallbackWarning = true }: FusionCardProps) {
+export default function FusionCard({ fusion, onDelete, onLike, showActions = true, showFallbackWarning = true, rank }: FusionCardProps) {
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(fusion.likes || 0)
   const [mounted, setMounted] = useState(false)
@@ -57,6 +59,38 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
   const getPokemon2Name = () => {
     return 'pokemon2Name' in fusion ? fusion.pokemon2Name : fusion.pokemon_2_name;
   }
+
+  // Get rank-based styling
+  const getRankBorderStyle = () => {
+    if (!rank) return {};
+    
+    switch (rank) {
+      case 1:
+        return { borderColor: '#FFD700', borderWidth: '3px' }; // Gold
+      case 2:
+        return { borderColor: '#C0C0C0', borderWidth: '3px' }; // Silver
+      case 3:
+        return { borderColor: '#CD7F32', borderWidth: '3px' }; // Bronze
+      default:
+        return {};
+    }
+  };
+
+  // Get rank trophy color
+  const getRankTrophyColor = () => {
+    if (!rank) return '';
+    
+    switch (rank) {
+      case 1:
+        return '#FFD700'; // Gold
+      case 2:
+        return '#C0C0C0'; // Silver
+      case 3:
+        return '#CD7F32'; // Bronze
+      default:
+        return '';
+    }
+  };
 
   // Check if device is mobile
   useEffect(() => {
@@ -375,9 +409,36 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
       className="h-full"
       style={{ position: 'relative' }}
     >
+      {/* Rank trophy badge */}
+      {rank && (
+        <div 
+          className="absolute -top-2 -left-2 z-10 w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
+          style={{ 
+            backgroundColor: rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32',
+            border: '2px solid white'
+          }}
+        >
+          {rank === 1 ? (
+            <span className="text-lg font-bold" role="img" aria-label="First place">🥇</span>
+          ) : rank === 2 ? (
+            <span className="text-lg font-bold" role="img" aria-label="Second place">🥈</span>
+          ) : (
+            <span className="text-lg font-bold" role="img" aria-label="Third place">🥉</span>
+          )}
+        </div>
+      )}
+      
       <Card 
-        className="overflow-hidden h-full flex flex-col shadow-md border border-gray-200 dark:border-gray-800 rounded-lg" 
-        style={{ backgroundColor }}
+        className={cn(
+          "overflow-hidden h-full flex flex-col shadow-md border border-gray-200 dark:border-gray-800 rounded-lg",
+          rank === 1 && "shadow-gold",
+          rank === 2 && "shadow-silver",
+          rank === 3 && "shadow-bronze"
+        )}
+        style={{ 
+          backgroundColor,
+          ...getRankBorderStyle()
+        }}
       >
         {/* Image container */}
         <div 

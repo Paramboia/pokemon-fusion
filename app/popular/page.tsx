@@ -120,11 +120,14 @@ export default function PopularPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {popularFusions.map((fusion) => (
-              <div key={fusion.id}>
+            {popularFusions.map((fusion, index) => (
+              <div key={fusion.id} className={cn(
+                index < 3 ? "transform transition-transform duration-200 hover:scale-105" : ""
+              )}>
                 <FusionCard 
                   fusion={fusion}
                   showActions={true}
+                  rank={index === 0 ? 1 : index === 1 ? 2 : index === 2 ? 3 : undefined}
                 />
               </div>
             ))}

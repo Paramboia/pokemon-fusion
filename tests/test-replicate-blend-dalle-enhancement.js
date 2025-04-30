@@ -83,7 +83,7 @@ async function generateWithReplicateBlend(pokemon1Name, pokemon2Name, processedI
   
   try {
     console.log(`[${requestId}] REPLICATE BLEND - START - ${pokemon1Name} + ${pokemon2Name}`);
-    console.log(`[${requestId}] REPLICATE BLEND - API Token check: ${process.env.REPLICATE_API_TOKEN ? 'present' : 'missing'}`);
+    console.log(`[${requestId}] REPLICATE BLEND - API Token check: ${replicate.auth ? 'present' : 'missing'}`);
 
     // Ensure we have both images
     if (!processedImage1 || !processedImage2) {
@@ -141,7 +141,7 @@ async function enhanceWithDirectGeneration(pokemon1Name, pokemon2Name, imageUrl)
   console.log(`[${requestId}] GPT ENHANCEMENT - Original image URL: ${imageUrl?.substring(0, 50)}...`);
   
   // If no OpenAI API key, just return the original image
-  if (!process.env.OPENAI_API_KEY) {
+  if (!openai.apiKey) {
     console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - No OpenAI API key, using original image directly`);
     return imageUrl;
   }
@@ -271,8 +271,9 @@ async function runTest() {
     // Step 3: Enhance the image with GPT-image-1 (pass URL directly)
     console.log('\n[Step 3] Enhancing image with GPT-image-1 (URL-only approach)...');
     
-    // Set environment variable to enable enhancement for the test
-    process.env.USE_GPT_VISION_ENHANCEMENT = 'true';
+    // Ensure the enhancement is enabled
+    process.env.USE_GPT_VISION_ENHANCEMENT = process.env.USE_GPT_VISION_ENHANCEMENT || 'true';
+    console.log(`Using GPT Vision Enhancement: ${process.env.USE_GPT_VISION_ENHANCEMENT}`);
     
     console.time('GPT Enhancement');
     const enhancedImageUrl = await enhanceWithDirectGeneration(

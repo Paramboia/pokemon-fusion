@@ -182,8 +182,8 @@ export const dbService = {
           break;
         case 'most_likes':
         default:
-          // Default to most likes first
-          query = query.order('likes', { ascending: false });
+          // Default to most likes first, then oldest (for equal likes)
+          query = query.order('likes', { ascending: false }).order('created_at', { ascending: true });
           break;
       }
       

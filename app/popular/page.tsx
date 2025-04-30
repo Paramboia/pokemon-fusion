@@ -8,30 +8,18 @@ import { PopularAuthGate } from "@/components/popular-auth-gate";
 import { dbService, FusionDB } from "@/lib/supabase-client";
 import { toast } from "sonner";
 import { Fusion } from "@/types";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-// Define sort options
-type SortOption = "newest" | "oldest" | "most_likes" | "less_likes";
 
 export default function PopularPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [popularFusions, setPopularFusions] = useState<Fusion[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>("most_likes");
 
   useEffect(() => {
     const fetchPopularFusions = async () => {
       try {
         setIsLoading(true);
-        const fusions = await dbService.getPopularFusions(12, sortBy); // Fetch top 12 fusions with sort option
+        const fusions = await dbService.getPopularFusions(12, "most_likes"); // Always fetch by most likes
         
         if (!fusions || fusions.length === 0) {
           console.warn("No fusions returned from the database");
@@ -79,7 +67,7 @@ export default function PopularPage() {
     };
 
     fetchPopularFusions();
-  }, [sortBy]); // Re-fetch when sort option changes
+  }, []);
 
   if (isLoading) {
     return (
@@ -123,48 +111,6 @@ export default function PopularPage() {
       </div>
 
       <PopularAuthGate>
-        <div className="flex justify-end mb-6">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="sort-select" className="text-sm font-medium">
-              Sort by first:
-            </Label>
-            <Select
-              value={sortBy}
-              onValueChange={(value) => setSortBy(value as SortOption)}
-            >
-              <SelectTrigger id="sort-select" className="w-[180px] bg-white dark:bg-gray-800 shadow-sm">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800">
-                <SelectItem 
-                  value="most_likes" 
-                  className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
-                >
-                  Most likes
-                </SelectItem>
-                <SelectItem 
-                  value="less_likes" 
-                  className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
-                >
-                  Less likes
-                </SelectItem>
-                <SelectItem 
-                  value="newest" 
-                  className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
-                >
-                  Newest
-                </SelectItem>
-                <SelectItem 
-                  value="oldest" 
-                  className="hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700"
-                >
-                  Oldest
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
         {popularFusions.length === 0 ? (
           <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
             <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">No fusions found</p>

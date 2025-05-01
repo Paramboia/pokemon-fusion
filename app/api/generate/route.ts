@@ -249,7 +249,9 @@ export async function POST(req: Request) {
                 console.log('Generate API - Enhancement flags:', {
                   useGptEnhancement,
                   hasApiKey: !!process.env.OPENAI_API_KEY,
-                  USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT
+                  USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
+                  apiKeyLength: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0,
+                  apiKeyValidFormat: process.env.OPENAI_API_KEY?.startsWith('sk-') || false
                 });
                 
                 // Check how much time has elapsed since the start of the request
@@ -270,17 +272,21 @@ export async function POST(req: Request) {
                   // fusionImageUrl is already set to the Replicate Blend result
                 } else {
                   // Use URL for enhancement - can return a URL string or null
+                  console.time('GPT Enhancement');
                   const enhancedImageUrl = await enhanceWithDirectGeneration(
                     pokemon1Name,
                     pokemon2Name,
                     fusionImageUrl
                   );
+                  console.timeEnd('GPT Enhancement');
                   
                   if (enhancedImageUrl) {
                     console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
+                    console.log(`Generate API - Updating fusion image URL from Replicate (${fusionImageUrl.substring(0, 30)}...) to GPT Enhanced (${enhancedImageUrl.substring(0, 30)}...)`);
                     fusionImageUrl = enhancedImageUrl;
                   } else {
                     console.log('Generate API - GPT enhancement returned null, using original Replicate Blend image');
+                    console.log('Generate API - This may be due to timeout, API error, or base64 handling issues');
                     // fusionImageUrl is already set to the Replicate Blend result, so no need to set it again
                   }
                 }

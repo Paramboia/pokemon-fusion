@@ -9,10 +9,24 @@ export function initializeConfig() {
   if (process.env.USE_GPT_VISION_ENHANCEMENT === undefined) {
     console.log('Setting USE_GPT_VISION_ENHANCEMENT=true (default)');
     process.env.USE_GPT_VISION_ENHANCEMENT = 'true';
-  } else {
+  } else if (process.env.USE_GPT_VISION_ENHANCEMENT !== 'true') { 
     // Force this to 'true' regardless of what it was set to previously
-    console.log('Forcing USE_GPT_VISION_ENHANCEMENT=true to ensure enhancement is enabled');
+    console.warn('⚠️ Forcing USE_GPT_VISION_ENHANCEMENT=true to ensure enhancement is enabled (was set to:', 
+    process.env.USE_GPT_VISION_ENHANCEMENT, ')');
     process.env.USE_GPT_VISION_ENHANCEMENT = 'true';
+  } else {
+    console.log('USE_GPT_VISION_ENHANCEMENT already set to true ✓');
+  }
+
+  // Verify OpenAI API Key
+  if (process.env.OPENAI_API_KEY) {
+    if (process.env.OPENAI_API_KEY.startsWith('sk-')) {
+      console.log('OPENAI_API_KEY is present and has correct format ✓');
+    } else {
+      console.warn('⚠️ OPENAI_API_KEY is present but does not have correct format (should start with sk-)');
+    }
+  } else {
+    console.warn('⚠️ OPENAI_API_KEY is missing - GPT enhancement will not work!');
   }
 
   // Default to true for Replicate Blend

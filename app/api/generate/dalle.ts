@@ -5,6 +5,7 @@ import fs from 'fs';
 import os from 'os';
 import sharp from 'sharp';
 import FormData from 'form-data';
+import { createClient } from '@supabase/supabase-js';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
@@ -36,7 +37,12 @@ const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 45000 : 45000; // 45 seconds 
 
 // Define the enhancement prompt once to avoid duplication
 // Target Prompt: Use the uploaded image as inspiration. Recreate the same figure design, keeping the body structure, pose, key features intact, and same color palette. Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors. The final style should be teenager-friendly, early 2000s anime-inspired, and polished. Do not change the figure into a different animal, and do not change its overall body orientation. Ensure the background is transparent.
-const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration for a new image.`;
+const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration. 
+Recreate the same figure design, keeping the body structure, pose, key features intact, and same color palette.
+Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
+The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
+Do not change the figure into a different animal, and do not change its overall body orientation.
+Ensure the background is transparent.`;
 
 // Function to create a timeout promise that rejects after a specified time
 function timeout(ms: number): Promise<never> {
@@ -102,7 +108,9 @@ export async function enhanceWithDirectGeneration(
         promptFirstWords: ENHANCEMENT_PROMPT.substring(0, 50),
         n: 1,
         size: "1024x1024",
-        quality: "high"
+        quality: "high",
+        background: "transparent",
+        moderation: "low"
       });
       
       // Use Promise.race to add an additional timeout layer
@@ -113,7 +121,8 @@ export async function enhanceWithDirectGeneration(
           n: 1,
           size: "1024x1024",       // Square format for equal dimensions
           quality: "high" as any   // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
-          // Note: Removed background and moderation parameters as they might cause API issues
+          // Note: We're not using background and moderation parameters to avoid type errors
+          // They appear in the OpenAI API docs but aren't in the Node.js SDK typings
         }),
         timeout(ENHANCEMENT_STRICT_TIMEOUT * 0.9) // 90% of the strict timeout to allow for cleanup
       ]).catch(err => {
@@ -162,7 +171,8 @@ export async function enhanceWithDirectGeneration(
           revisedPrompt: !!response.data?.[0]?.revised_prompt,
           usedParams: {
             model: "gpt-image-1",
-            quality: "high"
+            quality: "high",
+            promptFirstChars: ENHANCEMENT_PROMPT.substring(0, 30) + "..."
           }
         })
       );
@@ -174,10 +184,88 @@ export async function enhanceWithDirectGeneration(
         return newImageUrl;
       }
       
-      // If we get base64 data, log it but return null (don't handle base64)
+      // If we get base64 data, process it using Supabase storage
       if (response.data[0]?.b64_json) {
-        console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data but not processing it (simplified version)`);
-        return null;
+        console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data, processing it`);
+        
+        try {
+          // Check if we have Supabase credentials
+          if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            console.log(`[${requestId}] GPT ENHANCEMENT - Uploading base64 image to Supabase`);
+            
+            // Initialize Supabase Admin client with service role key
+            const supabaseAdmin = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL,
+              process.env.SUPABASE_SERVICE_ROLE_KEY
+            );
+            
+            // Get the base64 data
+            const b64Data = response.data[0].b64_json;
+            
+            // Generate a unique filename
+            const fileName = `gpt-enhanced-${pokemon1Name}-${pokemon2Name}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
+            
+            // Convert base64 to binary data
+            const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
+            
+            // Define bucket name
+            const bucketName = 'fusions';
+            
+            // Check if bucket exists
+            const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+            const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+            
+            if (!bucketExists) {
+              console.log(`[${requestId}] GPT ENHANCEMENT - Creating bucket '${bucketName}'`);
+              const { error: createError } = await supabaseAdmin.storage.createBucket(bucketName, {
+                public: true,
+                allowedMimeTypes: ['image/png', 'image/jpeg'],
+                fileSizeLimit: 5242880 // 5MB
+              });
+              
+              if (createError) {
+                console.error(`[${requestId}] GPT ENHANCEMENT - Error creating bucket:`, createError);
+                return null;
+              }
+            }
+            
+            // Upload the image to Supabase
+            const { data: storageData, error: storageError } = await supabaseAdmin
+              .storage
+              .from(bucketName)
+              .upload(fileName, Buffer.from(base64Data, 'base64'), {
+                contentType: 'image/png',
+                cacheControl: '3600',
+                upsert: true
+              });
+            
+            if (storageError) {
+              console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
+              return null;
+            }
+            
+            // Get the public URL
+            const { data: publicUrlData } = supabaseAdmin
+              .storage
+              .from(bucketName)
+              .getPublicUrl(fileName);
+            
+            if (publicUrlData?.publicUrl) {
+              const newImageUrl = publicUrlData.publicUrl;
+              console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded to Supabase: ${newImageUrl.substring(0, 50)}...`);
+              return newImageUrl;
+            } else {
+              console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL from Supabase`);
+              return null;
+            }
+          } else {
+            console.log(`[${requestId}] GPT ENHANCEMENT - No Supabase credentials, cannot process base64 data`);
+            return null;
+          }
+        } catch (uploadError) {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
+          return null;
+        }
       }
       
       // Handle revised_prompt field (sometimes present in gpt-image-1 responses)

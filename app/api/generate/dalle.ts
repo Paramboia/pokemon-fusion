@@ -13,13 +13,13 @@ import FormData from 'form-data';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const API_TIMEOUT = IS_PRODUCTION ? 120000 : 180000; // 2 minutes in production, 3 minutes in development (increased from before)
+const API_TIMEOUT = IS_PRODUCTION ? 180000 : 240000; // 3 minutes in production, 4 minutes in development (increased)
 
 // Initialize OpenAI client to match test file
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, 
-  timeout: 600000, // 10 minutes
-  maxRetries: 2
+  timeout: 900000, // 15 minutes (increased from 10 minutes)
+  maxRetries: 3    // Increased from 2
 });
 
 // Initialize Supabase client for uploading base64 images
@@ -31,13 +31,13 @@ const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABA
   : null;
 
 // Control how image enhancement works with environment variables
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '55000 ', 10); // 55 seconds default for production
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '70000', 10); // 70 seconds default for production (increased)
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Set a stricter timeout for enhancement within the 60-second Vercel function limit
-// In production, we need to finish enhancement within ~30 seconds to leave time for other operations
+// In production, we need to finish enhancement within a reasonable time to leave time for other operations
 // In development, we can be more generous
-const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 45000 : 45000; // 45 seconds in production, 45 in development
+const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 55000 : 90000; // 55 seconds in production (increased), 90 in development
 
 // Define the enhancement prompt once to avoid duplication
 const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration. 

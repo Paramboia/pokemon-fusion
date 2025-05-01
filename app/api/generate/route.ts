@@ -213,12 +213,11 @@ export async function POST(req: Request) {
       // Determine which model to use based on environment variables
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
       
-      // TEMPORARY DEBUG FIX: Force GPT enhancement to true for debugging
-      // const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
-      const useGptEnhancement = true; // Force to true for testing
+      // Use the environment variable as intended
+      const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
       
       console.log('Generate API - Model selection:', { 
-        useReplicateBlend, 
+        useReplicateBlend,
         useGptEnhancement,
         USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
         USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL

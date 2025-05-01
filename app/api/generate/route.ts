@@ -302,11 +302,22 @@ export async function POST(req: Request) {
                   
                   // Add a separate try/catch just around the enhancement call
                   try {
+                    console.warn('CRITICAL DEBUG - RIGHT BEFORE enhanceWithDirectGeneration call');
+                    console.warn('CRITICAL DEBUG - Arguments:', {
+                      pokemon1Name,
+                      pokemon2Name,
+                      fusionImageUrl: fusionImageUrl.substring(0, 50) + '...',
+                      useGptEnhancement,
+                      hasApiKey: !!process.env.OPENAI_API_KEY,
+                      apiKeyLength: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0
+                    });
+                    
                     enhancedImageUrl = await enhanceWithDirectGeneration(
                       pokemon1Name,
                       pokemon2Name,
                       fusionImageUrl
                     );
+                    console.warn('CRITICAL DEBUG - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
                     console.log('Generate API - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
                   } catch (directError) {
                     console.error('Generate API - CRITICAL ERROR in enhanceWithDirectGeneration:', directError);

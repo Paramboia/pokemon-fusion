@@ -15,12 +15,52 @@ import FormData from 'form-data';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const API_TIMEOUT = IS_PRODUCTION ? 180000 : 240000; // 3 minutes in production, 4 minutes in development (increased)
 
+// Validate API key format
+const apiKey = process.env.OPENAI_API_KEY || '';
+console.warn('🔴🔴🔴 DALLE.TS - OpenAI API Key Format Check 🔴🔴🔴');
+console.warn('API Key starts with:', apiKey.substring(0, 10) + '...');
+console.warn('API Key length:', apiKey.length);
+console.warn('Is API Key properly formatted:', apiKey.startsWith('sk-') || apiKey.startsWith('sk-proj-'));
+
 // Initialize OpenAI client to match test file
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, 
-  timeout: 900000, // 15 minutes (increased from 10 minutes)
-  maxRetries: 3    // Increased from 2
-});
+let openai;
+try {
+  openai = new OpenAI({
+    apiKey: apiKey,
+    timeout: 900000, // 15 minutes (increased from 10 minutes)
+    maxRetries: 3    // Increased from 2
+  });
+  console.warn('🔴🔴🔴 DALLE.TS - OpenAI client successfully initialized 🔴🔴🔴');
+} catch (error) {
+  console.error('🔴🔴🔴 DALLE.TS - ERROR INITIALIZING OPENAI CLIENT:', error, '🔴🔴🔴');
+  // Create a dummy client as fallback
+  openai = {
+    images: {
+      generate: async () => {
+        console.error('🔴🔴🔴 DUMMY OPENAI CLIENT CALLED - REAL CLIENT FAILED TO INITIALIZE 🔴🔴🔴');
+        return null;
+      }
+    }
+  };
+}
+
+// Try a simple API call to validate the client
+try {
+  console.warn('🔴🔴🔴 DALLE.TS - Testing OpenAI client with a simple models.list call 🔴🔴🔴');
+  if (typeof openai.models?.list === 'function') {
+    openai.models.list()
+      .then(result => {
+        console.warn('🔴🔴🔴 DALLE.TS - OpenAI test call succeeded:', !!result, '🔴🔴🔴');
+      })
+      .catch(error => {
+        console.error('🔴🔴🔴 DALLE.TS - OpenAI test call failed:', error.message, '🔴🔴🔴');
+      });
+  } else {
+    console.warn('🔴🔴🔴 DALLE.TS - openai.models.list is not a function, skipping test 🔴🔴🔴');
+  }
+} catch (testError) {
+  console.error('🔴🔴🔴 DALLE.TS - Error during OpenAI client test:', testError, '🔴🔴🔴');
+}
 
 // Initialize Supabase client for uploading base64 images
 const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY 
@@ -71,15 +111,21 @@ export async function enhanceWithDirectGeneration(
 ): Promise<string | null> {
   const startTime = Date.now();
   
+  // SUPER VISIBLE LOGGING FOR DEBUGGING
+  console.warn('🔴🔴🔴 DALLE.TS - enhanceWithDirectGeneration FUNCTION CALLED 🔴🔴🔴');
+  console.warn('🔴🔴🔴 Pokemon names:', pokemon1Name, '+', pokemon2Name, '🔴🔴🔴');
+  console.warn('🔴🔴🔴 Image URL:', imageUrl?.substring(0, 50) + '...', '🔴🔴🔴');
+  
   // Force log this message to ensure it's visible in production
   console.warn(`[${requestId}] GPT ENHANCEMENT - START - ${pokemon1Name} + ${pokemon2Name} at ${new Date().toISOString()}`);
   console.log(`[${requestId}] GPT ENHANCEMENT - Original image URL: ${imageUrl?.substring(0, 50)}...`);
   
   // Check for required environment variables
-  console.log(`[${requestId}] GPT ENHANCEMENT - Environment checks:`, {
+  console.warn(`[${requestId}] GPT ENHANCEMENT - Environment checks:`, {
     USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
     USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL,
     hasKey: !!process.env.OPENAI_API_KEY,
+    keyLength: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0,
     supabaseSetup: {
       hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -113,121 +159,132 @@ export async function enhanceWithDirectGeneration(
     try {
       // Force log this to ensure it appears in production logs
       console.warn(`[${requestId}] GPT ENHANCEMENT - API CALL STARTING at ${new Date().toISOString()}`);
+      console.warn('🔴🔴🔴 DALLE.TS - ABOUT TO CALL OPENAI API 🔴🔴🔴');
       console.log(`[${requestId}] GPT ENHANCEMENT - Using exactly the same parameters as test file`);
       
       // Use Promise.race to add an additional timeout layer
-      const response = await Promise.race([
-        openai.images.generate({
-          model: "gpt-image-1",
-          prompt: ENHANCEMENT_PROMPT,
-          n: 1,
-          size: "1024x1024",
-          quality: "high",
-          background: "transparent",
-          moderation: "low",
-          reference_image: imageUrl
-        }),
-        timeout(ENHANCEMENT_STRICT_TIMEOUT * 0.9) // 90% of the strict timeout to allow for cleanup
-      ]).catch(err => {
-        console.error(`[${requestId}] GPT ENHANCEMENT - API call failed:`, err);
-        return null;
-      });
-      
-      // If we got null from the catch block, return null
-      if (!response) {
-        console.log(`[${requestId}] GPT ENHANCEMENT - Returning null due to API error`);
-        return null;
-      }
-      
-      console.log(`[${requestId}] GPT ENHANCEMENT - Generation completed`);
-      
-      // Clear the timeout
-      clearTimeout(timeoutId);
-      
-      const requestDuration = Date.now() - startTime;
-      console.warn(`[${requestId}] GPT ENHANCEMENT - API CALL COMPLETED in ${requestDuration}ms`);
-      
-      // Debug the response structure
-      console.log(`[${requestId}] GPT ENHANCEMENT - Response structure:`, JSON.stringify({
-        type: typeof response,
-        keys: Object.keys(response || {}),
-        hasData: !!response?.data,
-        dataType: response?.data ? (Array.isArray(response.data) ? 'array' : typeof response.data) : 'missing',
-        firstItemKeys: response?.data?.[0] ? Object.keys(response.data[0]) : [],
-        hasUrl: !!response?.data?.[0]?.url,
-        hasB64: !!response?.data?.[0]?.b64_json
-      }));
-      
-      // Handle the response - First check for URL (more common with dall-e-3)
-      if (response?.data?.[0]?.url) {
-        const newImageUrl = response.data[0].url;
-        console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Generated URL: ${newImageUrl.substring(0, 50)}...`);
-        return newImageUrl;
-      }
-      
-      // Handle base64 data (more common with gpt-image-1)
-      if (response?.data?.[0]?.b64_json) {
-        console.warn(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
+      try {
+        console.warn('🔴🔴🔴 DALLE.TS - Inside inner try block before API call 🔴🔴🔴');
+        const response = await Promise.race([
+          openai.images.generate({
+            model: "gpt-image-1",
+            prompt: ENHANCEMENT_PROMPT,
+            n: 1,
+            size: "1024x1024",
+            quality: "high",
+            background: "transparent",
+            moderation: "low",
+            reference_image: imageUrl
+          }),
+          timeout(ENHANCEMENT_STRICT_TIMEOUT * 0.9) // 90% of the strict timeout to allow for cleanup
+        ]).catch(err => {
+          console.warn('🔴🔴🔴 DALLE.TS - OpenAI API Error:', err.message, '🔴🔴🔴');
+          console.error(`[${requestId}] GPT ENHANCEMENT - API call failed:`, err);
+          return null;
+        });
         
-        // If Supabase isn't available, we can't handle base64 data
-        if (!supabaseAdmin) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Cannot handle base64 data without Supabase`);
+        console.warn('🔴🔴🔴 DALLE.TS - After OpenAI API call - Response received?', !!response, '🔴🔴🔴');
+        
+        // If we got null from the catch block, return null
+        if (!response) {
+          console.log(`[${requestId}] GPT ENHANCEMENT - Returning null due to API error`);
           return null;
         }
         
-        try {
-          // Extract the base64 data
-          const b64Data = response.data[0].b64_json;
-          
-          // Generate a unique filename
-          const fileName = `fusion-gpt-enhanced-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
-          
-          // Convert base64 to binary data (remove data:image/png;base64, prefix if present)
-          const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
-          
-          // Define bucket name
-          const bucketName = 'fusions';
-          
-          // Upload to Supabase Storage
-          console.log(`[${requestId}] GPT ENHANCEMENT - Uploading base64 image to Supabase: ${fileName}`);
-          
-          // Upload the image to Supabase
-          const { data: storageData, error: storageError } = await supabaseAdmin
-            .storage
-            .from(bucketName)
-            .upload(fileName, Buffer.from(base64Data, 'base64'), {
-              contentType: 'image/png',
-              cacheControl: '3600',
-              upsert: true
-            });
-          
-          if (storageError) {
-            console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
-            return null;
-          }
-          
-          // Get the public URL
-          const { data: publicUrlData } = supabaseAdmin
-            .storage
-            .from(bucketName)
-            .getPublicUrl(fileName);
-          
-          if (publicUrlData?.publicUrl) {
-            const newImageUrl = publicUrlData.publicUrl;
-            console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded to Supabase and generated URL: ${newImageUrl.substring(0, 50)}...`);
-            return newImageUrl;
-          } else {
-            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL from Supabase`);
-            return null;
-          }
-        } catch (uploadError) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
-          return null;
+        console.log(`[${requestId}] GPT ENHANCEMENT - Generation completed`);
+        
+        // Clear the timeout
+        clearTimeout(timeoutId);
+        
+        const requestDuration = Date.now() - startTime;
+        console.warn(`[${requestId}] GPT ENHANCEMENT - API CALL COMPLETED in ${requestDuration}ms`);
+        
+        // Debug the response structure
+        console.log(`[${requestId}] GPT ENHANCEMENT - Response structure:`, JSON.stringify({
+          type: typeof response,
+          keys: Object.keys(response || {}),
+          hasData: !!response?.data,
+          dataType: response?.data ? (Array.isArray(response.data) ? 'array' : typeof response.data) : 'missing',
+          firstItemKeys: response?.data?.[0] ? Object.keys(response.data[0]) : [],
+          hasUrl: !!response?.data?.[0]?.url,
+          hasB64: !!response?.data?.[0]?.b64_json
+        }));
+        
+        // Handle the response - First check for URL (more common with dall-e-3)
+        if (response?.data?.[0]?.url) {
+          const newImageUrl = response.data[0].url;
+          console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Generated URL: ${newImageUrl.substring(0, 50)}...`);
+          return newImageUrl;
         }
+        
+        // Handle base64 data (more common with gpt-image-1)
+        if (response?.data?.[0]?.b64_json) {
+          console.warn(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
+          
+          // If Supabase isn't available, we can't handle base64 data
+          if (!supabaseAdmin) {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Cannot handle base64 data without Supabase`);
+            return null;
+          }
+          
+          try {
+            // Extract the base64 data
+            const b64Data = response.data[0].b64_json;
+            
+            // Generate a unique filename
+            const fileName = `fusion-gpt-enhanced-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
+            
+            // Convert base64 to binary data (remove data:image/png;base64, prefix if present)
+            const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
+            
+            // Define bucket name
+            const bucketName = 'fusions';
+            
+            // Upload to Supabase Storage
+            console.log(`[${requestId}] GPT ENHANCEMENT - Uploading base64 image to Supabase: ${fileName}`);
+            
+            // Upload the image to Supabase
+            const { data: storageData, error: storageError } = await supabaseAdmin
+              .storage
+              .from(bucketName)
+              .upload(fileName, Buffer.from(base64Data, 'base64'), {
+                contentType: 'image/png',
+                cacheControl: '3600',
+                upsert: true
+              });
+            
+            if (storageError) {
+              console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
+              return null;
+            }
+            
+            // Get the public URL
+            const { data: publicUrlData } = supabaseAdmin
+              .storage
+              .from(bucketName)
+              .getPublicUrl(fileName);
+            
+            if (publicUrlData?.publicUrl) {
+              const newImageUrl = publicUrlData.publicUrl;
+              console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded to Supabase and generated URL: ${newImageUrl.substring(0, 50)}...`);
+              return newImageUrl;
+            } else {
+              console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL from Supabase`);
+              return null;
+            }
+          } catch (uploadError) {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
+            return null;
+          }
+        }
+        
+        console.log(`[${requestId}] GPT ENHANCEMENT - No valid URL or base64 data in response, returning null`);
+        return null;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.error(`[${requestId}] GPT ENHANCEMENT - Error:`, error);
+        return null; // Return null on error
       }
-      
-      console.log(`[${requestId}] GPT ENHANCEMENT - No valid URL or base64 data in response, returning null`);
-      return null;
     } catch (error) {
       clearTimeout(timeoutId);
       console.error(`[${requestId}] GPT ENHANCEMENT - Error:`, error);

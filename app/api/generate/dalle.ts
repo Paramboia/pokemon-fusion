@@ -124,7 +124,8 @@ export async function enhanceWithDirectGeneration(
           size: "1024x1024",
           quality: "high",
           background: "transparent",
-          moderation: "low"
+          moderation: "low",
+          reference_image: imageUrl
         }),
         timeout(ENHANCEMENT_STRICT_TIMEOUT * 0.9) // 90% of the strict timeout to allow for cleanup
       ]).catch(err => {

@@ -52,10 +52,9 @@ function timeout(ms: number): Promise<never> {
 /**
  * Enhance a Pokemon fusion image using GPT-image-1 model
  * This takes a URL from Replicate Blend and enhances it
- * Returns either:
+ * Returns:
  * - A URL string if OpenAI returns a URL
- * - An object with base64 data if OpenAI returns base64 (for route.ts to handle)
- * - The original URL if enhancement fails
+ * - The original URL if enhancement fails or returns base64 (simplified)
  */
 export async function enhanceWithDirectGeneration(
   pokemon1Name: string,
@@ -63,7 +62,7 @@ export async function enhanceWithDirectGeneration(
   imageUrl: string,
   retryCount = 0,
   requestId = `gpt-image-${Date.now()}`
-): Promise<string> {
+): Promise<string | null> {
   const startTime = Date.now();
   
   // Force log this message to ensure it's visible in production
@@ -73,29 +72,19 @@ export async function enhanceWithDirectGeneration(
   // If we have an image source and no OpenAI API key, just return the original image
   if (imageUrl && !process.env.OPENAI_API_KEY) {
     console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - No OpenAI API key, using original image directly`);
-    return imageUrl;
+    return null;
   }
   
   // Check that OpenAI API key is properly formatted
   if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-')) {
     console.error(`[${requestId}] GPT ENHANCEMENT - ERROR - Invalid OpenAI API key format`);
-    // Return the original image if we have it
-    if (imageUrl) {
-      console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - Using original image due to API key format issue`);
-      return imageUrl;
-    }
-    return imageUrl;
+    return null;
   }
   
   // Check that environment flag is enabled
   if (process.env.USE_GPT_VISION_ENHANCEMENT !== 'true') {
     console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - Enhancement feature is disabled`);
-    // Return the original image if we have it
-    if (imageUrl) {
-      console.warn(`[${requestId}] GPT ENHANCEMENT - Using original image directly (enhancement disabled)`);
-      return imageUrl;
-    }
-    return imageUrl;
+    return null;
   }
   
   console.log(`[${requestId}] GPT ENHANCEMENT - API Key check: ${process.env.OPENAI_API_KEY ? `present (${process.env.OPENAI_API_KEY.length} chars)` : 'missing'}`);
@@ -114,6 +103,7 @@ export async function enhanceWithDirectGeneration(
       console.log(`[${requestId}] GPT ENHANCEMENT - Sending params:`, {
         model: "gpt-image-1",
         promptLength: ENHANCEMENT_PROMPT.length,
+        promptFirstWords: ENHANCEMENT_PROMPT.substring(0, 50),
         n: 1,
         size: "1024x1024",
         quality: "high"
@@ -134,18 +124,22 @@ export async function enhanceWithDirectGeneration(
         // Explicitly handle AbortError which is common in production
         if (err.name === 'AbortError' || err.message.includes('abort') || err.message.includes('aborted')) {
           console.error(`[${requestId}] GPT ENHANCEMENT - Request was aborted: ${err.message}`);
-          console.warn(`[${requestId}] GPT ENHANCEMENT - Returning original image due to AbortError`);
         } else {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Generation failed: ${err.message}`);
+          console.error(`[${requestId}] GPT ENHANCEMENT - Generation failed:`, {
+            message: err.message,
+            code: err.code || 'unknown',
+            type: err.type || 'unknown',
+            status: err.status || err.statusCode || 'unknown'
+          });
         }
         // Continue with original image instead of throwing an error
         return null;
       });
       
-      // If we got null from the catch block, return the original image
+      // If we got null from the catch block, return null
       if (!response) {
-        console.log(`[${requestId}] GPT ENHANCEMENT - Falling back to original image due to error`);
-        return imageUrl;
+        console.log(`[${requestId}] GPT ENHANCEMENT - Returning null due to API error`);
+        return null;
       }
       
       console.log(`[${requestId}] GPT ENHANCEMENT - Generation completed`);
@@ -158,7 +152,7 @@ export async function enhanceWithDirectGeneration(
       
       if (!response?.data || response.data.length === 0) {
         console.error(`[${requestId}] GPT ENHANCEMENT - ERROR: Empty response data`);
-        return imageUrl;
+        return null;
       }
 
       // Debug log the response structure in production to help diagnose issues
@@ -169,9 +163,7 @@ export async function enhanceWithDirectGeneration(
           firstItemKeys: response.data?.[0] ? Object.keys(response.data[0]) : [],
           hasUrl: !!response.data?.[0]?.url,
           hasB64: !!response.data?.[0]?.b64_json,
-          revisedPrompt: response.data?.[0]?.revised_prompt,
-          errorType: response instanceof Error ? response.name : null,
-          errorMessage: response instanceof Error ? response.message : null,
+          revisedPrompt: !!response.data?.[0]?.revised_prompt,
           usedParams: {
             model: "gpt-image-1",
             quality: "high"
@@ -179,88 +171,17 @@ export async function enhanceWithDirectGeneration(
         })
       );
 
-      // Handle the response (URL or base64)
+      // Handle the response - ONLY ACCEPT URL responses, ignore base64
       if (response.data[0]?.url) {
         const newImageUrl = response.data[0].url;
         console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Generated URL: ${newImageUrl.substring(0, 50)}...`);
         return newImageUrl;
       }
       
-      // Handle base64 data - important for gpt-image-1 which sometimes returns b64_json instead of URL
+      // If we get base64 data, log it but return null (don't handle base64)
       if (response.data[0]?.b64_json) {
-        console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
-        
-        try {
-          // Upload the base64 data to Supabase Storage
-          const { getSupabaseAdminClient } = await import('@/lib/supabase-server');
-          const supabase = await getSupabaseAdminClient();
-          
-          if (!supabase) {
-            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get Supabase client`);
-            return imageUrl;
-          }
-          
-          // Generate a unique filename
-          const fileName = `fusion-gpt-enhanced-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
-          const filePath = fileName; // Just the filename, not in a subfolder
-          
-          // Convert base64 to binary data (remove data:image/png;base64, prefix if present)
-          const b64Data = response.data[0].b64_json;
-          const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
-          
-          // Double-check that bucket exists before uploading
-          const { data: buckets } = await supabase.storage.listBuckets();
-          const bucketName = 'fusions';
-          const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
-          
-          if (!bucketExists) {
-            console.log(`[${requestId}] GPT ENHANCEMENT - Bucket '${bucketName}' doesn't exist, creating it...`);
-            const { error: createError } = await supabase.storage.createBucket(bucketName, {
-              public: true,
-              allowedMimeTypes: ['image/png', 'image/jpeg'],
-              fileSizeLimit: 5242880 // 5MB
-            });
-            
-            if (createError) {
-              console.error(`[${requestId}] GPT ENHANCEMENT - Error creating bucket:`, createError);
-              return imageUrl;
-            }
-            console.log(`[${requestId}] GPT ENHANCEMENT - Bucket '${bucketName}' created successfully`);
-          }
-          
-          // Upload to Supabase Storage
-          const { data: storageData, error: storageError } = await supabase
-            .storage
-            .from('fusions') // Using 'fusions' bucket
-            .upload(filePath, Buffer.from(base64Data, 'base64'), {
-              contentType: 'image/png',
-              cacheControl: '3600',
-              upsert: true // Set to true to overwrite if file exists (was false before)
-            });
-          
-          if (storageError) {
-            console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
-            return imageUrl;
-          }
-          
-          // Get the public URL
-          const { data: publicUrlData } = supabase
-            .storage
-            .from('fusions') // Using 'fusions' bucket
-            .getPublicUrl(filePath);
-          
-          if (publicUrlData?.publicUrl) {
-            const newImageUrl = publicUrlData.publicUrl;
-            console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded and generated URL: ${newImageUrl.substring(0, 50)}...`);
-            return newImageUrl;
-          } else {
-            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL`);
-            return imageUrl;
-          }
-        } catch (uploadError) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
-          return imageUrl; // Fallback to original image if upload fails
-        }
+        console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data but not processing it (simplified version)`);
+        return null;
       }
       
       // Handle revised_prompt field (sometimes present in gpt-image-1 responses)
@@ -268,16 +189,17 @@ export async function enhanceWithDirectGeneration(
         console.log(`[${requestId}] GPT ENHANCEMENT - Revised prompt: ${response.data[0].revised_prompt}`);
       }
       
-      // If we don't have a URL, return the original image
-      return imageUrl; // Always return the original URL if we don't have a new one
+      // If we don't have a URL, return null
+      console.log(`[${requestId}] GPT ENHANCEMENT - No valid URL in response, returning null`);
+      return null;
     } catch (error) {
       clearTimeout(timeoutId);
       console.error(`[${requestId}] GPT ENHANCEMENT - Error:`, error);
-      return imageUrl; // Always return the original URL on error
+      return null; // Return null on error
     }
   } catch (error) {
     console.error(`[${requestId}] GPT ENHANCEMENT - Unexpected error:`, error);
-    return imageUrl; // Always return the original URL on unexpected error
+    return null; // Return null on unexpected error
   }
 }
 

@@ -4,9 +4,8 @@ import Replicate from 'replicate';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
-import { generatePokemonFusion, enhanceWithDirectGeneration, enhanceImageWithGptVision } from './dalle';
+import { generatePokemonFusion, enhanceWithDirectGeneration } from './dalle';
 import { generateWithReplicateBlend } from './replicate-blend';
-import { generatePokemonFusionWithStableDiffusion, generateAdvancedPokemonFusion } from './stable-diffusion';
 import { initializeConfig, logConfigStatus } from './config';
 import path from 'path';
 import fs from 'fs';
@@ -24,7 +23,6 @@ console.log('Generate API - REPLICATE_API_TOKEN available:', !!process.env.REPLI
 console.log('Generate API - OPENAI_API_KEY available:', !!process.env.OPENAI_API_KEY);
 console.log('Generate API - NEXT_PUBLIC_SUPABASE_URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
 console.log('Generate API - SUPABASE_SERVICE_ROLE_KEY available:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-console.log('Generate API - USE_STABLE_DIFFUSION:', process.env.USE_STABLE_DIFFUSION);
 console.log('Generate API - USE_GPT_VISION_ENHANCEMENT:', process.env.USE_GPT_VISION_ENHANCEMENT);
 console.log('Generate API - SAVE_LOCAL_COPIES:', process.env.SAVE_LOCAL_COPIES);
 
@@ -206,51 +204,18 @@ export async function POST(req: Request) {
 
     try {
       // Determine which model to use based on environment variables
-      const useReplicate = process.env.USE_REPLICATE_MODEL === 'true';
-      const useOpenAI = process.env.USE_OPENAI_MODEL === 'true';
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
-      const useStableDiffusion = process.env.USE_STABLE_DIFFUSION === 'true';
       const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
       
       console.log('Generate API - Model selection:', { 
-        useReplicate, 
-        useOpenAI,
-        useReplicateBlend,
-        useStableDiffusion,
+        useReplicateBlend, 
         useGptEnhancement
       });
 
       let fusionImageUrl: string | null = null;
 
-      // Try models in order of preference, falling back if one fails
-      if (useImageEditing) {
-        try {
-          console.log('Generate API - Attempting OpenAI Image Editing approach');
-          
-          // Check if OPENAI_API_KEY is available
-          if (!process.env.OPENAI_API_KEY) {
-            console.error('Generate API - OPENAI_API_KEY not available');
-            throw new Error('OPENAI_API_KEY not available');
-          }
-          
-          fusionImageUrl = await generatePokemonFusion(
-            processedImage1,
-            processedImage2,
-            maskType as 'lower-half' | 'upper-half' | 'right-half' | 'left-half'
-          );
-          
-          if (fusionImageUrl) {
-            console.log('Generate API - Successfully generated fusion with OpenAI Image Editing');
-          } else {
-            console.log('Generate API - OpenAI Image Editing failed, will try another model');
-          }
-        } catch (imageEditError) {
-          console.error('Generate API - Error with OpenAI Image Editing:', imageEditError);
-          console.log('Generate API - Will try another model');
-        }
-      }
-
-      if (useReplicateBlend && !fusionImageUrl) {
+      // Try using Replicate Blend first
+      if (useReplicateBlend) {
         try {
           console.log('Generate API - Attempting Replicate Blend model');
           
@@ -304,18 +269,18 @@ export async function POST(req: Request) {
                   console.log('Generate API - Using original Replicate Blend image to avoid timeout');
                   // fusionImageUrl is already set to the Replicate Blend result
                 } else {
-                  // Use URL for enhancement - returns a URL string directly
+                  // Use URL for enhancement - can return a URL string or null
                   const enhancedImageUrl = await enhanceWithDirectGeneration(
                     pokemon1Name,
                     pokemon2Name,
                     fusionImageUrl
                   );
                   
-                  if (enhancedImageUrl && enhancedImageUrl !== fusionImageUrl) {
+                  if (enhancedImageUrl) {
                     console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
                     fusionImageUrl = enhancedImageUrl;
                   } else {
-                    console.log('Generate API - GPT enhancement returned original URL or failed, using original Replicate Blend image');
+                    console.log('Generate API - GPT enhancement returned null, using original Replicate Blend image');
                     // fusionImageUrl is already set to the Replicate Blend result, so no need to set it again
                   }
                 }
@@ -332,186 +297,23 @@ export async function POST(req: Request) {
               });
             }
           } else {
-            console.log('Generate API - Replicate Blend failed, will try another model');
+            console.log('Generate API - Replicate Blend failed, will use Simple Method fallback');
           }
         } catch (blendError) {
           console.error('Generate API - Error with Replicate Blend:', blendError);
-          console.log('Generate API - Will try another model');
+          console.log('Generate API - Will use Simple Method fallback');
         }
       }
 
-      // Try Stable Diffusion 3.5 if enabled
-      if (!fusionImageUrl && useStableDiffusion) {
-        try {
-          console.log('Generate API - Attempting Stable Diffusion 3.5 model');
-          
-          // Check if REPLICATE_API_TOKEN is available
-          if (!process.env.REPLICATE_API_TOKEN) {
-            console.error('Generate API - REPLICATE_API_TOKEN not available');
-            throw new Error('REPLICATE_API_TOKEN not available');
-          }
-          
-          // Generate fusion with Stable Diffusion
-          let stableDiffusionImageUrl = await generatePokemonFusionWithStableDiffusion(
-            pokemon1Name,
-            pokemon2Name,
-            processedImage1,
-            processedImage2
-          );
-          
-          if (stableDiffusionImageUrl) {
-            console.log('Generate API - Successfully generated fusion with Stable Diffusion 3.5');
-            
-            // Store the successful Stable Diffusion result for fallback
-            lastSuccessfulImageUrl = stableDiffusionImageUrl;
-            
-            // Try to enhance the image with GPT-4 Vision if OpenAI API key is available
-            if (useGptEnhancement && process.env.OPENAI_API_KEY) {
-              try {
-                console.log('Generate API - Attempting to enhance Stable Diffusion image with GPT');
-                
-                // Use direct generation for enhancement
-                const enhancedImageUrl = await enhanceWithDirectGeneration(
-                  pokemon1Name,
-                  pokemon2Name,
-                  stableDiffusionImageUrl
-                );
-                
-                if (enhancedImageUrl && enhancedImageUrl !== stableDiffusionImageUrl) {
-                  console.log(`Generate API - Successfully enhanced Stable Diffusion image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
-                  fusionImageUrl = enhancedImageUrl;
-                } else {
-                  console.log('Generate API - GPT enhancement returned original URL or failed, using original Stable Diffusion image');
-                  fusionImageUrl = stableDiffusionImageUrl;
-                }
-              } catch (enhancementError) {
-                console.error('Generate API - Error enhancing with GPT:', enhancementError);
-                console.log('Generate API - Using original Stable Diffusion image');
-                fusionImageUrl = stableDiffusionImageUrl;
-              }
-            } else {
-              // No enhancement, use the Stable Diffusion image directly
-              console.log('Generate API - GPT enhancement not enabled or OpenAI API key not available');
-              fusionImageUrl = stableDiffusionImageUrl;
-            }
-          } else {
-            console.log('Generate API - Stable Diffusion 3.5 failed, will try another model');
-          }
-        } catch (stableDiffusionError) {
-          console.error('Generate API - Error with Stable Diffusion 3.5:', stableDiffusionError);
-          console.log('Generate API - Will try another model');
-        }
-      }
-
-      // Try the legacy Replicate model if Stable Diffusion failed
-      if (!fusionImageUrl && useReplicate) {
-        try {
-          // Check if REPLICATE_API_TOKEN is available
-          if (!process.env.REPLICATE_API_TOKEN) {
-            console.error('Generate API - REPLICATE_API_TOKEN not available');
-            throw new Error('REPLICATE_API_TOKEN not available');
-          }
-
-          console.log('Generate API - Initializing Replicate client');
-          const replicate = new Replicate({
-            auth: process.env.REPLICATE_API_TOKEN,
-            // Add timeout configuration within Vercel's limits
-            fetch: (url, options = {}) => {
-              return fetch(url, {
-                ...options,
-                signal: AbortSignal.timeout(50000) // 50 second timeout for each request to leave buffer for other operations
-              });
-            }
-          });
-          
-          // Prepare the input for the image-merger model
-          const modelInput = {
-            image_1: processedImage1,
-            image_2: processedImage2,
-            control_image: processedImage1,
-            merge_mode: "left_right",
-            prompt: `a fusion of ${pokemon1Name} and ${pokemon2Name} by merging the carachteristics of both in a single new Pokemon, clean Pokémon-style illustration with solid white background, game concept art, animation or video game character design, with smooth shading, soft lighting, and a balanced color palette, friendly animation style, kid friendly style, completely white background with no black or gray, transparent background`,
-            negative_prompt: "blurry, realistic, 3D, distorted, messy, uncanny, color background, garish, ugly, broken, futuristic, render, digital, black background, dark background, dark color palette, dark shading, dark lighting",
-            upscale_2x: true
-          };
-          
-          console.log('Generate API - Running image-merger model with processed images');
-          
-          // Run the model with retries and shorter timeouts
-          let output;
-          let retryCount = 0;
-          const maxRetries = 2;
-          
-          while (retryCount < maxRetries) {
-            try {
-              output = await replicate.run(
-                "fofr/image-merger:db2c826b6a7215fd31695acb73b5b2c91a077f88a2a264c003745e62901e2867",
-                { input: modelInput }
-              );
-              break; // If successful, exit the retry loop
-            } catch (retryError) {
-              retryCount++;
-              console.error(`Generate API - Replicate attempt ${retryCount} failed:`, retryError);
-              if (retryCount === maxRetries) {
-                throw retryError; // Re-throw if all retries failed
-              }
-              // Wait before retrying (shorter backoff)
-              await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
-            }
-          }
-          
-          console.log('Generate API - Replicate output:', output);
-          
-          if (!output || !Array.isArray(output) || output.length === 0) {
-            console.error('Generate API - No output from Replicate');
-            throw new Error('No valid output from Replicate');
-          }
-          
-          // Get the first image from the output
-          fusionImageUrl = output[0];
-          
-          // Store the successful legacy Replicate result for fallback
-          lastSuccessfulImageUrl = output[0];
-          
-          console.log('Generate API - Fusion image URL from legacy Replicate:', fusionImageUrl);
-        } catch (replicateError) {
-          console.error('Generate API - Error with legacy Replicate:', replicateError);
-          console.log('Generate API - Will try another model');
-        }
-      }
-
-      // If Replicate models failed, try OpenAI
-      if (!fusionImageUrl && useOpenAI) {
-        try {
-          // Check if OPENAI_API_KEY is available
-          if (!process.env.OPENAI_API_KEY) {
-            console.error('Generate API - OPENAI_API_KEY not available');
-            throw new Error('OPENAI_API_KEY not available');
-          }
-
-          console.log('Generate API - Attempting DALL·E 3 generation');
-          // We don't have a direct DALL-E function in dalle.ts, but we'll keep this as a placeholder
-          // In a real implementation, you would replace this with the appropriate call
-          fusionImageUrl = "DALL-E generation not implemented"; // Placeholder
-
-          if (fusionImageUrl) {
-            console.log('Generate API - Successfully generated fusion with DALL·E 3');
-          } else {
-            console.log('Generate API - DALL·E 3 generation failed');
-            throw new Error('Failed to generate fusion with DALL·E 3');
-          }
-        } catch (openaiError) {
-          console.error('Generate API - Error with DALL·E 3:', openaiError);
-        }
-      }
-
-      // If all models failed, throw an error
+      // If Replicate Blend failed, fall back to Simple Method
       if (!fusionImageUrl) {
-        throw new Error('All image generation models failed');
+        console.log('Generate API - Using Simple Method as fallback (processed original image)');
+        // Use one of the processed original images as a fallback
+        fusionImageUrl = processedImage1;
       }
 
       // If this was an AI fusion, record the credit usage now that we have successfully generated the image
-      if (!isSimpleFusion) {
+      if (!isSimpleFusion && fusionImageUrl !== processedImage1) {
         // Add transaction record after successful generation
         const { error: transactionError } = await supabase
           .from('credits_transactions')

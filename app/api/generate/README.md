@@ -1,4 +1,4 @@
-# Pokemon Fusion Generation Architecture (nice)
+# Pokemon Fusion Generation Architecture
 
 This document explains the technical architecture of the Pokemon fusion generation system, to help future developers.
 
@@ -8,35 +8,33 @@ The generation system uses a two-step process for creating AI-generated Pokémon
 1. **Replicate Blend**: Creates the initial fusion image by blending features from two Pokémon
 2. **GPT Image Enhancement**: Refines the image using OpenAI's GPT-image-1 model to ensure high quality
 
-The system is designed for resilience and flexibility, with environment variables controlling which models are enabled. If the AI generation fails, the system falls back to the Simple Method.
+The system is designed for resilience, with a simple fallback mechanism if the AI generation fails.
 
 ## Key Files
 
 - `route.ts` - Main API endpoint handler that orchestrates the generation process
 - `replicate-blend.ts` - Implementation for the initial fusion using Replicate's blend-images model
 - `dalle.ts` - Enhances the initial fusion using OpenAI's GPT-image-1 model
-- `stable-diffusion.ts` - Implementation for Stable Diffusion 3.5 (requires additional licensing)
 - `config.ts` - Configuration module that sets default environment variables
 
 ## Generation Pipeline
 
-The system attempts to generate a fusion using the following sequence:
+The system generates a fusion using the following sequence:
 
 1. **Primary Flow**:
    - Replicate Blend creates the initial fusion image (img_1)
    - The URL of this image is passed directly to the GPT Image Enhancement
    - GPT Image Enhancement uses the URL to generate a new enhanced image (img_2)
    - The enhanced image (img_2) is shown to the user
+   - If GPT enhancement fails, the initial Replicate Blend image (img_1) is shown
 
 2. **Fallback Flow**:
-   - If Replicate Blend fails, try Stable Diffusion 3.5
-   - If Stable Diffusion 3.5 fails, use the Simple Method (one of the original Pokémon images)
+   - If Replicate Blend fails, use the Simple Method (one of the original Pokémon images)
 
 ## Model Approaches
 
-- **Replicate Blend**: Uses two Pokémon images as input to blend their features
-- **GPT Image Enhancement**: Takes the URL output from Replicate Blend and uses it with a simple prompt to generate an improved version: "Make the image better, ensure clean animation-style with smooth outlines, maintain kid-friendly appearance, and ensure completely pure white background"
-- **Stable Diffusion 3.5**: Uses advanced diffusion techniques to create a fusion based on the two Pokémon
+- **Replicate Blend**: Uses two Pokémon images as input to blend their features into a fusion
+- **GPT Image Enhancement**: Takes the URL output from Replicate Blend and uses it with a simple prompt to generate an improved version with clean outlines and animation style
 - **Simple Method**: Uses one of the original Pokémon images as a fallback if all AI generation methods fail
 
 ## Adding a New Model
@@ -104,7 +102,7 @@ Each model implementation file should follow these patterns:
    - `processedImage1`, `processedImage2` - URLs or base64 of the Pokemon images
    
 2. Return types should be consistent:
-   - Return a URL string or object with the URL of the generated image on success
+   - Return a URL string on success
    - Return `null` if generation fails but doesn't throw an error
    
 3. Include robust error handling:
@@ -122,11 +120,9 @@ The system uses these environment variables to control behavior:
 
 - `USE_REPLICATE_BLEND` - Enable Replicate Blend for initial fusion (default: true)
 - `USE_GPT_VISION_ENHANCEMENT` - Enable GPT Image Enhancement for refining the fusion (default: true)
-- `USE_URL_ONLY_ENHANCEMENT` - Use URL-only approach for enhancement without saving files (default: true)
-- `USE_STABLE_DIFFUSION` - Enable Stable Diffusion 3.5 (requires additional licensing)
 - `REPLICATE_API_TOKEN` - API token for Replicate
 - `OPENAI_API_KEY` - API key for OpenAI (for enhancement)
-- `ENHANCEMENT_TIMEOUT` - Timeout for the enhancement process in milliseconds (default: 20000 - 20 seconds)
+- `ENHANCEMENT_TIMEOUT` - Timeout for the enhancement process in milliseconds
 
 ## Timeout Configuration
 
@@ -135,8 +131,7 @@ The system uses tiered timeouts to work within Vercel's limits:
 1. **API Route Timeout**: 60 seconds (Vercel Hobby plan limit)
 2. **Individual Service Timeouts**:
    - Replicate Blend: 25 seconds
-   - DALL-E Enhancement: 20 seconds
-   - Stable Diffusion: 25 seconds (if used)
+   - DALL-E Enhancement: 45 seconds 
 
 If you upgrade to a Vercel Pro/Team plan, you can increase these timeouts:
 1. Change `maxDuration` in `route.ts` from 60 to 300 seconds
@@ -144,11 +139,11 @@ If you upgrade to a Vercel Pro/Team plan, you can increase these timeouts:
 
 ## Error Handling and Fallbacks
 
-The system includes a multi-layered fallback mechanism:
+The system includes a simple two-step fallback mechanism:
 
 1. Primary Generation: Replicate Blend + GPT Enhancement
-2. First Fallback: Stable Diffusion 3.5 if Replicate Blend fails or GPT Enhancement fails
-3. Final Fallback: Simple Method if all AI generation methods fail
+2. If GPT Enhancement fails: Use the original Replicate Blend image
+3. If Replicate Blend fails: Use Simple Method (one of the original Pokémon images)
 4. Each implementation includes retries for API calls with exponential backoff
 
 ## Optimizations
@@ -160,7 +155,7 @@ Several optimizations are included:
    - Better suited for serverless environments
    - Reduces latency by eliminating download/upload steps
    - More scalable and stateless architecture
-   - Image URLs are passed directly from Replicate to DALL-E with no intermediate file storage
+   - Image URLs are passed directly from Replicate to OpenAI with no intermediate file storage
 
 2. Timeout configuration for API calls to stay within Vercel limits
 3. Retry logic with exponential backoff for resilience

@@ -5,6 +5,13 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 import { generatePokemonFusion, enhanceWithDirectGeneration } from './dalle';
+
+// DEBUG - Verify imports from dalle.ts
+console.warn('ROUTE.TS - dalle.ts imports completed:', { 
+  hasGenerateFn: typeof generatePokemonFusion === 'function',
+  hasEnhanceFn: typeof enhanceWithDirectGeneration === 'function' 
+});
+
 import { generateWithReplicateBlend } from './replicate-blend';
 import { initializeConfig, logConfigStatus } from './config';
 import path from 'path';
@@ -290,14 +297,36 @@ export async function POST(req: Request) {
                   // Use URL for enhancement - can return a URL string or null
                   console.time('GPT Enhancement');
                   console.log('Generate API - BEFORE enhanceWithDirectGeneration call');
-                  const enhancedImageUrl = await enhanceWithDirectGeneration(
-                    pokemon1Name,
-                    pokemon2Name,
-                    fusionImageUrl
-                  );
-                  console.log('Generate API - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
+                  
+                  // Declare enhancedImageUrl outside try/catch to make it accessible in wider scope
+                  let enhancedImageUrl: string | null = null;
+                  
+                  // Add a separate try/catch just around the enhancement call
+                  try {
+                    enhancedImageUrl = await enhanceWithDirectGeneration(
+                      pokemon1Name,
+                      pokemon2Name,
+                      fusionImageUrl
+                    );
+                    console.log('Generate API - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
+                  } catch (directError) {
+                    console.error('Generate API - CRITICAL ERROR in enhanceWithDirectGeneration:', directError);
+                    console.error('Generate API - Error stack:', directError?.stack);
+                    console.error('Generate API - This is why enhancement is not working!');
+                    
+                    // Log the error type and properties
+                    try {
+                      console.error('Generate API - Error type:', directError?.constructor?.name);
+                      console.error('Generate API - Error properties:', JSON.stringify(Object.getOwnPropertyNames(directError)));
+                    } catch (logError) {
+                      console.error('Generate API - Could not stringify error:', logError);
+                    }
+                  }
+
+                  // Keep the original code structure to maintain backwards compatibility
                   console.timeEnd('GPT Enhancement');
                   
+                  // Keep the original logic for whether to use the enhanced image or fallback
                   if (enhancedImageUrl) {
                     console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
                     console.log(`Generate API - Updating fusion image URL from Replicate (${fusionImageUrl.substring(0, 30)}...) to GPT Enhanced (${enhancedImageUrl.substring(0, 30)}...)`);

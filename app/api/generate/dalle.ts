@@ -1,29 +1,25 @@
-import OpenAI from 'openai';
+// DEBUG - Log module loading
+console.warn('DALLE.TS MODULE LOADED - This should appear in logs');
+
+// Import OpenAI with CommonJS approach to match working test file
+const OpenAI = require('openai');
+import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import sharp from 'sharp';
 import FormData from 'form-data';
-import { createClient } from '@supabase/supabase-js';
 
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const API_TIMEOUT = IS_PRODUCTION ? 120000 : 180000; // 2 minutes in production, 3 minutes in development (increased from before)
 
-// Initialize OpenAI client with timeout
+// Initialize OpenAI client to match test file
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  timeout: IS_PRODUCTION ? 35000 : 50000, // Reduced from previous values to be more realistic
-  maxRetries: 1, // Reduced from 3 to 1 - we want to fail fast in enhancement context
-  // Adjust retry settings for faster failures
-  defaultQuery: {
-  },
-  // Add custom headers for improved tracking
-  defaultHeaders: {
-    'X-Request-Source': 'pokemon-fusion-app',
-    'X-Environment': IS_PRODUCTION ? 'production' : 'development'
-  }
+  apiKey: process.env.OPENAI_API_KEY, 
+  timeout: 600000, // 10 minutes
+  maxRetries: 2
 });
 
 // Control how image enhancement works with environment variables
@@ -36,7 +32,6 @@ const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 45000 : 45000; // 45 seconds in production, 45 in development
 
 // Define the enhancement prompt once to avoid duplication
-// Target Prompt: Use the uploaded image as inspiration. Recreate the same figure design, keeping the body structure, pose, key features intact, and same color palette. Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors. The final style should be teenager-friendly, early 2000s anime-inspired, and polished. Do not change the figure into a different animal, and do not change its overall body orientation. Ensure the background is transparent.
 const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration. 
 Recreate the same figure design, keeping the body structure, pose, key features intact, and same color palette.
 Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
@@ -70,40 +65,24 @@ export async function enhanceWithDirectGeneration(
   // Force log this message to ensure it's visible in production
   console.warn(`[${requestId}] GPT ENHANCEMENT - START - ${pokemon1Name} + ${pokemon2Name} at ${new Date().toISOString()}`);
   console.log(`[${requestId}] GPT ENHANCEMENT - Original image URL: ${imageUrl?.substring(0, 50)}...`);
-  console.log(`[${requestId}] GPT ENHANCEMENT - DEBUG - Environment variables:`, {
+  
+  // Check for required environment variables
+  console.log(`[${requestId}] GPT ENHANCEMENT - Environment checks:`, {
     USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
     USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL,
-    hasApiKey: !!process.env.OPENAI_API_KEY,
-    keyFormat: process.env.OPENAI_API_KEY?.substring(0, 10) + '...' // First 10 chars only for security
+    hasKey: !!process.env.OPENAI_API_KEY,
+    openaiConfig: {
+      timeout: openai.timeout,
+      maxRetries: openai.maxRetries,
+      apiKey: process.env.OPENAI_API_KEY ? `${process.env.OPENAI_API_KEY.substring(0, 10)}...` : 'missing'
+    }
   });
   
-  // TEMPORARY: Log but don't return to force execution for debugging
-  if (imageUrl && !process.env.OPENAI_API_KEY) {
-    console.warn(`[${requestId}] GPT ENHANCEMENT - WARNING - No OpenAI API key, but continuing anyway for debugging`);
-    // return null; // Commented out for testing
+  // If we have an image source and no OpenAI API key, return null
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - No OpenAI API key`);
+    return null;
   }
-  
-  // TEMPORARY: Log but don't return to force execution for debugging
-  if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
-    console.error(`[${requestId}] GPT ENHANCEMENT - WARNING - Invalid OpenAI API key format. Should use sk-proj- format for project-based keys`);
-    console.error(`[${requestId}] GPT ENHANCEMENT - Key format found: ${process.env.OPENAI_API_KEY.substring(0, 10)}...`);
-    // return null; // Commented out for testing
-  }
-  
-  // TEMPORARY: Log but don't return to force execution for debugging
-  if (process.env.USE_GPT_VISION_ENHANCEMENT !== 'true') {
-    console.warn(`[${requestId}] GPT ENHANCEMENT - WARNING - Enhancement feature is disabled (USE_GPT_VISION_ENHANCEMENT=${process.env.USE_GPT_VISION_ENHANCEMENT}), but continuing anyway for debugging`);
-    // return null; // Commented out for testing
-  }
-
-  // TEMPORARY: Log but don't return to force execution for debugging
-  if (process.env.USE_OPENAI_MODEL === 'false') {
-    console.warn(`[${requestId}] GPT ENHANCEMENT - WARNING - OpenAI model usage is disabled (USE_OPENAI_MODEL=false), but continuing anyway for debugging`);
-    // return null; // Commented out for testing
-  }
-  
-  console.log(`[${requestId}] GPT ENHANCEMENT - API Key check: ${process.env.OPENAI_API_KEY ? `present (${process.env.OPENAI_API_KEY.length} chars)` : 'missing'}`);
-  console.log(`[${requestId}] GPT ENHANCEMENT - All checks passed, proceeding with enhancement`);
   
   try {
     // Create a timeout controller
@@ -114,24 +93,7 @@ export async function enhanceWithDirectGeneration(
     try {
       // Force log this to ensure it appears in production logs
       console.warn(`[${requestId}] GPT ENHANCEMENT - API CALL STARTING at ${new Date().toISOString()}`);
-      
-      console.log(`[${requestId}] GPT ENHANCEMENT - Using GPT-image-1 for enhancement`);
-      console.log(`[${requestId}] GPT ENHANCEMENT - OpenAI client initialized with:`, {
-        apiKeyLength: process.env.OPENAI_API_KEY?.length || 0,
-        keyFormat: process.env.OPENAI_API_KEY?.substring(0, 10) + '...',
-        timeout: openai.timeout,
-        maxRetries: openai.maxRetries
-      });
-      console.log(`[${requestId}] GPT ENHANCEMENT - Sending params:`, {
-        model: "gpt-image-1",
-        promptLength: ENHANCEMENT_PROMPT.length,
-        promptFirstWords: ENHANCEMENT_PROMPT.substring(0, 50),
-        n: 1,
-        size: "1024x1024",
-        quality: "high",
-        background: "transparent",
-        moderation: "low"
-      });
+      console.log(`[${requestId}] GPT ENHANCEMENT - Using exactly the same parameters as test file`);
       
       // Use Promise.race to add an additional timeout layer
       const response = await Promise.race([
@@ -139,25 +101,14 @@ export async function enhanceWithDirectGeneration(
           model: "gpt-image-1",
           prompt: ENHANCEMENT_PROMPT,
           n: 1,
-          size: "1024x1024",       // Square format for equal dimensions
-          quality: "high" as any   // High quality - API accepts 'low', 'medium', 'high', 'auto' (not 'hd')
-          // Note: We're not using background and moderation parameters to avoid type errors
-          // They appear in the OpenAI API docs but aren't in the Node.js SDK typings
+          size: "1024x1024",
+          quality: "high",
+          background: "transparent",
+          moderation: "low"
         }),
         timeout(ENHANCEMENT_STRICT_TIMEOUT * 0.9) // 90% of the strict timeout to allow for cleanup
       ]).catch(err => {
-        // Explicitly handle AbortError which is common in production
-        if (err.name === 'AbortError' || err.message.includes('abort') || err.message.includes('aborted')) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Request was aborted: ${err.message}`);
-        } else {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Generation failed:`, {
-            message: err.message,
-            code: err.code || 'unknown',
-            type: err.type || 'unknown',
-            status: err.status || err.statusCode || 'unknown'
-          });
-        }
-        // Continue with original image instead of throwing an error
+        console.error(`[${requestId}] GPT ENHANCEMENT - API call failed:`, err);
         return null;
       });
       
@@ -175,125 +126,21 @@ export async function enhanceWithDirectGeneration(
       const requestDuration = Date.now() - startTime;
       console.warn(`[${requestId}] GPT ENHANCEMENT - API CALL COMPLETED in ${requestDuration}ms`);
       
-      if (!response?.data || response.data.length === 0) {
-        console.error(`[${requestId}] GPT ENHANCEMENT - ERROR: Empty response data`);
-        return null;
-      }
-
-      // Debug log the response structure in production to help diagnose issues
-      console.log(`[${requestId}] GPT ENHANCEMENT - Response data structure:`, 
-        JSON.stringify({
-          hasData: !!response.data,
-          dataLength: response.data?.length,
-          firstItemKeys: response.data?.[0] ? Object.keys(response.data[0]) : [],
-          hasUrl: !!response.data?.[0]?.url,
-          hasB64: !!response.data?.[0]?.b64_json,
-          revisedPrompt: !!response.data?.[0]?.revised_prompt,
-          usedParams: {
-            model: "gpt-image-1",
-            quality: "high",
-            promptFirstChars: ENHANCEMENT_PROMPT.substring(0, 30) + "..."
-          }
-        })
-      );
-
-      // Handle the response - ONLY ACCEPT URL responses, ignore base64
-      if (response.data[0]?.url) {
+      // Debug the response structure
+      console.log(`[${requestId}] GPT ENHANCEMENT - Response structure:`, JSON.stringify({
+        type: typeof response,
+        keys: Object.keys(response || {}),
+        hasData: !!response?.data,
+        dataType: response?.data ? (Array.isArray(response.data) ? 'array' : typeof response.data) : 'missing'
+      }));
+      
+      // Handle the response
+      if (response?.data?.[0]?.url) {
         const newImageUrl = response.data[0].url;
         console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Generated URL: ${newImageUrl.substring(0, 50)}...`);
         return newImageUrl;
       }
       
-      // If we get base64 data, process it using Supabase storage
-      if (response.data[0]?.b64_json) {
-        console.log(`[${requestId}] GPT ENHANCEMENT - Received base64 image data, processing it`);
-        
-        try {
-          // Check if we have Supabase credentials
-          if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-            console.log(`[${requestId}] GPT ENHANCEMENT - Uploading base64 image to Supabase`);
-            
-            // Initialize Supabase Admin client with service role key
-            const supabaseAdmin = createClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL,
-              process.env.SUPABASE_SERVICE_ROLE_KEY
-            );
-            
-            // Get the base64 data
-            const b64Data = response.data[0].b64_json;
-            
-            // Generate a unique filename
-            const fileName = `gpt-enhanced-${pokemon1Name}-${pokemon2Name}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
-            
-            // Convert base64 to binary data
-            const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
-            
-            // Define bucket name
-            const bucketName = 'fusions';
-            
-            // Check if bucket exists
-            const { data: buckets } = await supabaseAdmin.storage.listBuckets();
-            const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
-            
-            if (!bucketExists) {
-              console.log(`[${requestId}] GPT ENHANCEMENT - Creating bucket '${bucketName}'`);
-              const { error: createError } = await supabaseAdmin.storage.createBucket(bucketName, {
-                public: true,
-                allowedMimeTypes: ['image/png', 'image/jpeg'],
-                fileSizeLimit: 5242880 // 5MB
-              });
-              
-              if (createError) {
-                console.error(`[${requestId}] GPT ENHANCEMENT - Error creating bucket:`, createError);
-                return null;
-              }
-            }
-            
-            // Upload the image to Supabase
-            const { data: storageData, error: storageError } = await supabaseAdmin
-              .storage
-              .from(bucketName)
-              .upload(fileName, Buffer.from(base64Data, 'base64'), {
-                contentType: 'image/png',
-                cacheControl: '3600',
-                upsert: true
-              });
-            
-            if (storageError) {
-              console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
-              return null;
-            }
-            
-            // Get the public URL
-            const { data: publicUrlData } = supabaseAdmin
-              .storage
-              .from(bucketName)
-              .getPublicUrl(fileName);
-            
-            if (publicUrlData?.publicUrl) {
-              const newImageUrl = publicUrlData.publicUrl;
-              console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded to Supabase: ${newImageUrl.substring(0, 50)}...`);
-              return newImageUrl;
-            } else {
-              console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL from Supabase`);
-              return null;
-            }
-          } else {
-            console.log(`[${requestId}] GPT ENHANCEMENT - No Supabase credentials, cannot process base64 data`);
-            return null;
-          }
-        } catch (uploadError) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
-          return null;
-        }
-      }
-      
-      // Handle revised_prompt field (sometimes present in gpt-image-1 responses)
-      if (response.data[0]?.revised_prompt) {
-        console.log(`[${requestId}] GPT ENHANCEMENT - Revised prompt: ${response.data[0].revised_prompt}`);
-      }
-      
-      // If we don't have a URL, return null
       console.log(`[${requestId}] GPT ENHANCEMENT - No valid URL in response, returning null`);
       return null;
     } catch (error) {

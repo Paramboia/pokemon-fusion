@@ -20,10 +20,10 @@ export function initializeConfig() {
 
   // Verify OpenAI API Key
   if (process.env.OPENAI_API_KEY) {
-    if (process.env.OPENAI_API_KEY.startsWith('sk-')) {
-      console.log('OPENAI_API_KEY is present and has correct format ✓');
+    if (process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
+      console.log('OPENAI_API_KEY is present and has correct project-based format (sk-proj-) ✓');
     } else {
-      console.warn('⚠️ OPENAI_API_KEY is present but does not have correct format (should start with sk-)');
+      console.warn('⚠️ OPENAI_API_KEY is present but does not have correct format (should start with sk-proj-)');
     }
   } else {
     console.warn('⚠️ OPENAI_API_KEY is missing - GPT enhancement will not work!');

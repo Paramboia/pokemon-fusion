@@ -77,9 +77,9 @@ export async function enhanceWithDirectGeneration(
     return null;
   }
   
-  // Check that OpenAI API key is properly formatted
-  if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-')) {
-    console.error(`[${requestId}] GPT ENHANCEMENT - ERROR - Invalid OpenAI API key format`);
+  // Check that OpenAI API key is properly formatted with the project-based format
+  if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
+    console.error(`[${requestId}] GPT ENHANCEMENT - ERROR - Invalid OpenAI API key format. Must use sk-proj- format for project-based keys`);
     return null;
   }
   

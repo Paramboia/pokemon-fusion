@@ -165,6 +165,20 @@ export async function enhanceWithDirectGeneration(
       // Use Promise.race to add an additional timeout layer
       try {
         console.warn('🔴🔴🔴 DALLE.TS - Inside inner try block before API call 🔴🔴🔴');
+        
+        // Download the image from the URL 
+        console.warn('🔴🔴🔴 DALLE.TS - Attempting to download image from URL 🔴🔴🔴');
+        let imageData;
+        try {
+          const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+          imageData = Buffer.from(imageResponse.data).toString('base64');
+          console.warn('🔴🔴🔴 DALLE.TS - Successfully downloaded and converted image to base64 🔴🔴🔴');
+        } catch (dlError) {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Failed to download image:`, dlError);
+          console.warn('🔴🔴🔴 DALLE.TS - Failed to download image, using URL directly 🔴🔴��');
+          imageData = imageUrl; // Fallback to using URL directly
+        }
+        
         const response = await Promise.race([
           openai.images.generate({
             model: "gpt-image-1",
@@ -174,7 +188,7 @@ export async function enhanceWithDirectGeneration(
             quality: "high",
             background: "transparent",
             moderation: "low",
-            reference_image: imageUrl
+            image: imageData // Use the base64 data instead of URL
           }),
           timeout(ENHANCEMENT_STRICT_TIMEOUT * 0.9) // 90% of the strict timeout to allow for cleanup
         ]).catch(err => {

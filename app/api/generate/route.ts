@@ -262,8 +262,16 @@ export async function POST(req: Request) {
               allRequiredConditionsMet: useGptEnhancement && !!process.env.OPENAI_API_KEY
             });
             
+            // Add EXTREMELY VISIBLE debug
+            console.warn('🔴🔴🔴 ROUTE.TS - AT ENHANCEMENT DECISION POINT 🔴🔴🔴');
+            console.warn('🔴🔴🔴 useGptEnhancement value:', useGptEnhancement, '🔴🔴🔴');
+            console.warn('🔴🔴🔴 OpenAI API Key present:', !!process.env.OPENAI_API_KEY, '🔴🔴🔴');
+            console.warn('🔴🔴🔴 Environment value of USE_GPT_VISION_ENHANCEMENT:', process.env.USE_GPT_VISION_ENHANCEMENT, '🔴🔴🔴');
+            
             // Try to enhance the image with GPT if the environment variable is enabled
             if (useGptEnhancement && process.env.OPENAI_API_KEY) {
+              console.warn('🔴🔴🔴 ROUTE.TS - ENTERING GPT ENHANCEMENT BLOCK 🔴🔴🔴');
+              console.warn('🔴🔴🔴 This log should appear if enhancement is being attempted 🔴🔴🔴');
               try {
                 console.log('Generate API - Attempting to enhance fusion image with GPT');
                 console.log('Generate API - Enhancement flags:', {
@@ -295,6 +303,7 @@ export async function POST(req: Request) {
                 } else {
                   // Use URL for enhancement - can return a URL string or null
                   console.time('GPT Enhancement');
+                  console.warn('🔴🔴🔴 ROUTE.TS - ABOUT TO CALL enhanceWithDirectGeneration 🔴🔴🔴');
                   console.log('Generate API - BEFORE enhanceWithDirectGeneration call');
                   
                   // Declare enhancedImageUrl outside try/catch to make it accessible in wider scope

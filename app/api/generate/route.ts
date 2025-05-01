@@ -205,11 +205,16 @@ export async function POST(req: Request) {
     try {
       // Determine which model to use based on environment variables
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
-      const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
+      
+      // TEMPORARY DEBUG FIX: Force GPT enhancement to true for debugging
+      // const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
+      const useGptEnhancement = true; // Force to true for testing
       
       console.log('Generate API - Model selection:', { 
         useReplicateBlend, 
-        useGptEnhancement
+        useGptEnhancement,
+        USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
+        USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL
       });
 
       let fusionImageUrl: string | null = null;
@@ -241,6 +246,15 @@ export async function POST(req: Request) {
             lastSuccessfulImageUrl = replicateResult;
             
             console.log('Generate API - Replicate Blend image URL:', fusionImageUrl);
+            
+            // Debug critical decision point: Will we run GPT enhancement?
+            console.warn('CRITICAL DEBUG - Will we try GPT enhancement?', {
+              useGptEnhancement,
+              openAiKeyPresent: !!process.env.OPENAI_API_KEY,
+              USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
+              USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL,
+              allRequiredConditionsMet: useGptEnhancement && !!process.env.OPENAI_API_KEY
+            });
             
             // Try to enhance the image with GPT if the environment variable is enabled
             if (useGptEnhancement && process.env.OPENAI_API_KEY) {

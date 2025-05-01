@@ -77,29 +77,29 @@ export async function enhanceWithDirectGeneration(
     keyFormat: process.env.OPENAI_API_KEY?.substring(0, 10) + '...' // First 10 chars only for security
   });
   
-  // If we have an image source and no OpenAI API key, just return the original image
+  // TEMPORARY: Log but don't return to force execution for debugging
   if (imageUrl && !process.env.OPENAI_API_KEY) {
-    console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - No OpenAI API key, using original image directly`);
-    return null;
+    console.warn(`[${requestId}] GPT ENHANCEMENT - WARNING - No OpenAI API key, but continuing anyway for debugging`);
+    // return null; // Commented out for testing
   }
   
-  // Check that OpenAI API key is properly formatted with the project-based format
+  // TEMPORARY: Log but don't return to force execution for debugging
   if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
-    console.error(`[${requestId}] GPT ENHANCEMENT - ERROR - Invalid OpenAI API key format. Must use sk-proj- format for project-based keys`);
+    console.error(`[${requestId}] GPT ENHANCEMENT - WARNING - Invalid OpenAI API key format. Should use sk-proj- format for project-based keys`);
     console.error(`[${requestId}] GPT ENHANCEMENT - Key format found: ${process.env.OPENAI_API_KEY.substring(0, 10)}...`);
-    return null;
+    // return null; // Commented out for testing
   }
   
-  // Check that environment flag is enabled
+  // TEMPORARY: Log but don't return to force execution for debugging
   if (process.env.USE_GPT_VISION_ENHANCEMENT !== 'true') {
-    console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - Enhancement feature is disabled (USE_GPT_VISION_ENHANCEMENT=${process.env.USE_GPT_VISION_ENHANCEMENT})`);
-    return null;
+    console.warn(`[${requestId}] GPT ENHANCEMENT - WARNING - Enhancement feature is disabled (USE_GPT_VISION_ENHANCEMENT=${process.env.USE_GPT_VISION_ENHANCEMENT}), but continuing anyway for debugging`);
+    // return null; // Commented out for testing
   }
 
-  // Check if USE_OPENAI_MODEL is set to false
+  // TEMPORARY: Log but don't return to force execution for debugging
   if (process.env.USE_OPENAI_MODEL === 'false') {
-    console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - OpenAI model usage is disabled (USE_OPENAI_MODEL=false)`);
-    return null;
+    console.warn(`[${requestId}] GPT ENHANCEMENT - WARNING - OpenAI model usage is disabled (USE_OPENAI_MODEL=false), but continuing anyway for debugging`);
+    // return null; // Commented out for testing
   }
   
   console.log(`[${requestId}] GPT ENHANCEMENT - API Key check: ${process.env.OPENAI_API_KEY ? `present (${process.env.OPENAI_API_KEY.length} chars)` : 'missing'}`);
@@ -116,6 +116,12 @@ export async function enhanceWithDirectGeneration(
       console.warn(`[${requestId}] GPT ENHANCEMENT - API CALL STARTING at ${new Date().toISOString()}`);
       
       console.log(`[${requestId}] GPT ENHANCEMENT - Using GPT-image-1 for enhancement`);
+      console.log(`[${requestId}] GPT ENHANCEMENT - OpenAI client initialized with:`, {
+        apiKeyLength: process.env.OPENAI_API_KEY?.length || 0,
+        keyFormat: process.env.OPENAI_API_KEY?.substring(0, 10) + '...',
+        timeout: openai.timeout,
+        maxRetries: openai.maxRetries
+      });
       console.log(`[${requestId}] GPT ENHANCEMENT - Sending params:`, {
         model: "gpt-image-1",
         promptLength: ENHANCEMENT_PROMPT.length,

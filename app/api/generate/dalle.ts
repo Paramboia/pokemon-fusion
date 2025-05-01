@@ -70,6 +70,12 @@ export async function enhanceWithDirectGeneration(
   // Force log this message to ensure it's visible in production
   console.warn(`[${requestId}] GPT ENHANCEMENT - START - ${pokemon1Name} + ${pokemon2Name} at ${new Date().toISOString()}`);
   console.log(`[${requestId}] GPT ENHANCEMENT - Original image URL: ${imageUrl?.substring(0, 50)}...`);
+  console.log(`[${requestId}] GPT ENHANCEMENT - DEBUG - Environment variables:`, {
+    USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
+    USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL,
+    hasApiKey: !!process.env.OPENAI_API_KEY,
+    keyFormat: process.env.OPENAI_API_KEY?.substring(0, 10) + '...' // First 10 chars only for security
+  });
   
   // If we have an image source and no OpenAI API key, just return the original image
   if (imageUrl && !process.env.OPENAI_API_KEY) {
@@ -80,16 +86,24 @@ export async function enhanceWithDirectGeneration(
   // Check that OpenAI API key is properly formatted with the project-based format
   if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
     console.error(`[${requestId}] GPT ENHANCEMENT - ERROR - Invalid OpenAI API key format. Must use sk-proj- format for project-based keys`);
+    console.error(`[${requestId}] GPT ENHANCEMENT - Key format found: ${process.env.OPENAI_API_KEY.substring(0, 10)}...`);
     return null;
   }
   
   // Check that environment flag is enabled
   if (process.env.USE_GPT_VISION_ENHANCEMENT !== 'true') {
-    console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - Enhancement feature is disabled`);
+    console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - Enhancement feature is disabled (USE_GPT_VISION_ENHANCEMENT=${process.env.USE_GPT_VISION_ENHANCEMENT})`);
+    return null;
+  }
+
+  // Check if USE_OPENAI_MODEL is set to false
+  if (process.env.USE_OPENAI_MODEL === 'false') {
+    console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - OpenAI model usage is disabled (USE_OPENAI_MODEL=false)`);
     return null;
   }
   
   console.log(`[${requestId}] GPT ENHANCEMENT - API Key check: ${process.env.OPENAI_API_KEY ? `present (${process.env.OPENAI_API_KEY.length} chars)` : 'missing'}`);
+  console.log(`[${requestId}] GPT ENHANCEMENT - All checks passed, proceeding with enhancement`);
   
   try {
     // Create a timeout controller

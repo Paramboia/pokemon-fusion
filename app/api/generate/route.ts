@@ -250,8 +250,10 @@ export async function POST(req: Request) {
                   useGptEnhancement,
                   hasApiKey: !!process.env.OPENAI_API_KEY,
                   USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
+                  USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL,
                   apiKeyLength: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0,
-                  apiKeyValidFormat: process.env.OPENAI_API_KEY?.startsWith('sk-') || false
+                  apiKeyValidFormat: process.env.OPENAI_API_KEY?.startsWith('sk-proj-') || false,
+                  apiKeyPrefix: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 10) + '...' : 'none'
                 });
                 
                 // Check how much time has elapsed since the start of the request
@@ -273,11 +275,13 @@ export async function POST(req: Request) {
                 } else {
                   // Use URL for enhancement - can return a URL string or null
                   console.time('GPT Enhancement');
+                  console.log('Generate API - BEFORE enhanceWithDirectGeneration call');
                   const enhancedImageUrl = await enhanceWithDirectGeneration(
                     pokemon1Name,
                     pokemon2Name,
                     fusionImageUrl
                   );
+                  console.log('Generate API - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
                   console.timeEnd('GPT Enhancement');
                   
                   if (enhancedImageUrl) {

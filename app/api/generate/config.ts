@@ -18,6 +18,18 @@ export function initializeConfig() {
     console.log('USE_GPT_VISION_ENHANCEMENT already set to true ✓');
   }
 
+  // Force USE_OPENAI_MODEL to true if it's false or not set
+  if (process.env.USE_OPENAI_MODEL === undefined) {
+    console.log('Setting USE_OPENAI_MODEL=true (default)');
+    process.env.USE_OPENAI_MODEL = 'true';
+  } else if (process.env.USE_OPENAI_MODEL !== 'true') {
+    console.warn('⚠️ Forcing USE_OPENAI_MODEL=true to ensure OpenAI can be used (was set to:', 
+    process.env.USE_OPENAI_MODEL, ')');
+    process.env.USE_OPENAI_MODEL = 'true';
+  } else {
+    console.log('USE_OPENAI_MODEL already set to true ✓');
+  }
+
   // Verify OpenAI API Key
   if (process.env.OPENAI_API_KEY) {
     if (process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
@@ -53,9 +65,11 @@ export function initializeConfig() {
 export function logConfigStatus() {
   console.log('*** Image Generation Configuration ***');
   console.log(`USE_GPT_VISION_ENHANCEMENT: ${process.env.USE_GPT_VISION_ENHANCEMENT}`);
+  console.log(`USE_OPENAI_MODEL: ${process.env.USE_OPENAI_MODEL}`);
   console.log(`USE_REPLICATE_BLEND: ${process.env.USE_REPLICATE_BLEND}`);
   console.log(`ENHANCEMENT_TIMEOUT: ${process.env.ENHANCEMENT_TIMEOUT}`);
   console.log(`REPLICATE_API_TOKEN available: ${!!process.env.REPLICATE_API_TOKEN}`);
   console.log(`OPENAI_API_KEY available: ${!!process.env.OPENAI_API_KEY}`);
+  console.log(`OPENAI_API_KEY format: ${process.env.OPENAI_API_KEY ? (process.env.OPENAI_API_KEY.startsWith('sk-proj-') ? 'valid project key' : 'invalid format') : 'missing'}`);
   console.log('*** End Configuration ***');
 } 

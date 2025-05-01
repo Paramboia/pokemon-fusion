@@ -55,6 +55,7 @@ export async function generateWithReplicateBlend(
     const input = {
       image1: processedImage1,
       image2: processedImage2,
+      num_outputs: 1, // Limit to a single output image
       prompt: `Create a brand-new Pokémon that merges the traits of ${pokemon1Name} and ${pokemon2Name}, using ${pokemon1Name} as the base. 
                 The new Pokémon should retain the same pose, angle, and overall body positioning as ${pokemon1Name}'s official artwork. 
                 Design: Incorporate key physical features from both ${pokemon1Name} and ${pokemon2Name}, blending them into a seamless and natural-looking hybrid. 
@@ -119,7 +120,7 @@ export async function generateWithReplicateBlend(
       console.error(`[${requestId}] REPLICATE BLEND - ERROR - Output is not a string URL`);
       return null;
     }
-    
+  
     return output;
   } catch (error) {
     const requestDuration = Date.now() - startTime;

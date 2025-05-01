@@ -22,6 +22,14 @@ const openai = new OpenAI({
   maxRetries: 2
 });
 
+// Initialize Supabase client for uploading base64 images
+const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY 
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+  : null;
+
 // Control how image enhancement works with environment variables
 const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '55000 ', 10); // 55 seconds default for production
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
@@ -51,7 +59,8 @@ function timeout(ms: number): Promise<never> {
  * This takes a URL from Replicate Blend and enhances it
  * Returns:
  * - A URL string if OpenAI returns a URL
- * - The original URL if enhancement fails or returns base64 (simplified)
+ * - A URL string from Supabase if OpenAI returns base64
+ * - null if enhancement fails or returns no valid data
  */
 export async function enhanceWithDirectGeneration(
   pokemon1Name: string,
@@ -71,6 +80,11 @@ export async function enhanceWithDirectGeneration(
     USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
     USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL,
     hasKey: !!process.env.OPENAI_API_KEY,
+    supabaseSetup: {
+      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      clientAvailable: !!supabaseAdmin
+    },
     openaiConfig: {
       timeout: openai.timeout,
       maxRetries: openai.maxRetries,
@@ -82,6 +96,12 @@ export async function enhanceWithDirectGeneration(
   if (!process.env.OPENAI_API_KEY) {
     console.warn(`[${requestId}] GPT ENHANCEMENT - SKIPPED - No OpenAI API key`);
     return null;
+  }
+  
+  // Check if Supabase is available (needed for base64 handling)
+  if (!supabaseAdmin) {
+    console.warn(`[${requestId}] GPT ENHANCEMENT - WARNING - Supabase not available, base64 responses cannot be handled`);
+    // Continue anyway, as we might get a URL response
   }
   
   try {
@@ -131,17 +151,81 @@ export async function enhanceWithDirectGeneration(
         type: typeof response,
         keys: Object.keys(response || {}),
         hasData: !!response?.data,
-        dataType: response?.data ? (Array.isArray(response.data) ? 'array' : typeof response.data) : 'missing'
+        dataType: response?.data ? (Array.isArray(response.data) ? 'array' : typeof response.data) : 'missing',
+        firstItemKeys: response?.data?.[0] ? Object.keys(response.data[0]) : [],
+        hasUrl: !!response?.data?.[0]?.url,
+        hasB64: !!response?.data?.[0]?.b64_json
       }));
       
-      // Handle the response
+      // Handle the response - First check for URL (more common with dall-e-3)
       if (response?.data?.[0]?.url) {
         const newImageUrl = response.data[0].url;
         console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Generated URL: ${newImageUrl.substring(0, 50)}...`);
         return newImageUrl;
       }
       
-      console.log(`[${requestId}] GPT ENHANCEMENT - No valid URL in response, returning null`);
+      // Handle base64 data (more common with gpt-image-1)
+      if (response?.data?.[0]?.b64_json) {
+        console.warn(`[${requestId}] GPT ENHANCEMENT - Received base64 image data`);
+        
+        // If Supabase isn't available, we can't handle base64 data
+        if (!supabaseAdmin) {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Cannot handle base64 data without Supabase`);
+          return null;
+        }
+        
+        try {
+          // Extract the base64 data
+          const b64Data = response.data[0].b64_json;
+          
+          // Generate a unique filename
+          const fileName = `fusion-gpt-enhanced-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
+          
+          // Convert base64 to binary data (remove data:image/png;base64, prefix if present)
+          const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
+          
+          // Define bucket name
+          const bucketName = 'fusions';
+          
+          // Upload to Supabase Storage
+          console.log(`[${requestId}] GPT ENHANCEMENT - Uploading base64 image to Supabase: ${fileName}`);
+          
+          // Upload the image to Supabase
+          const { data: storageData, error: storageError } = await supabaseAdmin
+            .storage
+            .from(bucketName)
+            .upload(fileName, Buffer.from(base64Data, 'base64'), {
+              contentType: 'image/png',
+              cacheControl: '3600',
+              upsert: true
+            });
+          
+          if (storageError) {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
+            return null;
+          }
+          
+          // Get the public URL
+          const { data: publicUrlData } = supabaseAdmin
+            .storage
+            .from(bucketName)
+            .getPublicUrl(fileName);
+          
+          if (publicUrlData?.publicUrl) {
+            const newImageUrl = publicUrlData.publicUrl;
+            console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS: Uploaded to Supabase and generated URL: ${newImageUrl.substring(0, 50)}...`);
+            return newImageUrl;
+          } else {
+            console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL from Supabase`);
+            return null;
+          }
+        } catch (uploadError) {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Error handling base64 image:`, uploadError);
+          return null;
+        }
+      }
+      
+      console.log(`[${requestId}] GPT ENHANCEMENT - No valid URL or base64 data in response, returning null`);
       return null;
     } catch (error) {
       clearTimeout(timeoutId);

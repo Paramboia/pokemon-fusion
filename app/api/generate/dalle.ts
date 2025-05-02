@@ -11,27 +11,42 @@ import os from 'os';
 import sharp from 'sharp';
 import FormData from 'form-data';
 
-// Set environment-specific timeouts
+// Add environment details to help debug production vs development issues
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-// Increase timeout for gpt-image-1 which can take up to 2 minutes according to documentation
-const API_TIMEOUT = IS_PRODUCTION ? 180000 : 240000; // 3 minutes in production, 4 minutes in development
+const IS_VERCEL = !!process.env.VERCEL;
+console.warn(`🌎 Environment: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}, Platform: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'}`);
 
-// Validate API key format
+// Reduce timeouts for production to avoid Vercel function timeouts
+// On hobby plan, we need to complete everything within 60 seconds
+const API_TIMEOUT = IS_PRODUCTION ? 45000 : 180000; // 45 seconds in production, 3 minutes in development
+
+// Validate API key format and log details to help with debugging
 const apiKey = process.env.OPENAI_API_KEY || '';
 console.warn('🔴🔴🔴 DALLE.TS - OpenAI API Key Format Check 🔴🔴🔴');
-console.warn('API Key starts with:', apiKey.substring(0, 10) + '...');
+console.warn('API Key exists:', !!apiKey);
 console.warn('API Key length:', apiKey.length);
-console.warn('Is API Key properly formatted:', apiKey.startsWith('sk-') || apiKey.startsWith('sk-proj-'));
+if (apiKey) {
+  console.warn('API Key starts with:', apiKey.substring(0, 3) + '***'); // Show only first few chars for security
+  console.warn('Is API Key properly formatted:', apiKey.startsWith('sk-') || apiKey.startsWith('sk-proj-'));
+} else {
+  console.warn('⚠️ NO API KEY FOUND - Enhancement will not work!');
+}
 
 // Initialize OpenAI client with a simpler approach
 function getOpenAiClient() {
   try {
     // Create a fresh client instance with the current API key
     console.warn('🔴🔴🔴 DALLE.TS - Creating OpenAI client 🔴🔴🔴');
+    // Check for a valid API key before attempting to create client
+    if (!apiKey || apiKey.length < 20 || (!apiKey.startsWith('sk-') && !apiKey.startsWith('sk-proj-'))) {
+      console.error('🔴🔴🔴 DALLE.TS - Invalid API key format, client will not be created 🔴🔴🔴');
+      return null;
+    }
+    
     const openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 120000,  // 2 minutes timeout
-      maxRetries: 2     // 2 retries
+      apiKey: apiKey,
+      timeout: IS_PRODUCTION ? 45000 : 120000,  // 45 seconds timeout in production, 2 minutes in development
+      maxRetries: IS_PRODUCTION ? 1 : 2     // Fewer retries in production to avoid timeouts
     });
     console.warn('🔴🔴🔴 DALLE.TS - OpenAI client successfully created 🔴🔴🔴');
     return openaiClient;
@@ -75,15 +90,12 @@ const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABA
     )
   : null;
 
-// Control how image enhancement works with environment variables
-// Documentation indicates GPT-image-1 can take up to 2 minutes to process
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || '150000', 10); // 2.5 minutes for gpt-image-1
+// Set shorter timeouts for production environments
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '45000' : '150000'), 10);
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
-// Set a stricter timeout for enhancement within the 60-second Vercel function limit
-// In production, we need to finish enhancement within a reasonable time to leave time for other operations
-// In development, we can be more generous
-const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 100000 : 150000; // Increase to 100 seconds in production, 150 in development
+// Stricter timeout in production
+const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 40000 : 150000;
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
 const ENHANCEMENT_PROMPT = `Use the uploaded image as inspiration.
@@ -127,10 +139,14 @@ export async function enhanceWithDirectGeneration(
   // Start timing the function
   const startTime = Date.now();
   
-  // SUPER VISIBLE LOGGING FOR DEBUGGING
-  console.warn('🔴🔴🔴 DALLE.TS - enhanceWithDirectGeneration FUNCTION CALLED 🔴🔴🔴');
-  // Don't log pokemon names to avoid content policy issues
+  // Log environment info to help debug production issues
+  console.warn(`🔴🔴🔴 DALLE.TS - [${requestId}] enhanceWithDirectGeneration CALLED - ENV: ${IS_PRODUCTION ? 'PROD' : 'DEV'}, PLATFORM: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'} 🔴🔴🔴`);
   console.warn('🔴🔴🔴 Image URL:', imageUrl?.substring(0, 50) + '...', '🔴🔴🔴');
+  
+  // Additional API key validation for production
+  if (IS_PRODUCTION) {
+    console.warn(`[${requestId}] PRODUCTION CHECK - API key exists: ${!!apiKey}, length: ${apiKey.length}, starts with: ${apiKey.substring(0, 3)}***`);
+  }
   
   // Validate input parameters
   if (!imageUrl) {
@@ -139,8 +155,14 @@ export async function enhanceWithDirectGeneration(
   }
   
   // Check for OpenAI API key
-  if (!process.env.OPENAI_API_KEY) {
+  if (!apiKey) {
     console.error(`[${requestId}] GPT ENHANCEMENT - Missing OpenAI API key`);
+    return null;
+  }
+
+  // Additional format validation
+  if (!apiKey.startsWith('sk-') && !apiKey.startsWith('sk-proj-')) {
+    console.error(`[${requestId}] GPT ENHANCEMENT - Invalid API key format (doesn't start with sk-)`);
     return null;
   }
 
@@ -163,7 +185,7 @@ export async function enhanceWithDirectGeneration(
     try {
       const imageResponse = await axios.get(imageUrl, { 
         responseType: 'arraybuffer',
-        timeout: 10000 // 10 second timeout for image download
+        timeout: IS_PRODUCTION ? 5000 : 10000 // Shorter timeout in production
       });
       imageData = Buffer.from(imageResponse.data).toString('base64');
       console.warn(`[${requestId}] GPT ENHANCEMENT - Successfully downloaded and converted image (${imageData.length / 1024} KB)`);
@@ -181,25 +203,28 @@ export async function enhanceWithDirectGeneration(
     console.warn(`[${requestId}] GPT ENHANCEMENT - Starting image generation with gpt-image-1 (may take up to 2 minutes per docs)`);
     
     // Create params specifically for gpt-image-1 based on documentation
-    const gptImageParams: any = {
-      model: "gpt-image-1", // Only using gpt-image-1 as requested
+    const gptImageParams = {
+      model: "gpt-image-1" as const,
       prompt: enhancementPrompt,
-      n: 1, // Generate a single image
-      size: "1024x1024", // Square format for consistent results
-      quality: "low", // Low quality (options per docs: low, medium, high, auto)
-      background: "transparent", // Enable transparent background
-      moderation: "low" // Less restrictive filtering
+      n: 1,
+      size: "1024x1024" as const,
+      quality: "low" as any,
+      background: "transparent" as any
     };
     
     // Log the start time before calling API
     const apiStartTime = Date.now();
     console.warn(`[${requestId}] GPT ENHANCEMENT - API call to gpt-image-1 started at ${new Date(apiStartTime).toISOString()}`);
     
+    // Use a shorter timeout in production
+    const actualTimeout = IS_PRODUCTION ? ENHANCEMENT_STRICT_TIMEOUT : ENHANCEMENT_TIMEOUT;
+    console.warn(`[${requestId}] GPT ENHANCEMENT - Using timeout of ${actualTimeout}ms for gpt-image-1`);
+    
     // Create a promise that will reject after a timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
-        reject(new Error(`gpt-image-1 API call timed out after ${ENHANCEMENT_TIMEOUT}ms`));
-      }, ENHANCEMENT_TIMEOUT);
+        reject(new Error(`gpt-image-1 API call timed out after ${actualTimeout}ms`));
+      }, actualTimeout);
     });
     
     // Race the API call against the timeout
@@ -212,7 +237,7 @@ export async function enhanceWithDirectGeneration(
     const apiDuration = Date.now() - apiStartTime;
     console.warn(`[${requestId}] GPT ENHANCEMENT - gpt-image-1 call succeeded after ${apiDuration}ms!`);
     
-    // Add missing log statement
+    // Add success log
     console.warn(`[${requestId}] GPT ENHANCEMENT - OpenAI API call succeeded!`);
     
     // Process URL response

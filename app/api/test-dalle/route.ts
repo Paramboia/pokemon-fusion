@@ -1,68 +1,116 @@
 import { NextResponse } from 'next/server';
 import { testOpenAiClient, enhanceWithDirectGeneration } from '../generate/dalle';
+import OpenAI from 'openai';
 
 export async function GET(req: Request) {
   const requestId = `test-dalle-${Date.now()}`;
   try {
     console.warn(`[${requestId}] TEST DALLE - GET request received`);
     
-    // Test the OpenAI client first
-    console.warn(`[${requestId}] TEST DALLE - Testing OpenAI client`);
-    const clientTest = await testOpenAiClient();
+    // Test the OpenAI client first using the direct approach
+    console.warn(`[${requestId}] TEST DALLE - Testing OpenAI client directly`);
     
-    // Return early if the client test fails
-    if (!clientTest) {
-      console.error(`[${requestId}] TEST DALLE - OpenAI client test failed`);
+    // Check if an API key exists
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.error(`[${requestId}] TEST DALLE - No API key found in environment variables`);
       return NextResponse.json({
         success: false,
-        error: 'OpenAI client test failed',
-        clientTest,
+        error: 'No OpenAI API key found',
+        clientTest: false,
         requestId
       }, { status: 500 });
     }
     
-    // Use a sample creature image from the official repo (avoiding copyright terms)
-    const testImageUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png'; // Electric creature
-    
-    // Call the enhancement function directly - GPT-image-1 can take up to 2 minutes per documentation
-    console.warn(`[${requestId}] TEST DALLE - Calling enhanceWithDirectGeneration with a 3-minute timeout (GPT-image-1 can take 2+ minutes)`);
-    
-    // Create a timeout promise - giving a bit more than 2 minutes to allow for network latency
-    const timeout = new Promise<null>((resolve) => {
-      setTimeout(() => {
-        console.error(`[${requestId}] TEST DALLE - Enhancement timed out after 3 minutes`);
-        resolve(null);
-      }, 180000); // 3 minutes (180 seconds)
+    // Create a client
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      timeout: 30000,
+      maxRetries: 1
     });
     
-    // Race the enhancement against the timeout - passing empty strings for pokemon names as they're not used anymore
-    const enhancedUrl = await Promise.race([
-      enhanceWithDirectGeneration(
-        '', // No pokemon1Name needed
-        '', // No pokemon2Name needed
-        testImageUrl,
-        0, // retryCount
-        requestId // Pass the request ID for consistent logging
-      ),
-      timeout
-    ]);
-    
-    if (enhancedUrl) {
-      console.warn(`[${requestId}] TEST DALLE - Enhancement succeeded`);
+    // Test with DALL-E 2 first (more widely available)
+    console.warn(`[${requestId}] TEST DALLE - Testing DALL-E 2 generation`);
+    try {
+      const dalleResponse = await openai.images.generate({
+        model: "dall-e-2",
+        prompt: "A simple blue creature on a white background",
+        n: 1,
+        size: "256x256" // Smallest size for quicker test
+      });
+      
+      // If we got this far, the client is working
+      console.warn(`[${requestId}] TEST DALLE - DALL-E 2 test successful`);
+      
+      // We can now try the enhancement function if needed
+      if (req.headers.get('X-Test-Enhancement') === 'true') {
+        console.warn(`[${requestId}] TEST DALLE - Will also test enhancement function`);
+        
+        // Use a sample creature image
+        const testImageUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png';
+        
+        // Call the enhancement function with empty strings for pokemon names
+        console.warn(`[${requestId}] TEST DALLE - Testing enhancement function`);
+        const enhancedUrl = await enhanceWithDirectGeneration(
+          '', // No pokemon1Name needed
+          '', // No pokemon2Name needed
+          testImageUrl,
+          0,
+          requestId
+        );
+        
+        if (enhancedUrl) {
+          console.warn(`[${requestId}] TEST DALLE - Enhancement test successful`);
+          return NextResponse.json({
+            success: true,
+            clientTest: true,
+            enhancementTest: true,
+            originalImage: testImageUrl,
+            enhancedImage: enhancedUrl,
+            requestId
+          });
+        } else {
+          console.warn(`[${requestId}] TEST DALLE - Enhancement test failed but client test passed`);
+          return NextResponse.json({
+            success: true,
+            clientTest: true,
+            enhancementTest: false,
+            message: "OpenAI client is working but enhancement failed",
+            requestId
+          });
+        }
+      }
+      
+      // Return success for client test only
       return NextResponse.json({
         success: true,
-        originalImage: testImageUrl,
-        enhancedImage: enhancedUrl,
+        clientTest: true,
+        message: "OpenAI client is working correctly",
         requestId
       });
-    } else {
-      console.error(`[${requestId}] TEST DALLE - Enhancement failed or timed out - this is expected as GPT-image-1 can take up to 2 minutes`);
+    } catch (dalleError) {
+      console.error(`[${requestId}] TEST DALLE - DALL-E 2 test failed:`, dalleError.message);
+      
+      // Try the legacy test method as fallback
+      console.warn(`[${requestId}] TEST DALLE - Trying legacy test method`);
+      const legacyTest = await testOpenAiClient();
+      
+      if (legacyTest) {
+        return NextResponse.json({
+          success: true,
+          clientTest: true,
+          usedLegacyTest: true,
+          message: "OpenAI client is working (via legacy test)",
+          requestId
+        });
+      }
+      
       return NextResponse.json({
         success: false,
-        error: 'Enhancement failed or timed out (GPT-image-1 can take up to 2 minutes)',
-        originalImage: testImageUrl,
-        requestId,
-        note: "If testing in browser, consider that API routes may time out after 1 minute in development mode"
+        error: 'OpenAI client test failed with both new and legacy methods',
+        clientTest: false,
+        dalleError: dalleError.message,
+        requestId
       }, { status: 500 });
     }
   } catch (error) {
@@ -89,7 +137,7 @@ export async function GET(req: Request) {
       errorDetails: errorInfo,
       additionalInfo,
       requestId,
-      suggestion: "Consider using a standalone Node.js script to test GPT-image-1 due to its long processing time"
+      suggestion: "Check your OpenAI API key and permissions"
     }, { status: 500 });
   }
 } 

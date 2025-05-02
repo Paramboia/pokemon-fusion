@@ -294,82 +294,67 @@ export async function POST(req: Request) {
                   USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
                   USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL,
                   apiKeyLength: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0,
-                  apiKeyValidFormat: process.env.OPENAI_API_KEY?.startsWith('sk-proj-') || false,
-                  apiKeyPrefix: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 10) + '...' : 'none'
+                  apiKeyValidFormat: process.env.OPENAI_API_KEY?.startsWith('sk-') || false,
+                  apiKeyPrefix: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 4) + '***' : 'none'
                 });
                 
-                // Check how much time has elapsed since the start of the request
-                const currentTime = Date.now();
-                const startTime = req.headers.get('x-vercel-deployment-url') ? 
-                  parseInt(req.headers.get('x-request-start') || '0', 10) : 
-                  process.hrtime()[0] * 1000; // Fallback to process.hrtime if header not available
+                // IMPORTANT: Remove the time check that might be skipping enhancement in production
+                console.warn('🔴🔴🔴 ROUTE.TS - FORCEFULLY PROCEEDING WITH ENHANCEMENT REGARDLESS OF TIME CONSTRAINTS 🔴🔴🔴');
                 
-                const elapsedTime = currentTime - startTime;
-                const remainingTime = 55000 - elapsedTime; // 55 seconds max for Vercel functions (leaving 5s buffer)
+                // Use URL for enhancement - can return a URL string or null
+                console.time('GPT Enhancement');
+                console.warn('🔴🔴🔴 ROUTE.TS - ABOUT TO CALL enhanceWithDirectGeneration 🔴🔴🔴');
+                console.log('Generate API - BEFORE enhanceWithDirectGeneration call');
                 
-                console.log(`Generate API - Time check before enhancement: ${elapsedTime}ms elapsed, ${remainingTime}ms remaining`);
+                // Declare enhancedImageUrl outside try/catch to make it accessible in wider scope
+                let enhancedImageUrl: string | null = null;
                 
-                // Skip enhancement if we're running low on time (less than 10 seconds remaining)
-                if (remainingTime < 10000) {
-                  console.warn('Generate API - Skipping enhancement due to time constraints');
-                  console.log('Generate API - Using original Replicate Blend image to avoid timeout');
-                  // fusionImageUrl is already set to the Replicate Blend result
-                } else {
-                  // Use URL for enhancement - can return a URL string or null
-                  console.time('GPT Enhancement');
-                  console.warn('🔴🔴🔴 ROUTE.TS - ABOUT TO CALL enhanceWithDirectGeneration 🔴🔴🔴');
-                  console.log('Generate API - BEFORE enhanceWithDirectGeneration call');
+                // Add a separate try/catch just around the enhancement call
+                try {
+                  console.warn('CRITICAL DEBUG - RIGHT BEFORE enhanceWithDirectGeneration call');
+                  console.warn('CRITICAL DEBUG - Arguments:', {
+                    pokemon1Name,
+                    pokemon2Name,
+                    fusionImageUrl: fusionImageUrl.substring(0, 50) + '...',
+                    useGptEnhancement,
+                    hasApiKey: !!process.env.OPENAI_API_KEY,
+                    apiKeyLength: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0
+                  });
                   
-                  // Declare enhancedImageUrl outside try/catch to make it accessible in wider scope
-                  let enhancedImageUrl: string | null = null;
+                  enhancedImageUrl = await enhanceWithDirectGeneration(
+                    '', // No pokemon1Name needed
+                    '', // No pokemon2Name needed
+                    fusionImageUrl,
+                    0 // No retries
+                  );
+                  console.warn('CRITICAL DEBUG - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
+                  console.log('Generate API - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
+                } catch (directError) {
+                  console.error('Generate API - CRITICAL ERROR in enhanceWithDirectGeneration:', directError);
+                  console.error('Generate API - Error stack:', directError?.stack);
+                  console.error('Generate API - This is why enhancement is not working!');
                   
-                  // Add a separate try/catch just around the enhancement call
+                  // Log the error type and properties
                   try {
-                    console.warn('CRITICAL DEBUG - RIGHT BEFORE enhanceWithDirectGeneration call');
-                    console.warn('CRITICAL DEBUG - Arguments:', {
-                      pokemon1Name,
-                      pokemon2Name,
-                      fusionImageUrl: fusionImageUrl.substring(0, 50) + '...',
-                      useGptEnhancement,
-                      hasApiKey: !!process.env.OPENAI_API_KEY,
-                      apiKeyLength: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0
-                    });
-                    
-                    enhancedImageUrl = await enhanceWithDirectGeneration(
-                      '', // No pokemon1Name needed
-                      '', // No pokemon2Name needed
-                      fusionImageUrl,
-                      0 // No retries
-                    );
-                    console.warn('CRITICAL DEBUG - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
-                    console.log('Generate API - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
-                  } catch (directError) {
-                    console.error('Generate API - CRITICAL ERROR in enhanceWithDirectGeneration:', directError);
-                    console.error('Generate API - Error stack:', directError?.stack);
-                    console.error('Generate API - This is why enhancement is not working!');
-                    
-                    // Log the error type and properties
-                    try {
-                      console.error('Generate API - Error type:', directError?.constructor?.name);
-                      console.error('Generate API - Error properties:', JSON.stringify(Object.getOwnPropertyNames(directError)));
-                    } catch (logError) {
-                      console.error('Generate API - Could not stringify error:', logError);
-                    }
+                    console.error('Generate API - Error type:', directError?.constructor?.name);
+                    console.error('Generate API - Error properties:', JSON.stringify(Object.getOwnPropertyNames(directError)));
+                  } catch (logError) {
+                    console.error('Generate API - Could not stringify error:', logError);
                   }
+                }
 
-                  // Keep the original code structure to maintain backwards compatibility
-                  console.timeEnd('GPT Enhancement');
-                  
-                  // Keep the original logic for whether to use the enhanced image or fallback
-                  if (enhancedImageUrl) {
-                    console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
-                    console.log(`Generate API - Updating fusion image URL from Replicate (${fusionImageUrl.substring(0, 30)}...) to GPT Enhanced (${enhancedImageUrl.substring(0, 30)}...)`);
-                    fusionImageUrl = enhancedImageUrl;
-                  } else {
-                    console.log('Generate API - GPT enhancement returned null, using original Replicate Blend image');
-                    console.log('Generate API - This may be due to timeout, API error, or base64 handling issues');
-                    // fusionImageUrl is already set to the Replicate Blend result, so no need to set it again
-                  }
+                // Keep the original code structure to maintain backwards compatibility
+                console.timeEnd('GPT Enhancement');
+                
+                // Keep the original logic for whether to use the enhanced image or fallback
+                if (enhancedImageUrl) {
+                  console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
+                  console.log(`Generate API - Updating fusion image URL from Replicate (${fusionImageUrl.substring(0, 30)}...) to GPT Enhanced (${enhancedImageUrl.substring(0, 30)}...)`);
+                  fusionImageUrl = enhancedImageUrl;
+                } else {
+                  console.log('Generate API - GPT enhancement returned null, using original Replicate Blend image');
+                  console.log('Generate API - This may be due to timeout, API error, or base64 handling issues');
+                  // fusionImageUrl is already set to the Replicate Blend result, so no need to set it again
                 }
               } catch (enhancementError) {
                 console.error('Generate API - Error enhancing with GPT:', enhancementError);

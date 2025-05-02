@@ -1,4 +1,4 @@
-#Project Overview
+#Project Overview (nice)
 Use this guide to build PokemonFusion.com an innovative web application designed to provide Pokémon enthusiasts with a unique platform to create, share, and explore custom Pokémon fusions. By leveraging advanced AI image generation technology from a model hosted on Replicate, users can select two distinct Pokémon and seamlessly blend them into a brand-new, original creature. The platform offers an engaging and interactive experience, allowing users to save their favorite fusions and share them across various social media platforms.
 
 You will be using Next.js, Shadcn UI, Tailwind CSS, Lucid icon, Supabase and Clerk for authentication.

@@ -1,4 +1,4 @@
-# Pokemon Fusion Generation Architecture (nice)
+# Pokemon Fusion Generation Architecture 
 
 This document explains the technical architecture of the Pokemon fusion generation system, to help future developers.
 

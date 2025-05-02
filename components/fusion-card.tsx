@@ -52,6 +52,16 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
     return imageUrl;
   }
 
+  // Check if the image likely has a transparent background
+  const hasTransparentBackground = () => {
+    const imageUrl = getFusionImage();
+    return typeof imageUrl === 'string' && (
+      imageUrl.includes('gpt-enhanced') || 
+      imageUrl.includes('-transparent') || 
+      imageUrl.endsWith('.png')
+    );
+  };
+
   const getPokemon1Name = () => {
     return 'pokemon1Name' in fusion ? fusion.pokemon1Name : fusion.pokemon_1_name;
   }
@@ -445,10 +455,6 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           className={`relative aspect-square ${!isMobile ? 'group' : ''}`}
           style={{
             backgroundColor: isDarkTheme ? '#111827' : '#f9fafb',
-            backgroundImage: isDarkTheme 
-              ? 'linear-gradient(45deg, #111827 25%, #1f2937 25%, #1f2937 50%, #111827 50%, #111827 75%, #1f2937 75%, #1f2937 100%)'
-              : 'linear-gradient(45deg, #f9fafb 25%, #f1f5f9 25%, #f1f5f9 50%, #f9fafb 50%, #f9fafb 75%, #f1f5f9 75%, #f1f5f9 100%)',
-            backgroundSize: '20px 20px',
             flexGrow: 0,
             flexShrink: 0,
             overflow: 'hidden'
@@ -469,10 +475,11 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             src={getFusionImage()}
             alt={getFusionName()}
             fill
-            className="object-contain p-4"
+            className={`object-contain p-4 ${hasTransparentBackground() ? 'transparent-image' : ''}`}
             style={{ 
+              opacity: 0, // Default invisible until loaded
+              transition: 'opacity 0.3s ease-in-out',
               zIndex: 2,
-              // Image's own background is transparent to let the container pattern show through
               backgroundColor: 'transparent'
             }}
             onError={(e) => {
@@ -480,14 +487,19 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
               e.currentTarget.style.display = 'none';
             }}
             onLoad={(e) => {
-              // Find the loading placeholder element and hide it when the image loads
+              // Find the loading placeholder element and hide it completely
               const parent = e.currentTarget.parentElement;
               if (parent) {
                 const loadingEl = parent.querySelector('.loading-placeholder');
                 if (loadingEl) {
-                  (loadingEl as HTMLElement).style.display = 'none';
+                  const loadingElement = loadingEl as HTMLElement;
+                  loadingElement.style.display = 'none';
+                  loadingElement.style.opacity = '0';
+                  loadingElement.style.visibility = 'hidden';
                 }
               }
+              // Add transition to make the image fade in nicely
+              e.currentTarget.style.opacity = '1';
               // Set the image to the highest z-index
               e.currentTarget.style.zIndex = '3';
             }}

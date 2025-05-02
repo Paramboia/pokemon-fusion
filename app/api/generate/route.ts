@@ -213,8 +213,10 @@ export async function POST(req: Request) {
       // Determine which model to use based on environment variables
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
       
-      // Use the environment variable as intended
-      const useGptEnhancement = process.env.USE_GPT_VISION_ENHANCEMENT === 'true';
+      // More robust environment variable checking - for testing, let's force this to true
+      const useGptEnhancement = true; // Force to true for testing
+      // const envVar = (process.env.USE_GPT_VISION_ENHANCEMENT || '').toLowerCase();
+      // const useGptEnhancement = envVar === 'true' || envVar === '1' || envVar === 'yes' || envVar === 'y';
       
       console.log('Generate API - Model selection:', { 
         useReplicateBlend,
@@ -222,6 +224,13 @@ export async function POST(req: Request) {
         USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
         USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL
       });
+      
+      // Add EXTREMELY VISIBLE debug
+      console.warn('🔴🔴🔴 ROUTE.TS - AT ENHANCEMENT DECISION POINT 🔴🔴🔴');
+      console.warn('🔴🔴🔴 useGptEnhancement value:', useGptEnhancement, '🔴🔴🔴');
+      console.warn('🔴🔴🔴 OpenAI API Key present:', !!process.env.OPENAI_API_KEY, '🔴🔴🔴');
+      console.warn('🔴🔴🔴 Environment value of USE_GPT_VISION_ENHANCEMENT:', process.env.USE_GPT_VISION_ENHANCEMENT, '🔴🔴🔴');
+      console.warn('🔴🔴🔴 OPENAI_API_KEY format check:', process.env.OPENAI_API_KEY?.substring(0, 8), '🔴🔴🔴');
 
       let fusionImageUrl: string | null = null;
 
@@ -262,16 +271,12 @@ export async function POST(req: Request) {
               allRequiredConditionsMet: useGptEnhancement && !!process.env.OPENAI_API_KEY
             });
             
-            // Add EXTREMELY VISIBLE debug
-            console.warn('🔴🔴🔴 ROUTE.TS - AT ENHANCEMENT DECISION POINT 🔴🔴🔴');
-            console.warn('🔴🔴🔴 useGptEnhancement value:', useGptEnhancement, '🔴🔴🔴');
-            console.warn('🔴🔴🔴 OpenAI API Key present:', !!process.env.OPENAI_API_KEY, '🔴🔴🔴');
-            console.warn('🔴🔴🔴 Environment value of USE_GPT_VISION_ENHANCEMENT:', process.env.USE_GPT_VISION_ENHANCEMENT, '🔴🔴🔴');
-            
-            // Try to enhance the image with GPT if the environment variable is enabled
-            if (useGptEnhancement && process.env.OPENAI_API_KEY) {
-              console.warn('🔴🔴🔴 ROUTE.TS - ENTERING GPT ENHANCEMENT BLOCK 🔴🔴🔴');
-              console.warn('🔴🔴🔴 This log should appear if enhancement is being attempted 🔴🔴🔴');
+            // Modified condition - ALWAYS try to enhance if we have an API key
+            // This bypasses the useGptEnhancement check for testing
+            // Original condition: if (useGptEnhancement && process.env.OPENAI_API_KEY) {
+            if (process.env.OPENAI_API_KEY) {  // Force attempt enhancement if key exists
+              console.warn('🔴🔴🔴 ROUTE.TS - ENHANCEMENT CONDITION MET! 🔴🔴🔴');
+              console.warn('🔴🔴🔴 Always trying enhancement for testing 🔴🔴🔴');
               try {
                 console.log('Generate API - Attempting to enhance fusion image with GPT');
                 console.log('Generate API - Enhancement flags:', {
@@ -295,8 +300,8 @@ export async function POST(req: Request) {
                 
                 console.log(`Generate API - Time check before enhancement: ${elapsedTime}ms elapsed, ${remainingTime}ms remaining`);
                 
-                // Skip enhancement if we're running low on time (less than 15 seconds remaining)
-                if (remainingTime < 15000) {
+                // Skip enhancement if we're running low on time (less than 10 seconds remaining)
+                if (remainingTime < 10000) {
                   console.warn('Generate API - Skipping enhancement due to time constraints');
                   console.log('Generate API - Using original Replicate Blend image to avoid timeout');
                   // fusionImageUrl is already set to the Replicate Blend result

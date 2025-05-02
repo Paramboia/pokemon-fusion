@@ -1,0 +1,20 @@
+[2025-05-02T22:04:49.202Z] LOG: =====================================
+[2025-05-02T22:04:49.222Z] LOG: GPT-image-1 Test Log Started
+[2025-05-02T22:04:49.224Z] LOG: =====================================
+[2025-05-02T22:04:49.228Z] LOG: === GPT-image-1 Test Script ===
+[2025-05-02T22:04:49.230Z] LOG: API Key available: true
+[2025-05-02T22:04:49.231Z] LOG: API Key format check: sk-proj...
+[2025-05-02T22:04:49.232Z] LOG: Log file: C:\Projects\pokemon-fusion\tests\output\gpt-image1-test-1746223489197.log
+[2025-05-02T22:04:49.233Z] LOG: 
+=== Testing GPT-image-1 with a simple prompt ===
+[2025-05-02T22:04:49.235Z] LOG: This may take up to 2 minutes as mentioned in the documentation...
+[2025-05-02T22:04:49.237Z] LOG: Starting API call...
+[2025-05-02T22:04:49.565Z] ERROR: ERROR after 0.33 seconds: 400 Invalid value: 'standard'. Supported values are: 'low', 'medium', 'high', and 'auto'.
+[2025-05-02T22:04:49.566Z] LOG: 
+=== Test Results ===
+[2025-05-02T22:04:49.567Z] LOG: Simple prompt test: FAILED
+[2025-05-02T22:04:49.567Z] LOG: 
+WARNING: GPT-image-1 test failed.
+[2025-05-02T22:04:49.568Z] LOG: Please check the error messages above or in the log file for more details.
+[2025-05-02T22:04:49.568Z] LOG: 
+Complete log saved to: C:\Projects\pokemon-fusion\tests\output\gpt-image1-test-1746223489197.log

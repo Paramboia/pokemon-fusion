@@ -4,12 +4,13 @@ import Replicate from 'replicate';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
-import { generatePokemonFusion, enhanceWithDirectGeneration } from './dalle';
+import { generatePokemonFusion, enhanceWithDirectGeneration, testOpenAiClient } from './dalle';
 
 // DEBUG - Verify imports from dalle.ts
 console.warn('ROUTE.TS - dalle.ts imports completed:', { 
   hasGenerateFn: typeof generatePokemonFusion === 'function',
-  hasEnhanceFn: typeof enhanceWithDirectGeneration === 'function' 
+  hasEnhanceFn: typeof enhanceWithDirectGeneration === 'function',
+  hasTestFn: typeof testOpenAiClient === 'function'
 });
 
 import { generateWithReplicateBlend } from './replicate-blend';
@@ -61,6 +62,11 @@ export async function POST(req: Request) {
     
     // Log full configuration status
     logConfigStatus();
+    
+    // Test the OpenAI client at the start to diagnose issues
+    console.log("Generate API - Testing OpenAI client before processing");
+    const openAiClientWorking = await testOpenAiClient();
+    console.log("Generate API - OpenAI client test result:", openAiClientWorking);
     
     // Parse the request body
     const body = await req.json();
@@ -213,7 +219,10 @@ export async function POST(req: Request) {
       // Determine which model to use based on environment variables
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
       
-      // More robust environment variable checking - for testing, let's force this to true
+      // Make sure the environment variable is properly set
+      process.env.USE_GPT_VISION_ENHANCEMENT = 'true';
+      
+      // Get the enhancement setting from the environment
       const useGptEnhancement = true; // Force to true for testing
       // const envVar = (process.env.USE_GPT_VISION_ENHANCEMENT || '').toLowerCase();
       // const useGptEnhancement = envVar === 'true' || envVar === '1' || envVar === 'yes' || envVar === 'y';
@@ -327,9 +336,10 @@ export async function POST(req: Request) {
                     });
                     
                     enhancedImageUrl = await enhanceWithDirectGeneration(
-                      pokemon1Name,
-                      pokemon2Name,
-                      fusionImageUrl
+                      '', // No pokemon1Name needed
+                      '', // No pokemon2Name needed
+                      fusionImageUrl,
+                      0 // No retries
                     );
                     console.warn('CRITICAL DEBUG - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
                     console.log('Generate API - AFTER enhanceWithDirectGeneration call - result:', enhancedImageUrl ? 'success' : 'null');
@@ -585,6 +595,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
+  }
+}
+
+// Add a GET endpoint for testing
+export async function GET() {
+  try {
+    console.log('Generate API - GET request received');
+    console.log('Generate API - Testing OpenAI client');
+    
+    // Initialize config
+    initializeConfig();
+    
+    // Test the OpenAI client
+    const testResult = await testOpenAiClient();
+    console.log('Generate API - OpenAI client test result:', testResult);
+    
+    // Return the test result
+    return NextResponse.json({
+      success: true,
+      openAiClientWorking: testResult,
+      message: testResult ? 'OpenAI client test successful' : 'OpenAI client test failed'
+    });
+  } catch (error) {
+    console.error('Generate API - GET test error:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }

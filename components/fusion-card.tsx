@@ -445,22 +445,19 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           className={`relative aspect-square ${!isMobile ? 'group' : ''}`}
           style={{
             backgroundColor: isDarkTheme ? '#111827' : '#f9fafb',
+            backgroundImage: isDarkTheme 
+              ? 'linear-gradient(45deg, #111827 25%, #1f2937 25%, #1f2937 50%, #111827 50%, #111827 75%, #1f2937 75%, #1f2937 100%)'
+              : 'linear-gradient(45deg, #f9fafb 25%, #f1f5f9 25%, #f1f5f9 50%, #f9fafb 50%, #f9fafb 75%, #f1f5f9 75%, #f1f5f9 100%)',
+            backgroundSize: '20px 20px',
             flexGrow: 0,
             flexShrink: 0,
             overflow: 'hidden'
           }}
         >
-          {/* Add a fallback div in case the image fails to load */}
+          {/* Loading placeholder - will be hidden when image loads */}
           <div 
+            className="loading-placeholder absolute inset-0 flex justify-center items-center"
             style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
               backgroundColor: isDarkTheme ? '#111827' : '#f9fafb',
               zIndex: 1
             }}
@@ -473,13 +470,25 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
             alt={getFusionName()}
             fill
             className="object-contain p-4"
-            style={{ zIndex: 2 }}
+            style={{ 
+              zIndex: 2,
+              // Image's own background is transparent to let the container pattern show through
+              backgroundColor: 'transparent'
+            }}
             onError={(e) => {
               console.error('Image failed to load:', getFusionImage());
               e.currentTarget.style.display = 'none';
             }}
             onLoad={(e) => {
-              // Hide the fallback div when the image loads successfully
+              // Find the loading placeholder element and hide it when the image loads
+              const parent = e.currentTarget.parentElement;
+              if (parent) {
+                const loadingEl = parent.querySelector('.loading-placeholder');
+                if (loadingEl) {
+                  (loadingEl as HTMLElement).style.display = 'none';
+                }
+              }
+              // Set the image to the highest z-index
               e.currentTarget.style.zIndex = '3';
             }}
           />

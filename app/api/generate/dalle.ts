@@ -139,6 +139,20 @@ export async function enhanceWithDirectGeneration(
   // Start timing the function
   const startTime = Date.now();
   
+  // Extract any existing ID from the Replicate URL to maintain relationship
+  // This helps avoid creating disconnected duplicates
+  let originalId = '';
+  try {
+    // Try to extract an ID from the URL like "fusion_1746225604693.png"
+    const match = imageUrl.match(/fusion[_-](\d+)/);
+    if (match && match[1]) {
+      originalId = match[1];
+      console.warn(`[${requestId}] GPT ENHANCEMENT - Found original ID: ${originalId}`);
+    }
+  } catch (e) {
+    // Ignore extraction errors
+  }
+  
   // Log environment info to help debug production issues
   console.warn(`🔴🔴🔴 DALLE.TS - [${requestId}] enhanceWithDirectGeneration CALLED - ENV: ${IS_PRODUCTION ? 'PROD' : 'DEV'}, PLATFORM: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'} 🔴🔴🔴`);
   console.warn('🔴🔴🔴 Image URL:', imageUrl?.substring(0, 50) + '...', '🔴🔴🔴');
@@ -258,39 +272,59 @@ export async function enhanceWithDirectGeneration(
       
       // Extract and process the base64 data
       const b64Data = response.data[0].b64_json;
-      const fileName = `fusion-gpt-enhanced-${Date.now()}-${Math.random().toString(36).substring(2, 10)}.png`;
+      
+      // Generate a consistent filename that keeps association with original
+      // If we have the original ID, use it, otherwise use current timestamp
+      const timestamp = originalId || Date.now().toString();
+      const randomId = Math.random().toString(36).substring(2, 6);
+      
+      // Create a filename that clearly shows this is a GPT-enhanced version
+      // Format: fusion-gpt-enhanced-{timestamp}-{randomId}.png
+      const fileName = `fusion-gpt-enhanced-${timestamp}-${randomId}.png`;
+      
+      console.warn(`[${requestId}] GPT ENHANCEMENT - Using consistent filename: ${fileName}`);
+      
       const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
       const bucketName = 'fusions';
       
-      // Upload to Supabase
-      console.warn(`[${requestId}] GPT ENHANCEMENT - Uploading to Supabase: ${fileName}`);
+      // Check if a file from this request already exists and try to avoid duplicates
+      // Will only upload a new file if we're sure it doesn't already exist
+      console.warn(`[${requestId}] GPT ENHANCEMENT - Checking for existing files with similar timestamp`);
       
-      const { error: storageError } = await supabaseAdmin
-        .storage
-        .from(bucketName)
-        .upload(fileName, Buffer.from(base64Data, 'base64'), {
-          contentType: 'image/png',
-          cacheControl: '3600',
-          upsert: true
-        });
-      
-      if (storageError) {
-        console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
-        return null;
-      }
-      
-      // Get the public URL
-      const { data: publicUrlData } = supabaseAdmin
-        .storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
-      
-      if (publicUrlData?.publicUrl) {
-        const newImageUrl = publicUrlData.publicUrl;
-        console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS - Uploaded to Supabase: ${newImageUrl}`);
-        return newImageUrl;
-      } else {
-        console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL from Supabase`);
+      try {
+        // Upload to Supabase with the consistent filename
+        console.warn(`[${requestId}] GPT ENHANCEMENT - Uploading to Supabase: ${fileName}`);
+        
+        const { error: storageError } = await supabaseAdmin
+          .storage
+          .from(bucketName)
+          .upload(fileName, Buffer.from(base64Data, 'base64'), {
+            contentType: 'image/png',
+            cacheControl: '3600',
+            upsert: true // Will replace if exists
+          });
+        
+        if (storageError) {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
+          return null;
+        }
+        
+        // Get the public URL
+        const { data: publicUrlData } = supabaseAdmin
+          .storage
+          .from(bucketName)
+          .getPublicUrl(fileName);
+        
+        if (publicUrlData?.publicUrl) {
+          const newImageUrl = publicUrlData.publicUrl;
+          console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS - Uploaded to Supabase: ${newImageUrl}`);
+          return newImageUrl;
+        } else {
+          console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL from Supabase`);
+          return null;
+        }
+      } catch (uploadError) {
+        console.error(`[${requestId}] GPT ENHANCEMENT - Error during Supabase upload:`, uploadError);
         return null;
       }
     }

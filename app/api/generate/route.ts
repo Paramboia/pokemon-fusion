@@ -350,7 +350,12 @@ export async function POST(req: Request) {
                 if (enhancedImageUrl) {
                   console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
                   console.log(`Generate API - Updating fusion image URL from Replicate (${fusionImageUrl.substring(0, 30)}...) to GPT Enhanced (${enhancedImageUrl.substring(0, 30)}...)`);
+                  
+                  // Update the URL variable to use the enhanced version exclusively
                   fusionImageUrl = enhancedImageUrl;
+                  
+                  // Log clear indication that we're only using the enhanced URL
+                  console.log(`Generate API - Using ONLY the enhanced image URL for storage: ${fusionImageUrl.substring(0, 30)}...`);
                 } else {
                   console.log('Generate API - GPT enhancement returned null, using original Replicate Blend image');
                   console.log('Generate API - This may be due to timeout, API error, or base64 handling issues');
@@ -409,6 +414,11 @@ export async function POST(req: Request) {
 
       // Save the fusion to the database
       console.log('Generate API - Saving fusion to database with user ID:', userUuid || userId);
+
+      // Log which image source we're using to avoid duplicates
+      const isEnhancedImage = fusionImageUrl.includes('fusion-gpt-enhanced');
+      console.log(`Generate API - Using ${isEnhancedImage ? 'GPT-enhanced' : 'Replicate Blend'} image: ${fusionImageUrl.substring(0, 50)}...`);
+
       const result = await saveFusion({
         userId: userUuid || userId,
         pokemon1Id,
@@ -417,7 +427,7 @@ export async function POST(req: Request) {
         pokemon2Name,
         fusionName,
         fusionImage: fusionImageUrl,
-        isSimpleFusion: false
+        isSimpleFusion: false // AI-generated fusion
       });
 
       if (result.error) {

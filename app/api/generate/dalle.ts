@@ -222,7 +222,7 @@ export async function enhanceWithDirectGeneration(
       prompt: enhancementPrompt,
       n: 1,
       size: "1024x1024" as const,
-      quality: "high" as any,
+      quality: "medium" as any,
       moderation: "low" as any,
       background: "transparent" as any
     };

@@ -99,10 +99,10 @@ const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 40000 : 150000;
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
 const ENHANCEMENT_PROMPT = `Use the uploaded image as the exact design reference.
-Recreate the same creature design, keeping the body structure, pose, key features intact, and same color palette.
+Recreate the same design, keeping the body structure, pose, key features intact, and same color palette.
 Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
 The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
-Do not change the creature into a different animal, and do not change its overall body orientation.
+Do not change the design into a different animal, and do not change its overall body orientation.
 This is not a redesign, it's an illustration upgrade.
 Ensure the background is transparent.`;
 

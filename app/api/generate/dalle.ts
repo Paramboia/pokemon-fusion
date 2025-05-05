@@ -98,23 +98,23 @@ const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 40000 : 150000;
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
-const ENHANCEMENT_PROMPT = `Please transform the provided character concept art into a polished illustration while preserving its silhouette, pose and base colours.
+const ENHANCEMENT_PROMPT = `POLISH THE INPUT IMAGE ONLY.  
+THIS IS NOT A NEW ILLUSTRATION.  
+KEEP 100 % OF:                             
+• THE CHARACTER’S SPECIES, BODY PLAN, LIMB COUNT, SILHOUETTE, ORIENTATION & POSE.  
+• EVERY COLOUR REGION (≈ same hue & relative area).  
+ABSOLUTELY DO NOT:  
+• Turn a non‑human into a human or give clothes, weapons, or extra anatomy.  
+• Remove or replace the character.  
+• Add text, logos, watermarks, or copyrighted symbols.
 
-STYLE & RENDERING
-• Clean, sharp anime inspired line art (thin outer outline, slightly thicker inner details).  
-• Smooth 2‑to‑3‑tone cel shading that conveys depth; soft specular highlights and a faint rim‑light from the upper‑left.  
-• Subtle texture on large single‑colour areas to avoid flatness.
+WHAT YOU MAY DO  
+• Re‑draw clean, sharp anime‑style line art (thin outer stroke, thicker inner accents).  
+• Apply 2‑to‑3‑tone cel shading with soft specular highlights; add subtle rim‑light from upper‑left.  
+• Smooth gradients inside large shapes so they’re not flat.  
+• Ensure the background is transparent.
 
-BACKGROUND
-• Ensure the background is transparent.  
-• No additional objects; leave negative space so the character stands out.
-
-OUTPUT CONSTRAINTS
-• Keep the character’s anatomy, proportions and palette unchanged.   
-• Center the subject; avoid cropping extremities.
-
-Do **not** add text, logos, watermarks, or copyrighted symbols.  
-Do **not** depict real people.`;
+If the instructions conflict, FOLLOW THE “DO NOT” RULES ABOVE.`;
 
 // We won't be using pokemon names in the prompt anymore
 // function createPokemonEnhancementPrompt(pokemon1Name: string, pokemon2Name: string): string {

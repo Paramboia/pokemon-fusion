@@ -98,11 +98,11 @@ const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 40000 : 150000;
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
-const ENHANCEMENT_PROMPT = `Use the uploaded image as the exact design reference for the output.
-Recreate the same Dejimon, keeping the body structure, pose, key features intact, and same color palette.
+const ENHANCEMENT_PROMPT = `Use the uploaded image as the exact new Pokemon design reference for the output.
+Recreate the same Pokemon, keeping the body structure, pose, key features intact, and same color palette.
 Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
 The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
-Do not change the Dejimon into a different one, and do not change its overall body orientation.
+Do not change the Pokemon into a different one, and do not change its overall body orientation.
 This is not a redesign, it's an illustration upgrade.
 Ensure the background is transparent.`;
 

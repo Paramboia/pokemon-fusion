@@ -98,23 +98,13 @@ const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 40000 : 150000;
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
-const ENHANCEMENT_PROMPT = `POLISH THE INPUT IMAGE ONLY.  
-THIS IS NOT A NEW ILLUSTRATION.  
-KEEP 100 % OF:                             
-• THE CHARACTER’S SPECIES, BODY PLAN, LIMB COUNT, SILHOUETTE, ORIENTATION & POSE.  
-• EVERY COLOUR REGION (≈ same hue & relative area).  
-ABSOLUTELY DO NOT:  
-• Turn a non‑human into a human or give clothes, weapons, or extra anatomy.  
-• Remove or replace the character.  
-• Add text, logos, watermarks, or copyrighted symbols.
-
-WHAT YOU MAY DO  
-• Re‑draw clean, sharp anime‑style line art (thin outer stroke, thicker inner accents).  
-• Apply 2‑to‑3‑tone cel shading with soft specular highlights; add subtle rim‑light from upper‑left.  
-• Smooth gradients inside large shapes so they’re not flat.  
-• Ensure the background is transparent.
-
-If the instructions conflict, FOLLOW THE “DO NOT” RULES ABOVE.`;
+const ENHANCEMENT_PROMPT = `Use the uploaded image as the exact design reference for the output.
+Recreate the same anime creature, keeping the body structure, pose, key features intact, and same color palette.
+Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
+The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
+Do not change the anime creature into a different one, and do not change its overall body orientation.
+This is not a redesign, it's an illustration upgrade.
+Ensure the background is transparent.`;
 
 // We won't be using pokemon names in the prompt anymore
 // function createPokemonEnhancementPrompt(pokemon1Name: string, pokemon2Name: string): string {

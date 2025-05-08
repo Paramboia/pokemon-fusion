@@ -98,13 +98,7 @@ const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 290000 : 150000;
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
-const ENHANCEMENT_PROMPT = `Use the uploaded image as the design reference for the output.
-Recreate the same anime creature, keeping the body structure, pose, key features intact, and same color palette.
-Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
-The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
-Do not change the anime creature into a different one, and do not change its overall body orientation.
-This is not a redesign, it's an illustration upgrade.
-Ensure the background is transparent.`;
+const ENHANCEMENT_PROMPT = `Create a 2D illustration of a unique, original cartoon creature based on the uploaded image. Keep the same pose, body proportions, and color palette, but do not directly copy or recreate any existing characters. The creature should look whimsical, energetic, and anime-inspired, with smooth outlines, cel-shading, soft shadows, and a polished finish suitable for early 2000s anime style. Ensure the background is transparent. This is not fan art or a character recreation—make it a fresh, original design.`;
 
 // We won't be using pokemon names in the prompt anymore
 // function createPokemonEnhancementPrompt(pokemon1Name: string, pokemon2Name: string): string {

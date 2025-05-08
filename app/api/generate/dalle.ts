@@ -18,7 +18,7 @@ console.warn(`🌎 Environment: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'},
 
 // Reduce timeouts for production to avoid Vercel function timeouts
 // On hobby plan, we need to complete everything within 60 seconds
-const API_TIMEOUT = IS_PRODUCTION ? 45000 : 180000; // 45 seconds in production, 3 minutes in development
+const API_TIMEOUT = IS_PRODUCTION ? 290000 : 180000; // 290 seconds in production, 3 minutes in development
 
 // Validate API key format and log details to help with debugging
 const apiKey = process.env.OPENAI_API_KEY || '';
@@ -91,11 +91,11 @@ const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABA
   : null;
 
 // Set shorter timeouts for production environments
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '45000' : '150000'), 10);
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '290000' : '150000'), 10);
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Stricter timeout in production
-const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 40000 : 150000;
+const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 290000 : 150000;
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
 const ENHANCEMENT_PROMPT = `Use the uploaded image as the exact design reference for the output fictional creature.

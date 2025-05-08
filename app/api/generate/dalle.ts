@@ -106,20 +106,118 @@ Do not change the anime creature into a different one, and do not change its ove
 This is not a redesign, it's an illustration upgrade.
 Ensure the background is transparent.`;
 
-// We won't be using pokemon names in the prompt anymore
-// function createPokemonEnhancementPrompt(pokemon1Name: string, pokemon2Name: string): string {
-//   return `${ENHANCEMENT_PROMPT}
-//
-// This specific image is a fusion between ${pokemon1Name} and ${pokemon2Name}.
-// Enhance the quality while preserving all the characteristic features from both creatures.
-// Follow a clean, animated art style with smooth lines and vibrant colors.`;
-// }
+// Define the image description prompt for GPT-4V
+const DESCRIPTION_PROMPT = `Please describe this image for use in a clean, stylized illustration prompt. I want you to break it down into:
+
+Body structure and pose:
+Color palette:
+Key features:
+
+Describe it generically, avoiding any existing character names or IP references.`;
 
 // Function to create a timeout promise that rejects after a specified time
 function timeout(ms: number): Promise<never> {
   return new Promise((_, reject) => {
     setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
   });
+}
+
+/**
+ * New function to describe an image using GPT-4 Vision
+ * Takes an image URL and returns a detailed description
+ */
+async function describeImageWithGpt4(
+  imageUrl: string,
+  requestId = `gpt-describe-${Date.now()}`
+): Promise<string | null> {
+  console.warn(`[${requestId}] GPT DESCRIPTION - Starting image description with GPT-4 Vision`);
+  
+  // Validate API key and client
+  if (!apiKey) {
+    console.error(`[${requestId}] GPT DESCRIPTION - Missing OpenAI API key`);
+    return null;
+  }
+  
+  const openai = getOpenAiClientSafe();
+  if (!openai) {
+    console.error(`[${requestId}] GPT DESCRIPTION - Failed to get OpenAI client`);
+    return null;
+  }
+  
+  try {
+    // Download the image
+    console.warn(`[${requestId}] GPT DESCRIPTION - Downloading image from URL`);
+    let imageData: string;
+    
+    try {
+      const imageResponse = await axios.get(imageUrl, { 
+        responseType: 'arraybuffer',
+        timeout: IS_PRODUCTION ? 5000 : 10000 // Shorter timeout in production
+      });
+      imageData = Buffer.from(imageResponse.data).toString('base64');
+      console.warn(`[${requestId}] GPT DESCRIPTION - Successfully downloaded and converted image (${imageData.length / 1024} KB)`);
+    } catch (downloadError) {
+      console.error(`[${requestId}] GPT DESCRIPTION - Failed to download image:`, downloadError);
+      imageData = imageUrl; // Fall back to using the URL directly
+    }
+    
+    // Prepare the image parameter based on what we have
+    const imageParam = imageData.startsWith('http') 
+      ? imageData  // It's a URL
+      : `data:image/png;base64,${imageData}`; // It's base64 data
+    
+    // Make the OpenAI API call with GPT-4 Vision
+    console.warn(`[${requestId}] GPT DESCRIPTION - Starting chat completion with GPT-4 Vision`);
+    
+    // Set a timeout
+    const descriptionTimeout = IS_PRODUCTION ? 20000 : 30000; // 20 seconds in production, 30 in development
+    
+    // Create a promise that will reject after a timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`GPT-4 Vision description call timed out after ${descriptionTimeout}ms`));
+      }, descriptionTimeout);
+    });
+    
+    // Call the API with a race against the timeout
+    const response = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4.1-mini",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: DESCRIPTION_PROMPT },
+              { 
+                type: "image_url", 
+                image_url: {
+                  url: imageParam,
+                  detail: "low" // Use low detail to reduce tokens
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      }),
+      timeoutPromise
+    ]);
+    
+    // Check if we got a valid response
+    if (!response?.choices?.[0]?.message?.content) {
+      console.error(`[${requestId}] GPT DESCRIPTION - No valid content in response`);
+      return null;
+    }
+    
+    // Get the description text
+    const description = response.choices[0].message.content;
+    console.warn(`[${requestId}] GPT DESCRIPTION - Successfully generated description (${description.length} chars)`);
+    
+    return description;
+  } catch (error) {
+    console.error(`[${requestId}] GPT DESCRIPTION - Error describing image:`, error);
+    return null;
+  }
 }
 
 /**
@@ -187,153 +285,54 @@ export async function enhanceWithDirectGeneration(
     console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get OpenAI client`);
     return null;
   }
-
-  // Use only the generic prompt - no creature names
-  const enhancementPrompt = ENHANCEMENT_PROMPT;
-  console.warn(`[${requestId}] GPT ENHANCEMENT - Using generic prompt:`, enhancementPrompt.substring(0, 100) + '...');
   
   try {
-    // Download the image
-    console.warn(`[${requestId}] GPT ENHANCEMENT - Downloading image from URL`);
-    let imageData: string;
+    // STEP 1: Describe the image using GPT-4 Vision
+    console.warn(`[${requestId}] GPT ENHANCEMENT - STEP 1: Generating image description with GPT-4 Vision`);
+    const imageDescription = await describeImageWithGpt4(imageUrl, requestId);
     
-    try {
-      const imageResponse = await axios.get(imageUrl, { 
-        responseType: 'arraybuffer',
-        timeout: IS_PRODUCTION ? 5000 : 10000 // Shorter timeout in production
-      });
-      imageData = Buffer.from(imageResponse.data).toString('base64');
-      console.warn(`[${requestId}] GPT ENHANCEMENT - Successfully downloaded and converted image (${imageData.length / 1024} KB)`);
-    } catch (downloadError) {
-      console.error(`[${requestId}] GPT ENHANCEMENT - Failed to download image:`, downloadError);
-      imageData = imageUrl; // Fall back to using the URL directly
+    if (!imageDescription) {
+      console.warn(`[${requestId}] GPT ENHANCEMENT - Failed to get image description, using generic prompt`);
+      // Fall back to the generic enhancement prompt
+      return await generateImageWithPrompt(ENHANCEMENT_PROMPT, imageUrl, requestId, originalId);
     }
     
-    // Prepare the image parameter based on what we have
-    const imageParam = imageData.startsWith('http') 
-      ? imageData  // It's a URL
-      : `data:image/png;base64,${imageData}`; // It's base64 data
+    // STEP 2: Create an improved prompt using the description
+    console.warn(`[${requestId}] GPT ENHANCEMENT - STEP 2: Creating prompt from description`);
+    console.warn(`[${requestId}] GPT ENHANCEMENT - Description: ${imageDescription.substring(0, 200)}...`);
     
-    // Make the OpenAI API call with gpt-image-1 only
-    console.warn(`[${requestId}] GPT ENHANCEMENT - Starting image generation with gpt-image-1 (may take up to 2 minutes per docs)`);
+    // Extract key elements from the description
+    let bodyStructure = "unknown body structure";
+    let colorPalette = "vibrant colors";
+    let keyFeatures = "distinctive features";
     
-    // Create params specifically for gpt-image-1 based on documentation
-    const gptImageParams = {
-      model: "gpt-image-1" as const,
-      prompt: enhancementPrompt,
-      n: 1,
-      size: "1024x1024" as const,
-      quality: "high" as any,
-      moderation: "low" as any,
-      background: "transparent" as any
-    };
-    
-    // Log the start time before calling API
-    const apiStartTime = Date.now();
-    console.warn(`[${requestId}] GPT ENHANCEMENT - API call to gpt-image-1 started at ${new Date(apiStartTime).toISOString()}`);
-    
-    // Use a shorter timeout in production
-    const actualTimeout = IS_PRODUCTION ? ENHANCEMENT_STRICT_TIMEOUT : ENHANCEMENT_TIMEOUT;
-    console.warn(`[${requestId}] GPT ENHANCEMENT - Using timeout of ${actualTimeout}ms for gpt-image-1`);
-    
-    // Create a promise that will reject after a timeout
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`gpt-image-1 API call timed out after ${actualTimeout}ms`));
-      }, actualTimeout);
-    });
-    
-    // Race the API call against the timeout
-    const response = await Promise.race([
-      openai.images.generate(gptImageParams),
-      timeoutPromise
-    ]);
-    
-    // Calculate and log duration
-    const apiDuration = Date.now() - apiStartTime;
-    console.warn(`[${requestId}] GPT ENHANCEMENT - gpt-image-1 call succeeded after ${apiDuration}ms!`);
-    
-    // Add success log
-    console.warn(`[${requestId}] GPT ENHANCEMENT - OpenAI API call succeeded!`);
-    
-    // Process URL response
-    if (response?.data?.[0]?.url) {
-      const newImageUrl = response.data[0].url;
-      console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS - Got URL response: ${newImageUrl.substring(0, 50)}...`);
-      return newImageUrl;
+    // Try to extract the sections from the description
+    const bodyMatch = imageDescription.match(/Body structure and pose:([\s\S]*?)(?:Color palette:|$)/);
+    if (bodyMatch && bodyMatch[1]) {
+      bodyStructure = bodyMatch[1].trim();
     }
     
-    // Process base64 response
-    if (response?.data?.[0]?.b64_json) {
-      console.warn(`[${requestId}] GPT ENHANCEMENT - Got base64 response`);
-      
-      if (!supabaseAdmin) {
-        console.error(`[${requestId}] GPT ENHANCEMENT - Cannot handle base64 data without Supabase`);
-        return null;
-      }
-      
-      // Extract and process the base64 data
-      const b64Data = response.data[0].b64_json;
-      
-      // Generate a consistent filename that keeps association with original
-      // If we have the original ID, use it, otherwise use current timestamp
-      const timestamp = originalId || Date.now().toString();
-      const randomId = Math.random().toString(36).substring(2, 6);
-      
-      // Create a filename that clearly shows this is a GPT-enhanced version
-      // Format: fusion-gpt-enhanced-{timestamp}-{randomId}.png
-      const fileName = `fusion-gpt-enhanced-${timestamp}-${randomId}.png`;
-      
-      console.warn(`[${requestId}] GPT ENHANCEMENT - Using consistent filename: ${fileName}`);
-      
-      const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
-      const bucketName = 'fusions';
-      
-      // Check if a file from this request already exists and try to avoid duplicates
-      // Will only upload a new file if we're sure it doesn't already exist
-      console.warn(`[${requestId}] GPT ENHANCEMENT - Checking for existing files with similar timestamp`);
-      
-      try {
-        // Upload to Supabase with the consistent filename
-        console.warn(`[${requestId}] GPT ENHANCEMENT - Uploading to Supabase: ${fileName}`);
-        
-        const { error: storageError } = await supabaseAdmin
-          .storage
-          .from(bucketName)
-          .upload(fileName, Buffer.from(base64Data, 'base64'), {
-            contentType: 'image/png',
-            cacheControl: '3600',
-            upsert: true // Will replace if exists
-          });
-        
-        if (storageError) {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Supabase upload error:`, storageError);
-          return null;
-        }
-        
-        // Get the public URL
-        const { data: publicUrlData } = supabaseAdmin
-          .storage
-          .from(bucketName)
-          .getPublicUrl(fileName);
-        
-        if (publicUrlData?.publicUrl) {
-          const newImageUrl = publicUrlData.publicUrl;
-          console.warn(`[${requestId}] GPT ENHANCEMENT - SUCCESS - Uploaded to Supabase: ${newImageUrl}`);
-          return newImageUrl;
-        } else {
-          console.error(`[${requestId}] GPT ENHANCEMENT - Failed to get public URL from Supabase`);
-          return null;
-        }
-      } catch (uploadError) {
-        console.error(`[${requestId}] GPT ENHANCEMENT - Error during Supabase upload:`, uploadError);
-        return null;
-      }
+    const colorMatch = imageDescription.match(/Color palette:([\s\S]*?)(?:Key features:|$)/);
+    if (colorMatch && colorMatch[1]) {
+      colorPalette = colorMatch[1].trim();
     }
     
-    // If we got here, we didn't get a valid response
-    console.error(`[${requestId}] GPT ENHANCEMENT - No valid URL or base64 data in response`);
-    return null;
+    const featuresMatch = imageDescription.match(/Key features:([\s\S]*?)$/);
+    if (featuresMatch && featuresMatch[1]) {
+      keyFeatures = featuresMatch[1].trim();
+    }
+    
+    // Create a new prompt based on the description
+    const customPrompt = `Illustrate an original cartoon creature with ${bodyStructure}, using a ${colorPalette}. 
+The creature features ${keyFeatures}. 
+Style it in early 2000s anime with smooth outlines, cel shading, and soft shadows. 
+Keep the background transparent.`;
+    
+    console.warn(`[${requestId}] GPT ENHANCEMENT - Created custom prompt: ${customPrompt.substring(0, 200)}...`);
+    
+    // STEP 3: Generate the final image with the custom prompt
+    console.warn(`[${requestId}] GPT ENHANCEMENT - STEP 3: Generating final image with custom prompt`);
+    return await generateImageWithPrompt(customPrompt, imageUrl, requestId, originalId);
     
   } catch (error) {
     // Global error handler
@@ -357,6 +356,163 @@ export async function enhanceWithDirectGeneration(
     // Log timing information
     const duration = Date.now() - startTime;
     console.warn(`[${requestId}] GPT ENHANCEMENT - Function completed in ${duration}ms`);
+  }
+}
+
+/**
+ * Helper function to generate an image with gpt-image-1 using a specified prompt
+ * This is used by enhanceWithDirectGeneration to avoid code duplication
+ */
+async function generateImageWithPrompt(
+  prompt: string,
+  referenceImageUrl: string,
+  requestId: string,
+  originalId: string = ''
+): Promise<string | null> {
+  // Get the OpenAI client
+  const openai = getOpenAiClientSafe();
+  if (!openai) {
+    console.error(`[${requestId}] GPT IMAGE GENERATION - Failed to get OpenAI client`);
+    return null;
+  }
+  
+  try {
+    // Download the image (just for reference, not used in the API call)
+    console.warn(`[${requestId}] GPT IMAGE GENERATION - Downloading reference image`);
+    let imageData: string;
+    
+    try {
+      const imageResponse = await axios.get(referenceImageUrl, { 
+        responseType: 'arraybuffer',
+        timeout: IS_PRODUCTION ? 5000 : 10000 // Shorter timeout in production
+      });
+      imageData = Buffer.from(imageResponse.data).toString('base64');
+      console.warn(`[${requestId}] GPT IMAGE GENERATION - Successfully downloaded reference image (${imageData.length / 1024} KB)`);
+    } catch (downloadError) {
+      console.error(`[${requestId}] GPT IMAGE GENERATION - Failed to download reference image:`, downloadError);
+      imageData = referenceImageUrl; // Fall back to using the URL directly
+    }
+    
+    // Make the OpenAI API call with gpt-image-1 only
+    console.warn(`[${requestId}] GPT IMAGE GENERATION - Starting image generation with gpt-image-1`);
+    
+    // Create params specifically for gpt-image-1 based on documentation
+    const gptImageParams = {
+      model: "gpt-image-1" as const,
+      prompt: prompt,
+      n: 1,
+      size: "1024x1024" as const,
+      quality: "high" as any,
+      moderation: "low" as any,
+      background: "transparent" as any
+    };
+    
+    // Log the start time before calling API
+    const apiStartTime = Date.now();
+    console.warn(`[${requestId}] GPT IMAGE GENERATION - API call to gpt-image-1 started at ${new Date(apiStartTime).toISOString()}`);
+    
+    // Use a shorter timeout in production
+    const actualTimeout = IS_PRODUCTION ? ENHANCEMENT_STRICT_TIMEOUT : ENHANCEMENT_TIMEOUT;
+    console.warn(`[${requestId}] GPT IMAGE GENERATION - Using timeout of ${actualTimeout}ms for gpt-image-1`);
+    
+    // Create a promise that will reject after a timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`gpt-image-1 API call timed out after ${actualTimeout}ms`));
+      }, actualTimeout);
+    });
+    
+    // Race the API call against the timeout
+    const response = await Promise.race([
+      openai.images.generate(gptImageParams),
+      timeoutPromise
+    ]);
+    
+    // Calculate and log duration
+    const apiDuration = Date.now() - apiStartTime;
+    console.warn(`[${requestId}] GPT IMAGE GENERATION - gpt-image-1 call succeeded after ${apiDuration}ms!`);
+    
+    // Add success log
+    console.warn(`[${requestId}] GPT IMAGE GENERATION - OpenAI API call succeeded!`);
+    
+    // Process URL response
+    if (response?.data?.[0]?.url) {
+      const newImageUrl = response.data[0].url;
+      console.warn(`[${requestId}] GPT IMAGE GENERATION - SUCCESS - Got URL response: ${newImageUrl.substring(0, 50)}...`);
+      return newImageUrl;
+    }
+    
+    // Process base64 response
+    if (response?.data?.[0]?.b64_json) {
+      console.warn(`[${requestId}] GPT IMAGE GENERATION - Got base64 response`);
+      
+      if (!supabaseAdmin) {
+        console.error(`[${requestId}] GPT IMAGE GENERATION - Cannot handle base64 data without Supabase`);
+        return null;
+      }
+      
+      // Extract and process the base64 data
+      const b64Data = response.data[0].b64_json;
+      
+      // Generate a consistent filename that keeps association with original
+      // If we have the original ID, use it, otherwise use current timestamp
+      const timestamp = originalId || Date.now().toString();
+      const randomId = Math.random().toString(36).substring(2, 6);
+      
+      // Create a filename that clearly shows this is a GPT-enhanced version
+      // Format: fusion-gpt-enhanced-{timestamp}-{randomId}.png
+      const fileName = `fusion-gpt-enhanced-${timestamp}-${randomId}.png`;
+      
+      console.warn(`[${requestId}] GPT IMAGE GENERATION - Using consistent filename: ${fileName}`);
+      
+      const base64Data = b64Data.includes('base64,') ? b64Data.split('base64,')[1] : b64Data;
+      const bucketName = 'fusions';
+      
+      try {
+        // Upload to Supabase with the consistent filename
+        console.warn(`[${requestId}] GPT IMAGE GENERATION - Uploading to Supabase: ${fileName}`);
+        
+        const { error: storageError } = await supabaseAdmin
+          .storage
+          .from(bucketName)
+          .upload(fileName, Buffer.from(base64Data, 'base64'), {
+            contentType: 'image/png',
+            cacheControl: '3600',
+            upsert: true // Will replace if exists
+          });
+        
+        if (storageError) {
+          console.error(`[${requestId}] GPT IMAGE GENERATION - Supabase upload error:`, storageError);
+          return null;
+        }
+        
+        // Get the public URL
+        const { data: publicUrlData } = supabaseAdmin
+          .storage
+          .from(bucketName)
+          .getPublicUrl(fileName);
+        
+        if (publicUrlData?.publicUrl) {
+          const newImageUrl = publicUrlData.publicUrl;
+          console.warn(`[${requestId}] GPT IMAGE GENERATION - SUCCESS - Uploaded to Supabase: ${newImageUrl}`);
+          return newImageUrl;
+        } else {
+          console.error(`[${requestId}] GPT IMAGE GENERATION - Failed to get public URL from Supabase`);
+          return null;
+        }
+      } catch (uploadError) {
+        console.error(`[${requestId}] GPT IMAGE GENERATION - Error during Supabase upload:`, uploadError);
+        return null;
+      }
+    }
+    
+    // If we got here, we didn't get a valid response
+    console.error(`[${requestId}] GPT IMAGE GENERATION - No valid URL or base64 data in response`);
+    return null;
+  } catch (error) {
+    // Error handler
+    console.error(`[${requestId}] GPT IMAGE GENERATION - Error:`, error);
+    return null;
   }
 }
 

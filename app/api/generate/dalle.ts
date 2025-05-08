@@ -98,11 +98,11 @@ const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 290000 : 150000;
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
-const ENHANCEMENT_PROMPT = `Use the uploaded image as the exact design reference for the output fictional creature.
-Recreate the same fictional creature, keeping the body structure, pose, key features intact, and same color palette.
+const ENHANCEMENT_PROMPT = `Use the uploaded image as the exact design reference for the output digimon creature.
+Recreate the same digimon creature, keeping the body structure, pose, key features intact, and same color palette.
 Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
 The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
-Do not change the fictional creature into a different one, and do not change its overall body orientation.
+Do not change the digimon creature into a different one, and do not change its overall body orientation.
 This is not a redesign, it's an illustration upgrade.
 Ensure the background is transparent.`;
 

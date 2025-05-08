@@ -103,6 +103,7 @@ Recreate the same digimon creature, keeping the body structure, pose, key featur
 Only improve the artistic quality by using clean, smooth outlines, cel-shaded coloring, soft shading, and vivid colors.
 The final style should be teenager-friendly, early 2000s anime-inspired, and polished.
 Do not change the digimon creature into a different one, and do not change its overall body orientation.
+Do not make the digimon to look like a dragon if it's not in the original image.
 This is not a redesign, it's an illustration upgrade.
 Ensure the background is transparent.`;
 

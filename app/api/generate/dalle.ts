@@ -325,7 +325,7 @@ export async function enhanceWithDirectGeneration(
     // Create a new prompt based on the description
     const customPrompt = `Illustrate an original cartoon creature with ${bodyStructure}, using a ${colorPalette}. 
 The creature features ${keyFeatures}. 
-Style it in early 2000s anime with smooth outlines, cel shading, and soft shadows. 
+Style it in early 2000s anime, teenager-friendly, with smooth outlines, cel shading, and soft shadows. 
 Keep the background transparent.`;
     
     console.warn(`[${requestId}] GPT ENHANCEMENT - Created custom prompt: ${customPrompt.substring(0, 200)}...`);

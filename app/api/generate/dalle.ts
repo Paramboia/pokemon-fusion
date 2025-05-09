@@ -91,11 +91,14 @@ const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABA
   : null;
 
 // Set shorter timeouts for production environments
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '290000' : '150000'), 10);
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '450000' : '300000'), 10);
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
 // Stricter timeout in production
-const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 290000 : 150000;
+const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 400000 : 250000;
+
+// Define maximum wait time for Supabase uploads
+const SUPABASE_UPLOAD_TIMEOUT = IS_PRODUCTION ? 30000 : 45000; // 30 seconds in production, 45 in development
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
 const ENHANCEMENT_PROMPT = `Use the uploaded image as the design reference for the output.
@@ -360,7 +363,7 @@ The creature should be whimsical, expressive, and anime-inspired.
 Style it for a teenager-friendly, early 2000s anime look. Use smooth, clean outlines, cel-shading, soft shadows, and vibrant colors. 
 Creature it's not equal to a dragon, it might resemble another cartoon species.
 Do not recreate or reference any existing character or franchise.
-Keep the background transparent.`;
+Keep the background transparent, but be aware of the eyes not being transparent.`;
     
     console.warn(`[${requestId}] GPT ENHANCEMENT - Created custom prompt: ${customPrompt.substring(0, 200)}...`);
     
@@ -418,7 +421,7 @@ async function generateImageWithPrompt(
     try {
       const imageResponse = await axios.get(referenceImageUrl, { 
         responseType: 'arraybuffer',
-        timeout: IS_PRODUCTION ? 5000 : 10000 // Shorter timeout in production
+        timeout: IS_PRODUCTION ? 10000 : 15000 // Increased timeout for image download
       });
       imageData = Buffer.from(imageResponse.data).toString('base64');
       console.warn(`[${requestId}] GPT IMAGE GENERATION - Successfully downloaded reference image (${imageData.length / 1024} KB)`);
@@ -445,7 +448,7 @@ async function generateImageWithPrompt(
     const apiStartTime = Date.now();
     console.warn(`[${requestId}] GPT IMAGE GENERATION - API call to gpt-image-1 started at ${new Date(apiStartTime).toISOString()}`);
     
-    // Use a shorter timeout in production
+    // Use a longer timeout to allow for API processing
     const actualTimeout = IS_PRODUCTION ? ENHANCEMENT_STRICT_TIMEOUT : ENHANCEMENT_TIMEOUT;
     console.warn(`[${requestId}] GPT IMAGE GENERATION - Using timeout of ${actualTimeout}ms for gpt-image-1`);
     
@@ -506,14 +509,27 @@ async function generateImageWithPrompt(
         // Upload to Supabase with the consistent filename
         console.warn(`[${requestId}] GPT IMAGE GENERATION - Uploading to Supabase: ${fileName}`);
         
-        const { error: storageError } = await supabaseAdmin
-          .storage
-          .from(bucketName)
-          .upload(fileName, Buffer.from(base64Data, 'base64'), {
-            contentType: 'image/png',
-            cacheControl: '3600',
-            upsert: true // Will replace if exists
-          });
+        // Create a timeout for Supabase upload
+        const uploadTimeoutPromise = new Promise<any>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Supabase upload timed out after ${SUPABASE_UPLOAD_TIMEOUT}ms`));
+          }, SUPABASE_UPLOAD_TIMEOUT);
+        });
+        
+        // Race the upload against the timeout
+        const uploadResult = await Promise.race([
+          supabaseAdmin
+            .storage
+            .from(bucketName)
+            .upload(fileName, Buffer.from(base64Data, 'base64'), {
+              contentType: 'image/png',
+              cacheControl: '3600',
+              upsert: true // Will replace if exists
+            }),
+          uploadTimeoutPromise
+        ]);
+        
+        const { error: storageError } = uploadResult || {};
         
         if (storageError) {
           console.error(`[${requestId}] GPT IMAGE GENERATION - Supabase upload error:`, storageError);
@@ -529,6 +545,13 @@ async function generateImageWithPrompt(
         if (publicUrlData?.publicUrl) {
           const newImageUrl = publicUrlData.publicUrl;
           console.warn(`[${requestId}] GPT IMAGE GENERATION - SUCCESS - Uploaded to Supabase: ${newImageUrl}`);
+          
+          // Start an asynchronous verification to ensure the image is accessible
+          // This doesn't block the function return but helps debug issues
+          validateImageUrl(newImageUrl, requestId).catch(err => {
+            console.error(`[${requestId}] GPT IMAGE GENERATION - Image validation error:`, err.message);
+          });
+          
           return newImageUrl;
         } else {
           console.error(`[${requestId}] GPT IMAGE GENERATION - Failed to get public URL from Supabase`);
@@ -547,6 +570,23 @@ async function generateImageWithPrompt(
     // Error handler
     console.error(`[${requestId}] GPT IMAGE GENERATION - Error:`, error);
     return null;
+  }
+}
+
+/**
+ * Helper function to validate if an image URL is accessible
+ * This is used for debugging purposes and doesn't block the main flow
+ */
+async function validateImageUrl(url: string, requestId: string): Promise<boolean> {
+  try {
+    console.warn(`[${requestId}] IMAGE VALIDATION - Checking URL accessibility: ${url.substring(0, 50)}...`);
+    const response = await axios.head(url, { timeout: 5000 });
+    const isValid = response.status === 200;
+    console.warn(`[${requestId}] IMAGE VALIDATION - URL is ${isValid ? 'valid' : 'invalid'} (status ${response.status})`);
+    return isValid;
+  } catch (error) {
+    console.error(`[${requestId}] IMAGE VALIDATION - Error checking URL: ${error.message}`);
+    return false;
   }
 }
 

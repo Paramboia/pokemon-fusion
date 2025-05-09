@@ -439,7 +439,7 @@ async function generateImageWithPrompt(
       prompt: prompt,
       n: 1,
       size: "1024x1024" as const,
-      quality: "high" as any,
+      quality: "low" as any,
       moderation: "low" as any,
       background: "transparent" as any
     };

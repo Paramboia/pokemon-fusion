@@ -363,7 +363,7 @@ The creature should be whimsical, expressive, and anime-inspired.
 Style it for a teenager-friendly, early 2000s anime look. Use smooth, clean outlines, cel-shading, soft shadows, and vibrant colors. 
 Creature it's not equal to a dragon, it might resemble another cartoon species.
 Do not recreate or reference any existing character or franchise.
-Keep the background transparent, but be aware of the eyes not being transparent.`;
+Keep the background transparent, but ensure that the eyes are non-transparent.`;
     
     console.warn(`[${requestId}] GPT ENHANCEMENT - Created custom prompt: ${customPrompt.substring(0, 200)}...`);
     
@@ -439,7 +439,7 @@ async function generateImageWithPrompt(
       prompt: prompt,
       n: 1,
       size: "1024x1024" as const,
-      quality: "low" as any,
+      quality: "high" as any,
       moderation: "low" as any,
       background: "transparent" as any
     };

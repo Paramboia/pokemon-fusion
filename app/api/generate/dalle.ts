@@ -112,6 +112,10 @@ const DESCRIPTION_PROMPT = `Please describe this image for use in a clean, styli
 Body structure and pose:
 Color palette:
 Key features:
+Texture and surface:
+Species influence or type vibe (avoid direct naming):
+Attitude and expression:
+Notable accessories or markings:
 
 The goal is to create an original creature description that will later be turned into a polished illustration.
 Describe it generically, avoiding any existing character names or IP references.`;
@@ -306,6 +310,10 @@ export async function enhanceWithDirectGeneration(
     let bodyStructure = "unknown body structure";
     let colorPalette = "vibrant colors";
     let keyFeatures = "distinctive features";
+    let textureAndSurface = "smooth surface";
+    let speciesInfluence = "unique creature type";
+    let attitudeAndExpression = "neutral expression";
+    let notableAccessories = "no distinctive markings";
     
     // Try to extract the sections from the description
     const bodyMatch = imageDescription.match(/Body structure and pose:([\s\S]*?)(?:Color palette:|$)/);
@@ -318,16 +326,39 @@ export async function enhanceWithDirectGeneration(
       colorPalette = colorMatch[1].trim();
     }
     
-    const featuresMatch = imageDescription.match(/Key features:([\s\S]*?)$/);
+    const featuresMatch = imageDescription.match(/Key features:([\s\S]*?)(?:Texture and surface:|$)/);
     if (featuresMatch && featuresMatch[1]) {
       keyFeatures = featuresMatch[1].trim();
     }
     
+    const textureMatch = imageDescription.match(/Texture and surface:([\s\S]*?)(?:Species influence or type vibe:|$)/);
+    if (textureMatch && textureMatch[1]) {
+      textureAndSurface = textureMatch[1].trim();
+    }
+    
+    const speciesMatch = imageDescription.match(/Species influence or type vibe.*?:([\s\S]*?)(?:Attitude and expression:|$)/);
+    if (speciesMatch && speciesMatch[1]) {
+      speciesInfluence = speciesMatch[1].trim();
+    }
+    
+    const expressionMatch = imageDescription.match(/Attitude and expression:([\s\S]*?)(?:Notable accessories or markings:|$)/);
+    if (expressionMatch && expressionMatch[1]) {
+      attitudeAndExpression = expressionMatch[1].trim();
+    }
+    
+    const accessoriesMatch = imageDescription.match(/Notable accessories or markings:([\s\S]*?)$/);
+    if (accessoriesMatch && accessoriesMatch[1]) {
+      notableAccessories = accessoriesMatch[1].trim();
+    }
+    
     // Create a new prompt based on the description
     const customPrompt = `Illustrate an original cartoon creature with ${bodyStructure}, using a ${colorPalette}. 
-The creature features ${keyFeatures}. 
+The creature features ${keyFeatures} with ${textureAndSurface}.
+It has a ${speciesInfluence} aesthetic, displaying a ${attitudeAndExpression}.
+Additional details include ${notableAccessories}.
 The creature should be whimsical, expressive, and anime-inspired. 
 Style it for a teenager-friendly, early 2000s anime look. Use smooth, clean outlines, cel-shading, soft shadows, and vibrant colors. 
+Creature it's not equal to a dragon, it might resemble another cartoon species.
 Do not recreate or reference any existing character or franchise.
 Keep the background transparent.`;
     

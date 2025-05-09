@@ -113,6 +113,7 @@ Body structure and pose:
 Color palette:
 Key features:
 
+The goal is to create an original creature description that will later be turned into a polished illustration.
 Describe it generically, avoiding any existing character names or IP references.`;
 
 // Function to create a timeout promise that rejects after a specified time
@@ -325,7 +326,9 @@ export async function enhanceWithDirectGeneration(
     // Create a new prompt based on the description
     const customPrompt = `Illustrate an original cartoon creature with ${bodyStructure}, using a ${colorPalette}. 
 The creature features ${keyFeatures}. 
-Style it in early 2000s anime, teenager-friendly, with smooth outlines, cel shading, and soft shadows. 
+The creature should be whimsical, expressive, and anime-inspired. 
+Style it for a teenager-friendly, early 2000s anime look. Use smooth, clean outlines, cel-shading, soft shadows, and vibrant colors. 
+Do not recreate or reference any existing character or franchise.
 Keep the background transparent.`;
     
     console.warn(`[${requestId}] GPT ENHANCEMENT - Created custom prompt: ${customPrompt.substring(0, 200)}...`);

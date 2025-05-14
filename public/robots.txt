@@ -2,6 +2,12 @@
 User-agent: *
 Allow: /
 
+# Explicitly allow AI crawlers
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+
 # Sitemap location - Main domain (www)
 Sitemap: https://www.pokemon-fusion.com/sitemap.xml
 

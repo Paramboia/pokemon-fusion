@@ -1,11 +1,23 @@
 # Allow all crawlers
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /_next/
 
-# Explicitly allow AI crawlers
+# OpenAI ChatGPT Bot
 User-agent: GPTBot
 Allow: /
+
+# OpenAI SearchBot
 User-agent: OAI-SearchBot
+Allow: /
+
+# Google Bard / Gemini Bot
+User-agent: Google-Extended
+Allow: /
+
+# Claude Bot
+User-agent: Anthropic-AI
 Allow: /
 
 # Sitemap location - Main domain (www)

@@ -30,7 +30,7 @@ export function Header() {
   console.log("Header component rendering");
 
   return (
-    <header className="bg-transparent text-gray-800 dark:text-gray-200 w-full py-4 z-30 relative border-b border-gray-200 dark:border-gray-800">
+    <header className="bg-transparent text-gray-800 dark:text-gray-200 w-full py-4 sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
         <nav className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">

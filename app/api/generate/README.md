@@ -159,11 +159,11 @@ The fusion generation process includes a credit system:
 
 The system uses environment-specific timeouts optimized for Vercel Pro plan:
 
-1. **API Route Timeout**: 900 seconds (15 minutes) - maximum allowed for Vercel Pro/Team plan
+1. **API Route Timeout**: 300 seconds (5 minutes) - maximum allowed for Vercel Pro plan
 2. **Individual Service Timeouts**:
    - Replicate Blend: 120 seconds (production) / 90 seconds (development)
    - GPT-4 Vision Description: 60 seconds (both production and development)
-   - GPT-image-1 Enhancement: 720 seconds (production) / 400 seconds (development)
+   - GPT-image-1 Enhancement: 240 seconds (production) / 180 seconds (development)
    - Supabase Upload: 60 seconds (both production and development)
    - OpenAI Client: 180 seconds (both production and development)
 

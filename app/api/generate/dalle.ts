@@ -17,8 +17,8 @@ const IS_VERCEL = !!process.env.VERCEL;
 console.warn(`🌎 Environment: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}, Platform: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'}`);
 
 // Increased timeouts for Vercel Pro plan
-// Pro plan allows functions to run for up to 900 seconds
-const API_TIMEOUT = IS_PRODUCTION ? 840000 : 300000; // 14 minutes in production, 5 minutes in development
+// Pro plan allows functions to run for up to 300 seconds
+const API_TIMEOUT = IS_PRODUCTION ? 290000 : 240000; // 4.8 minutes in production, 4 minutes in development
 
 // Validate API key format and log details to help with debugging
 const apiKey = process.env.OPENAI_API_KEY || '';
@@ -90,12 +90,12 @@ const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABA
     )
   : null;
 
-// Set longer timeouts for Pro plan
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '780000' : '450000'), 10);
+// Set timeout values to stay within the 300-second limit
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '240000' : '180000'), 10);
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
-// Stricter timeout in production but still very generous for Pro plan
-const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 720000 : 400000; // 12 minutes in production, 6.7 minutes in development
+// Stricter timeout in production but still generous for Pro plan
+const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 220000 : 160000; // 3.7 minutes in production, 2.7 minutes in development
 
 // Define maximum wait time for Supabase uploads
 const SUPABASE_UPLOAD_TIMEOUT = IS_PRODUCTION ? 60000 : 60000; // 60 seconds in both production and development

@@ -45,7 +45,7 @@ function getPokemonImageUrl(id: number): string {
 }
 
 // Set timeout for the API route within Vercel Pro plan limits
-export const maxDuration = 900; // 900 seconds (15 minutes) - maximum allowed for Vercel Pro/Team plan
+export const maxDuration = 300; // 300 seconds (5 minutes) - maximum allowed for Vercel Pro plan
 
 // Function to convert transparent background to white background
 async function convertTransparentToWhite(imageUrl: string): Promise<string> {

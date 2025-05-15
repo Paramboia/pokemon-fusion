@@ -90,6 +90,31 @@ export default function RootLayout({
             `}
           </Script>
           {/* End Google Analytics */}
+          
+          {/* Google Ads Conversion Tracking */}
+          <Script id="google-ads-conversion" strategy="afterInteractive">
+            {`
+              // Only run on credits page with successful Stripe return
+              if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                const isSuccessfulPurchase = url.pathname === '/credits' && 
+                  url.searchParams.get('return_from_stripe') === 'success';
+                
+                if (isSuccessfulPurchase) {
+                  const sessionId = url.searchParams.get('session_id') || '';
+                  
+                  // Google Ads conversion tracking
+                  gtag('event', 'conversion', { 
+                    'send_to': 'AW-17075619681/IMynCKW_h8gaEOGOpc4_',
+                    'transaction_id': sessionId
+                  });
+                  
+                  console.log('Google Ads conversion tracked for session:', sessionId);
+                }
+              }
+            `}
+          </Script>
+          {/* End Google Ads Conversion Tracking */}
 
           {/* PWA meta tags */}
           <meta name="application-name" content="Pokémon Fusion" />

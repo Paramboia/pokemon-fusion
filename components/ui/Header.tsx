@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { MoonIcon, SunIcon, Menu, Home, Flame, Heart, Palette } from "lucide-react";
+import { MoonIcon, SunIcon, Menu, X, Home, Flame, Heart, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
@@ -110,7 +110,11 @@ export function Header() {
               className="md:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              <Menu className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+              {mobileMenuOpen ? (
+                <X className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+              ) : (
+                <Menu className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+              )}
             </button>
           </div>
         </nav>

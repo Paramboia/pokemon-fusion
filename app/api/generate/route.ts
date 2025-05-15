@@ -34,7 +34,8 @@ console.log('Generate API - SUPABASE_SERVICE_ROLE_KEY available:', !!process.env
 console.log('Generate API - USE_GPT_VISION_ENHANCEMENT:', process.env.USE_GPT_VISION_ENHANCEMENT);
 console.log('Generate API - SAVE_LOCAL_COPIES:', process.env.SAVE_LOCAL_COPIES);
 
-// Track last successful image generation for fallback
+// Track last successful image generation for fallback - NO LONGER NEEDED FOR REPLICATE FALLBACK
+// We're keeping this variable but using it differently - will be set to null after Replicate succeeds
 let lastSuccessfulImageUrl: string | null = null;
 
 // Function to get Pokémon image URL by ID
@@ -43,10 +44,8 @@ function getPokemonImageUrl(id: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 }
 
-// Set timeout for the API route within Vercel's limits
-export const maxDuration = 300; // 300 seconds (5 minutes) - maximum allowed for Vercel Pro plan
-// Note: If you upgrade to Team/Enterprise plan, you can increase this to 900 seconds (15 minutes)
-// With the 300-second limit, we have plenty of time for image generation and enhancement
+// Set timeout for the API route within Vercel Pro plan limits
+export const maxDuration = 900; // 900 seconds (15 minutes) - maximum allowed for Vercel Pro/Team plan
 
 // Function to convert transparent background to white background
 async function convertTransparentToWhite(imageUrl: string): Promise<string> {
@@ -135,6 +134,9 @@ export async function POST(req: Request) {
     // Determine if this is a simple fusion
     const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
     console.log('Generate API - Is simple fusion:', isSimpleFusion);
+    
+    // Convert to mutable variable to allow changing when falling back to Simple Method
+    let useSimpleFusion = isSimpleFusion;
     
     // Variable to store the user's UUID
     let userUuid: string | undefined;
@@ -266,7 +268,7 @@ export async function POST(req: Request) {
             console.log('Generate API - Successfully generated fusion with Replicate Blend');
             fusionImageUrl = replicateResult;
             
-            // Store the successful Replicate result for fallback
+            // Store the successful Replicate result temporarily - will be cleared if enhancement fails
             lastSuccessfulImageUrl = replicateResult;
             
             console.log('Generate API - Replicate Blend image URL:', fusionImageUrl);
@@ -346,7 +348,7 @@ export async function POST(req: Request) {
                 // Keep the original code structure to maintain backwards compatibility
                 console.timeEnd('GPT Enhancement');
                 
-                // Keep the original logic for whether to use the enhanced image or fallback
+                // Updated logic for handling enhancement results
                 if (enhancedImageUrl) {
                   console.log(`Generate API - Successfully enhanced image with GPT: ${enhancedImageUrl.substring(0, 50)}...`);
                   console.log(`Generate API - Updating fusion image URL from Replicate (${fusionImageUrl.substring(0, 30)}...) to GPT Enhanced (${enhancedImageUrl.substring(0, 30)}...)`);
@@ -354,17 +356,40 @@ export async function POST(req: Request) {
                   // Update the URL variable to use the enhanced version exclusively
                   fusionImageUrl = enhancedImageUrl;
                   
+                  // Clear the lastSuccessfulImageUrl since we're using the enhanced image
+                  lastSuccessfulImageUrl = null;
+                  
                   // Log clear indication that we're only using the enhanced URL
                   console.log(`Generate API - Using ONLY the enhanced image URL for storage: ${fusionImageUrl.substring(0, 30)}...`);
                 } else {
-                  console.log('Generate API - GPT enhancement returned null, using original Replicate Blend image');
+                  console.log('Generate API - GPT enhancement returned null, using Simple Method as fallback');
                   console.log('Generate API - This may be due to timeout, API error, or base64 handling issues');
-                  // fusionImageUrl is already set to the Replicate Blend result, so no need to set it again
+                  
+                  // Use Simple Method instead of Replicate Blend result
+                  fusionImageUrl = processedImage1;
+                  
+                  // Clear the lastSuccessfulImageUrl since we're switching to Simple Method
+                  lastSuccessfulImageUrl = null;
+                  
+                  // Set isSimpleFusion flag to true for credit handling
+                  useSimpleFusion = true;
+                  
+                  console.log('Generate API - Switched to Simple Method: Using processed original image', fusionImageUrl.substring(0, 30) + '...');
                 }
               } catch (enhancementError) {
                 console.error('Generate API - Error enhancing with GPT:', enhancementError);
-                console.log('Generate API - Using original Replicate Blend image');
-                // No need to explicitly set fusionImageUrl here since we kept the original value
+                console.log('Generate API - Using Simple Method instead of Replicate Blend');
+                
+                // Use Simple Method instead of Replicate Blend
+                fusionImageUrl = processedImage1;
+                
+                // Clear the lastSuccessfulImageUrl since we're switching to Simple Method
+                lastSuccessfulImageUrl = null;
+                
+                // Set isSimpleFusion flag to true for credit handling
+                useSimpleFusion = true;
+                
+                console.log('Generate API - Switched to Simple Method: Using processed original image', fusionImageUrl.substring(0, 30) + '...');
               }
             } else {
               console.log('Generate API - GPT enhancement not enabled or OpenAI key not available:', {
@@ -387,10 +412,12 @@ export async function POST(req: Request) {
         console.log('Generate API - Using Simple Method as fallback (processed original image)');
         // Use one of the processed original images as a fallback
         fusionImageUrl = processedImage1;
+        // Set isSimpleFusion flag to true for credit handling
+        useSimpleFusion = true;
       }
 
       // If this was an AI fusion, record the credit usage now that we have successfully generated the image
-      if (!isSimpleFusion && fusionImageUrl !== processedImage1) {
+      if (!useSimpleFusion && fusionImageUrl !== processedImage1) {
         // Add transaction record after successful generation
         const { error: transactionError } = await supabase
           .from('credits_transactions')
@@ -427,7 +454,7 @@ export async function POST(req: Request) {
         pokemon2Name,
         fusionName,
         fusionImage: fusionImageUrl,
-        isSimpleFusion: false // AI-generated fusion
+        isSimpleFusion: useSimpleFusion // Use the updated variable
       });
 
       if (result.error) {
@@ -460,71 +487,16 @@ export async function POST(req: Request) {
         pokemon1Name,
         pokemon2Name,
         fusionData: result.data,
-        isLocalFallback: false,
-        message: 'Fusion generated successfully'
+        isLocalFallback: useSimpleFusion, // Use useSimpleFusion instead of hardcoded false
+        message: useSimpleFusion ? 'Fusion generated using Simple Method' : 'Fusion generated successfully'
       });
 
     } catch (error) {
       console.error('Generate API - Error generating fusion:', error);
 
-      // Check if we already generated an image with Replicate Blend
-      if (lastSuccessfulImageUrl) {
-        console.log('Generate API - Using last successful image from Replicate as fallback:', lastSuccessfulImageUrl.substring(0, 50) + '...');
-        
-        // Try to save the Replicate-generated fusion
-        try {
-          // This is NOT a simple fusion - we're using the AI-generated image from Replicate
-          const fallbackResult = await saveFusion({
-            userId: userUuid || userId,
-            pokemon1Id,
-            pokemon2Id,
-            pokemon1Name,
-            pokemon2Name,
-            fusionName,
-            fusionImage: lastSuccessfulImageUrl,
-            isSimpleFusion: false // Not a simple fusion since we're using the AI-generated image
-          });
-
-          if (fallbackResult.error) {
-            console.error('Generate API - Error saving Replicate fallback fusion:', fallbackResult.error);
-            return NextResponse.json({ 
-              error: 'Error saving Replicate fallback fusion',
-              details: error instanceof Error ? error.message : String(error),
-              fallbackError: fallbackResult.error
-            }, { status: 500 });
-          }
-
-          // Safely access the fusion ID
-          let fusionId = uuidv4();
-          if (fallbackResult.data && typeof fallbackResult.data === 'object') {
-            if ('id' in fallbackResult.data) {
-              fusionId = String(fallbackResult.data.id);
-            } else if (Array.isArray(fallbackResult.data) && fallbackResult.data.length > 0 && 
-                      typeof fallbackResult.data[0] === 'object' && 'id' in fallbackResult.data[0]) {
-              fusionId = String(fallbackResult.data[0].id);
-            }
-          }
-
-          // Return the Replicate fallback result
-          return NextResponse.json({
-            id: fusionId,
-            output: lastSuccessfulImageUrl,
-            fusionName,
-            pokemon1Id,
-            pokemon2Id,
-            pokemon1Name,
-            pokemon2Name,
-            fusionData: fallbackResult.data,
-            isLocalFallback: false, // Not using the simple fusion
-            message: 'Fusion generated with Replicate (enhancement failed)'
-          });
-        } catch (replicateFallbackError) {
-          console.error('Generate API - Error with Replicate fallback fusion:', replicateFallbackError);
-          // Continue to simple fallback if saving the Replicate image fails
-        }
-      }
-
-      // If we don't have a successful Replicate image or saving it failed, fall back to the simple method
+      // Since we no longer use lastSuccessfulImageUrl for Replicate fallback,
+      // we go straight to the Simple Method fallback
+      
       // Use one of the processed original images as a fallback
       const fallbackImageUrl = processedImage1;
       console.log('Generate API - Using processed image as Simple Method fallback:', fallbackImageUrl);
@@ -540,7 +512,7 @@ export async function POST(req: Request) {
           pokemon2Name,
           fusionName,
           fusionImage: fallbackImageUrl,
-          isSimpleFusion: true
+          isSimpleFusion: true // Simple Method for fallback
         });
 
         if (fallbackResult.error) {

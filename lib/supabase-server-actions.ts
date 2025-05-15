@@ -151,16 +151,25 @@ export async function saveFusion({
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Upload the image to Supabase Storage
-    console.log('saveFusion - Uploading image to storage');
-    const imageUrl = await uploadImageFromUrl(supabase, fusionImage);
+    // Set the image URL - for Simple Method fusions, use the original URL without uploading
+    let imageUrl: string | null = null;
     
-    if (!imageUrl) {
-      console.error('saveFusion - Error: Failed to upload image');
-      return { error: 'Failed to upload image' };
+    if (isSimpleFusion) {
+      // For Simple Method fusions, skip uploading to Supabase and use the original URL
+      console.log('saveFusion - Simple Method fusion detected, skipping image upload');
+      imageUrl = fusionImage;
+    } else {
+      // Upload the image to Supabase Storage for non-Simple Method fusions
+      console.log('saveFusion - Uploading AI-generated image to storage');
+      imageUrl = await uploadImageFromUrl(supabase, fusionImage);
+      
+      if (!imageUrl) {
+        console.error('saveFusion - Error: Failed to upload image');
+        return { error: 'Failed to upload image' };
+      }
+      
+      console.log('saveFusion - Image uploaded successfully:', imageUrl);
     }
-    
-    console.log('saveFusion - Image uploaded successfully:', imageUrl);
     
     // Check if the pokemon table exists and if the pokemon IDs exist
     console.log('saveFusion - Checking pokemon table and IDs');

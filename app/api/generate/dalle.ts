@@ -16,9 +16,9 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const IS_VERCEL = !!process.env.VERCEL;
 console.warn(`🌎 Environment: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}, Platform: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'}`);
 
-// Reduce timeouts for production to avoid Vercel function timeouts
-// On hobby plan, we need to complete everything within 60 seconds
-const API_TIMEOUT = IS_PRODUCTION ? 290000 : 180000; // 290 seconds in production, 3 minutes in development
+// Increased timeouts for Vercel Pro plan
+// Pro plan allows functions to run for up to 900 seconds
+const API_TIMEOUT = IS_PRODUCTION ? 840000 : 300000; // 14 minutes in production, 5 minutes in development
 
 // Validate API key format and log details to help with debugging
 const apiKey = process.env.OPENAI_API_KEY || '';
@@ -45,8 +45,8 @@ function getOpenAiClient() {
     
     const openaiClient = new OpenAI({
       apiKey: apiKey,
-      timeout: IS_PRODUCTION ? 45000 : 120000,  // 45 seconds timeout in production, 2 minutes in development
-      maxRetries: IS_PRODUCTION ? 1 : 2     // Fewer retries in production to avoid timeouts
+      timeout: IS_PRODUCTION ? 180000 : 180000,  // 3 minutes timeout in both production and development
+      maxRetries: 2     // Increase retries since we have longer timeouts available
     });
     console.warn('🔴🔴🔴 DALLE.TS - OpenAI client successfully created 🔴🔴🔴');
     return openaiClient;
@@ -90,15 +90,15 @@ const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABA
     )
   : null;
 
-// Set shorter timeouts for production environments
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '450000' : '300000'), 10);
+// Set longer timeouts for Pro plan
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '780000' : '450000'), 10);
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
-// Stricter timeout in production
-const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 400000 : 250000;
+// Stricter timeout in production but still very generous for Pro plan
+const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 720000 : 400000; // 12 minutes in production, 6.7 minutes in development
 
 // Define maximum wait time for Supabase uploads
-const SUPABASE_UPLOAD_TIMEOUT = IS_PRODUCTION ? 30000 : 45000; // 30 seconds in production, 45 in development
+const SUPABASE_UPLOAD_TIMEOUT = IS_PRODUCTION ? 60000 : 60000; // 60 seconds in both production and development
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
 const ENHANCEMENT_PROMPT = `Use the uploaded image as the design reference for the output.
@@ -160,7 +160,7 @@ async function describeImageWithGpt4(
     try {
       const imageResponse = await axios.get(imageUrl, { 
         responseType: 'arraybuffer',
-        timeout: IS_PRODUCTION ? 5000 : 10000 // Shorter timeout in production
+        timeout: IS_PRODUCTION ? 15000 : 15000 // Increased timeout for image download
       });
       imageData = Buffer.from(imageResponse.data).toString('base64');
       console.warn(`[${requestId}] GPT DESCRIPTION - Successfully downloaded and converted image (${imageData.length / 1024} KB)`);
@@ -178,7 +178,7 @@ async function describeImageWithGpt4(
     console.warn(`[${requestId}] GPT DESCRIPTION - Starting chat completion with GPT-4 Vision`);
     
     // Set a timeout
-    const descriptionTimeout = IS_PRODUCTION ? 20000 : 30000; // 20 seconds in production, 30 in development
+    const descriptionTimeout = IS_PRODUCTION ? 60000 : 60000; // 60 seconds in both production and development
     
     // Create a promise that will reject after a timeout
     const timeoutPromise = new Promise<never>((_, reject) => {

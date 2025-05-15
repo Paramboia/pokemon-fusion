@@ -31,7 +31,7 @@ The system generates a fusion using the following sequence:
 
 2. **Fallback Flows**:
    - If GPT-4 Vision description fails: Use generic enhancement prompt with GPT-image-1
-   - If GPT Image Enhancement fails: Use the initial Replicate Blend image
+   - If GPT Image Enhancement fails: Use the Simple Method (one of the original Pokémon images)
    - If Replicate Blend fails: Use the Simple Method (one of the original Pokémon images)
    - If all methods fail: Fall back to the Simple Method (one of the original Pokémon images)
 
@@ -157,16 +157,17 @@ The fusion generation process includes a credit system:
 
 ## Timeout Configuration
 
-The system uses environment-specific timeouts to work within Vercel's limits:
+The system uses environment-specific timeouts optimized for Vercel Pro plan:
 
-1. **API Route Timeout**: 300 seconds (5 minutes) for Pro plan
+1. **API Route Timeout**: 900 seconds (15 minutes) - maximum allowed for Vercel Pro/Team plan
 2. **Individual Service Timeouts**:
-   - Replicate Blend: 25 seconds (production) / 45 seconds (development)
-   - GPT-4 Vision Description: 20 seconds (production) / 30 seconds (development)
-   - GPT-image-1 Enhancement: 400 seconds (production) / 250 seconds (development)
-   - Supabase Upload: 30 seconds (production) / 45 seconds (development)
+   - Replicate Blend: 120 seconds (production) / 90 seconds (development)
+   - GPT-4 Vision Description: 60 seconds (both production and development)
+   - GPT-image-1 Enhancement: 720 seconds (production) / 400 seconds (development)
+   - Supabase Upload: 60 seconds (both production and development)
+   - OpenAI Client: 180 seconds (both production and development)
 
-If you're on a Vercel Hobby plan, consider reducing these timeouts further to stay within the 60-second limit.
+If you're on a Vercel Hobby plan, you'll need to reduce these timeouts significantly to stay within the 60-second limit.
 
 ## Error Handling and Fallbacks
 
@@ -174,7 +175,7 @@ The system includes a multi-level fallback mechanism:
 
 1. Primary Generation: Replicate Blend → GPT-4 Vision Description → GPT-image-1 Enhancement
 2. If GPT-4 Vision description fails: Use generic enhancement prompt with GPT-image-1
-3. If GPT Image Enhancement fails: Use the original Replicate Blend image (saved as lastSuccessfulImageUrl)
+3. If GPT Image Enhancement fails: Use the Simple Method (one of the original Pokémon images)
 4. If Replicate Blend fails: Use Simple Method (one of the original Pokémon images)
 5. Each implementation includes retries for API calls with exponential backoff
 

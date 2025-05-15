@@ -6,16 +6,16 @@ This document explains the technical architecture of the Pokemon fusion generati
 
 The generation system uses a three-step process for creating AI-generated Pokémon fusions:
 1. **Replicate Blend**: Creates the initial fusion image by blending features from two Pokémon
-2. **GPT-4 Vision Description**: Analyzes the initial fusion and creates a detailed description
-3. **GPT Image Enhancement**: Uses the description to generate a refined, high-quality image
+2. **GPT-4 Vision Description**: Analyzes the initial fusion and creates a detailed structured description
+3. **GPT Image Enhancement**: Uses the description to generate a refined, high-quality image with GPT-image-1
 
 The system is designed for resilience, with fallbacks at each step if any part of the process fails.
 
 ## Key Files
 
-- `route.ts` - Main API endpoint handler that orchestrates the generation process
+- `route.ts` - Main API endpoint handler that orchestrates the generation process and handles credits/billing
 - `replicate-blend.ts` - Implementation for the initial fusion using Replicate's blend-images model
-- `dalle.ts` - Contains both the GPT-4 Vision description and GPT-image-1 enhancement functionality
+- `dalle.ts` - Contains GPT-4 Vision description and GPT-image-1 enhancement functionality
 - `config.ts` - Configuration module that sets default environment variables
 
 ## Generation Pipeline
@@ -23,44 +23,49 @@ The system is designed for resilience, with fallbacks at each step if any part o
 The system generates a fusion using the following sequence:
 
 1. **Primary Flow**:
-   - Replicate Blend creates the initial fusion image (img_1)
-   - GPT-4 Vision analyzes img_1 and creates a detailed, structured description
-   - The description is parsed to extract body structure, color palette, and key features
-   - GPT-image-1 uses the custom prompt built from this description to generate a final image (img_2)
-   - The enhanced image (img_2) is shown to the user
+   - Replicate Blend creates the initial fusion image using charlesmccarthy/blend-images model
+   - GPT-4.1-mini Vision analyzes the fusion image and creates a detailed, structured description
+   - The description is parsed to extract body structure, color palette, key features, texture, species influence, attitude, and accessories
+   - GPT-image-1 uses the custom prompt built from this description to generate a final image
+   - The enhanced image is stored in Supabase storage (if base64) or used directly (if URL) and shown to the user
 
 2. **Fallback Flows**:
    - If GPT-4 Vision description fails: Use generic enhancement prompt with GPT-image-1
-   - If GPT Image Enhancement fails: Use the initial Replicate Blend image (img_1)
+   - If GPT Image Enhancement fails: Use the initial Replicate Blend image
    - If Replicate Blend fails: Use the Simple Method (one of the original Pokémon images)
+   - If all methods fail: Fall back to the Simple Method (one of the original Pokémon images)
 
 ## Model Approaches
 
-- **Replicate Blend**: Uses two Pokémon images as input to blend their features into a fusion
-- **GPT-4 Vision Description**: Analyzes the blended image and creates a structured description with:
+- **Replicate Blend**: Uses charlesmccarthy/blend-images model with a detailed prompt to merge two Pokémon
+- **GPT-4 Vision Description**: Uses GPT-4.1-mini to analyze the blended image with a structured format:
   - Body structure and pose
   - Color palette
   - Key features
-- **GPT Image Enhancement**: Takes the structured description to create a custom prompt for generating an improved version with clean outlines and animation style
+  - Texture and surface
+  - Species influence or type vibe
+  - Attitude and expression
+  - Notable accessories or markings
+- **GPT Image Enhancement**: Uses GPT-image-1 model with the structured description to generate a polished image with transparent background
 - **Simple Method**: Uses one of the original Pokémon images as a fallback if all AI generation methods fail
 
 ## GPT-4 Vision Description Process
 
 The description step works as follows:
-1. The Replicate Blend image URL is sent to GPT-4 Vision
-2. GPT-4 is prompted to describe the image in a structured format:
-   ```
-   Body structure and pose: [description]
-   Color palette: [description]  
-   Key features: [description]
-   ```
+1. The Replicate Blend image URL is sent to GPT-4.1-mini Vision
+2. GPT-4 is prompted to describe the image in a structured format with multiple categories
 3. The response is parsed to extract these sections
 4. A custom prompt is created using this structured information:
    ```
    Illustrate an original cartoon creature with [body structure], using a [color palette]. 
-   The creature features [key features]. 
-   Style it in early 2000s anime with smooth outlines, cel shading, and soft shadows. 
-   Keep the background transparent.
+   The creature features [key features] with [texture and surface].
+   It has a [species influence] aesthetic, displaying a [attitude and expression].
+   Additional details include [notable accessories].
+   The creature should be whimsical, expressive, and anime-inspired.
+   Style it for a teenager-friendly, early 2000s anime look. Use smooth, clean outlines, cel-shading, soft shadows, and vibrant colors.
+   Creature it's not equal to a dragon, it might resemble another cartoon species.
+   Do not recreate or reference any existing character or franchise.
+   Keep the background transparent, but ensure that the eyes are non-transparent.
    ```
 5. This custom prompt is sent to GPT-image-1 to generate the final image
 
@@ -122,13 +127,13 @@ if (!fusionImageUrl && useNewModel) {
 
 ## Implementation Patterns
 
-Each model implementation file should follow these patterns:
+Each model implementation file follows these patterns:
 
 1. Export a main generation function that takes common parameters:
    - `pokemon1Name`, `pokemon2Name` - Names of the Pokemon to fuse
    - `processedImage1`, `processedImage2` - URLs or base64 of the Pokemon images
    
-2. Return types should be consistent:
+2. Return types are consistent:
    - Return a URL string on success
    - Return `null` if generation fails but doesn't throw an error
    
@@ -139,56 +144,55 @@ Each model implementation file should follow these patterns:
 4. Check if the feature is enabled at the beginning of the function
    - Early return if disabled
 
-5. Include detailed logging for debugging
+5. Include detailed logging with unique request IDs for debugging
 
-## Environment Variables
+## Credits and Billing System
 
-The system uses these environment variables to control behavior:
-
-- `USE_REPLICATE_BLEND` - Enable Replicate Blend for initial fusion (default: true)
-- `USE_GPT_VISION_ENHANCEMENT` - Enable GPT Image Enhancement for refining the fusion (default: true)
-- `REPLICATE_API_TOKEN` - API token for Replicate
-- `OPENAI_API_KEY` - API key for OpenAI (required for both GPT-4 Vision description and GPT-image-1 enhancement)
-- `ENHANCEMENT_TIMEOUT` - Timeout for the enhancement process in milliseconds
+The fusion generation process includes a credit system:
+1. AI-generated fusions (non-simple) consume 1 credit per generation
+2. The user's credit balance is checked before starting generation
+3. If insufficient credits, a 402 Payment Required response is returned
+4. Credits are only deducted after successful generation
+5. Simple fusion fallbacks do not consume credits
 
 ## Timeout Configuration
 
-The system uses tiered timeouts to work within Vercel's limits:
+The system uses environment-specific timeouts to work within Vercel's limits:
 
-1. **API Route Timeout**: 60 seconds (Vercel Hobby plan limit)
+1. **API Route Timeout**: 300 seconds (5 minutes) for Pro plan
 2. **Individual Service Timeouts**:
-   - Replicate Blend: 25 seconds
+   - Replicate Blend: 25 seconds (production) / 45 seconds (development)
    - GPT-4 Vision Description: 20 seconds (production) / 30 seconds (development)
-   - GPT-image-1 Enhancement: 45 seconds 
+   - GPT-image-1 Enhancement: 400 seconds (production) / 250 seconds (development)
+   - Supabase Upload: 30 seconds (production) / 45 seconds (development)
 
-If you upgrade to a Vercel Pro/Team plan, you can increase these timeouts:
-1. Change `maxDuration` in `route.ts` from 60 to 300 seconds
-2. Increase the service-specific timeouts accordingly
+If you're on a Vercel Hobby plan, consider reducing these timeouts further to stay within the 60-second limit.
 
 ## Error Handling and Fallbacks
 
 The system includes a multi-level fallback mechanism:
 
 1. Primary Generation: Replicate Blend → GPT-4 Vision Description → GPT-image-1 Enhancement
-2. If GPT-4 Vision Description fails: Use generic enhancement prompt with GPT-image-1
-3. If GPT-image-1 Enhancement fails: Use the original Replicate Blend image
+2. If GPT-4 Vision description fails: Use generic enhancement prompt with GPT-image-1
+3. If GPT Image Enhancement fails: Use the original Replicate Blend image (saved as lastSuccessfulImageUrl)
 4. If Replicate Blend fails: Use Simple Method (one of the original Pokémon images)
 5. Each implementation includes retries for API calls with exponential backoff
 
-## Optimizations
+## Image Storage Strategy
 
-Several optimizations are included:
+Successfully generated fusion images are stored in one of two ways:
+1. **Direct URLs**: When OpenAI returns a URL directly, it's used as-is
+2. **Supabase Storage**: When OpenAI returns base64 data, it's uploaded to Supabase
+   - Images use a naming convention: `fusion-gpt-enhanced-{timestamp}-{randomId}.png`
+   - Original image IDs are maintained when possible to track relationships
 
-1. URL-only approach: Uses direct URLs between services without saving to disk
-   - Eliminates file system operations for greater reliability
-   - Better suited for serverless environments
-   - Reduces latency by eliminating download/upload steps
-   - More scalable and stateless architecture
-   - Image URLs are passed directly between services with no intermediate file storage
+## Debugging and Logging
 
-2. Timeout configuration for API calls to stay within Vercel limits
-3. Retry logic with exponential backoff for resilience
-4. Background conversion of transparent images to white backgrounds
-5. Logging at each step for debugging
-6. Modular design to isolate failures and enable graceful degradation
+The system implements extensive logging:
+1. Unique request IDs for tracking operations across multiple services
+2. Environment detection (production vs. development, Vercel vs. local)
+3. API key validation and format checks
+4. Timing information for operations
+5. Detailed error reporting with context
+6. Client testing functionality via GET endpoint
 

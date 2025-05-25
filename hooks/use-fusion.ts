@@ -6,6 +6,7 @@ import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { supabase } from '@/lib/supabase'
+import { event as gaEvent } from '@/lib/gtag'
 
 export function useFusion() {
   const router = useRouter()
@@ -37,6 +38,14 @@ export function useFusion() {
       setFusionId(null)
       setFusionName(null)
       setFusionImage(null)
+
+      // Track fusion generation start
+      gaEvent({
+        action: 'fusion_generation_start',
+        category: 'engagement',
+        label: `${name1}-${name2}`,
+        value: undefined
+      });
 
       // Wait for user to be loaded
       if (!isLoaded || !user) {
@@ -217,6 +226,14 @@ export function useFusion() {
           console.error('Failed to store fusion data in localStorage:', storageError);
         }
         
+        // Track fusion generation success or fallback
+        gaEvent({
+          action: finalIsLocalFallback ? 'fusion_generation_fallback' : 'fusion_generation_success',
+          category: 'engagement',
+          label: `${name1}-${name2}`,
+          value: undefined
+        });
+        
         // Show appropriate success message
         if (finalIsLocalFallback) {
           toast.success('Showing simplified fusion.');
@@ -229,6 +246,14 @@ export function useFusion() {
         
         console.error('Error in fetch:', fetchError);
         toast.dismiss('fusion-generation')
+        
+        // Track fusion generation error
+        gaEvent({
+          action: 'fusion_generation_error',
+          category: 'error',
+          label: `${name1}-${name2}`,
+          value: undefined
+        });
         
         // For any fetch error, use the simple fallback (first Pokemon's image)
         toast.error('Unable to generate fusion. Showing first Pokémon instead.');

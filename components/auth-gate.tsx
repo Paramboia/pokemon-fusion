@@ -4,26 +4,50 @@ import { useAuthContext } from "@/contexts/auth-context";
 import { SignInButton, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { useEffect } from "react";
+import { event as gaEvent } from "@/lib/gtag";
 
 interface AuthGateProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
   title?: string;
   message?: string;
+  location?: string; // To track which page/component is showing the auth gate
 }
 
 export function AuthGate({ 
   children, 
   fallback,
   title = "Authentication Required",
-  message = "Sign in to see amazing Pokémon fusions!"
+  message = "Sign in to see amazing Pokémon fusions!",
+  location = "unknown"
 }: AuthGateProps) {
   const { isSignedIn, isLoaded, authError } = useAuthContext();
   const { signOut } = useClerk();
 
+  // Track when auth gate is displayed
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      gaEvent({
+        action: 'auth_gate_shown',
+        category: 'authentication',
+        label: location,
+        value: undefined
+      });
+    }
+  }, [isLoaded, isSignedIn, location]);
+
   // Handle sign out and refresh
   const handleSignOutAndRefresh = async () => {
     try {
+      // Track auth error sign out
+      gaEvent({
+        action: 'auth_error_sign_out',
+        category: 'authentication',
+        label: authError || 'unknown_error',
+        value: undefined
+      });
+      
       await signOut();
       // Wait a moment before refreshing to allow signOut to complete
       setTimeout(() => {
@@ -81,7 +105,18 @@ export function AuthGate({
             {message}
           </p>
           <SignInButton mode="modal">
-            <Button className="w-full py-2 text-base">
+            <Button 
+              className="w-full py-2 text-base"
+              onClick={() => {
+                // Track sign-in button click from auth gate
+                gaEvent({
+                  action: 'auth_gate_sign_in_click',
+                  category: 'authentication',
+                  label: location,
+                  value: undefined
+                });
+              }}
+            >
               Sign In
             </Button>
           </SignInButton>

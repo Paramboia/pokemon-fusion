@@ -10,6 +10,7 @@ import { AuthGate } from '@/components/auth-gate';
 import { useUser, useAuth } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { event as gaEvent } from '@/lib/gtag';
 
 // Fallback data in case API calls fail
 const FALLBACK_PACKAGES = [
@@ -127,12 +128,22 @@ function SuccessToast({ onClose, message }: { onClose: () => void; message: stri
 export default function CreditsPage() {
   const { isLoaded: isUserLoaded, user } = useUser();
   const { getToken } = useAuth();
-  const { balance, isLoading, error: balanceError, fetchBalance, redirectToCheckout } = useCredits();
+  const { 
+    balance, 
+    packages, 
+    isLoading, 
+    error: balanceError, 
+    redirectToCheckout,
+    fetchBalance
+  } = useCredits();
+  
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
-  const [displayPackages] = useState(FALLBACK_PACKAGES);
   const [showCancelToast, setShowCancelToast] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
+  
+  // Use packages from API or fall back to hardcoded ones
+  const displayPackages = packages.length > 0 ? packages : FALLBACK_PACKAGES;
 
   // Fetch balance when component mounts
   useEffect(() => {
@@ -149,6 +160,7 @@ export default function CreditsPage() {
       const hasReturnParam = url.searchParams.has('return_from_stripe');
       const returnType = url.searchParams.get('return_from_stripe');
       const hasSessionId = url.searchParams.has('session_id');
+      const sessionId = url.searchParams.get('session_id') || '';
       
       console.log('URL params check:', { hasReturnParam, returnType, hasSessionId, fullUrl: window.location.href });
       
@@ -160,6 +172,14 @@ export default function CreditsPage() {
         // Also try using the regular toast as a backup
         toast.error('Purchase cancelled. You have not been charged.', {
           duration: 5000
+        });
+        
+        // Track cancellation event
+        gaEvent({
+          action: 'credits_purchase_cancelled',
+          category: 'purchase',
+          label: 'stripe_cancellation',
+          value: undefined
         });
         
         // Clean the URL after a delay
@@ -177,6 +197,14 @@ export default function CreditsPage() {
         // Also try using the regular toast as a backup
         toast.success('Payment successful! Credits added to your account.', {
           duration: 5000
+        });
+        
+        // Track purchase completion event
+        gaEvent({
+          action: 'credits_purchase_completed',
+          category: 'purchase',
+          label: sessionId,
+          value: undefined
         });
         
         // Refresh balance to show updated credits
@@ -226,6 +254,17 @@ export default function CreditsPage() {
         toast.error('Invalid package selected. Please try again.');
         return;
       }
+
+      // Find the package details for the event
+      const selectedPackage = displayPackages.find(pkg => pkg.id === packageId);
+      
+      // Track checkout initiation event
+      gaEvent({
+        action: 'credits_purchase_initiated',
+        category: 'purchase',
+        label: `${packageId}`,
+        value: selectedPackage ? selectedPackage.credits : undefined
+      });
 
       await redirectToCheckout(priceId);
     } catch (error) {

@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { UserButton } from "@/components/ui/user-button";
 import { CreditBalance } from "@/components/CreditBalance";
+import { event as gaEvent } from "@/lib/gtag";
 
 export function Header() {
   const pathname = usePathname();
@@ -24,7 +25,16 @@ export function Header() {
   const isActive = (path: string) => pathname === path;
   
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    
+    // Track theme change event
+    gaEvent({
+      action: 'theme_change',
+      category: 'user_preference',
+      label: newTheme,
+      value: undefined
+    });
   };
   
   console.log("Header component rendering");

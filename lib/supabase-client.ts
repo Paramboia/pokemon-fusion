@@ -164,38 +164,101 @@ export const dbService = {
     }
   },
   
-  async getPopularFusions(limit = 10, sortBy = 'most_likes'): Promise<FusionDB[]> {
+  async getPopularFusions(limit = 10, sortBy = 'hot'): Promise<FusionDB[]> {
     try {
       console.log('Supabase Client - Fetching popular fusions with limit:', limit, 'sortBy:', sortBy);
-      let query = supabase.from('fusions').select('*');
       
       // Apply sorting based on the sort parameter
       switch (sortBy) {
+        case 'hot':
+          // Use the hot score ranking that balances likes with recency
+          const { data: hotData, error: hotError } = await supabase
+            .from('fusions')
+            .select('*, get_hot_score(likes, created_at) as hot_score')
+            .order('hot_score', { ascending: false })
+            .limit(limit);
+          
+          if (hotError) {
+            console.error('Supabase Client - Error fetching hot fusions:', hotError);
+            return [];
+          }
+          
+          console.log(`Supabase Client - Fetched ${hotData?.length || 0} fusions with hot score ranking`);
+          return hotData || [];
+          
         case 'oldest':
-          query = query.order('created_at', { ascending: true });
-          break;
+          const { data: oldestData, error: oldestError } = await supabase
+            .from('fusions')
+            .select('*')
+            .order('created_at', { ascending: true })
+            .limit(limit);
+          
+          if (oldestError) {
+            console.error('Supabase Client - Error fetching oldest fusions:', oldestError);
+            return [];
+          }
+          
+          return oldestData || [];
+          
         case 'newest':
-          query = query.order('created_at', { ascending: false });
-          break;
+          const { data: newestData, error: newestError } = await supabase
+            .from('fusions')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+          
+          if (newestError) {
+            console.error('Supabase Client - Error fetching newest fusions:', newestError);
+            return [];
+          }
+          
+          return newestData || [];
+          
         case 'less_likes':
-          query = query.order('likes', { ascending: true });
-          break;
+          const { data: lessLikesData, error: lessLikesError } = await supabase
+            .from('fusions')
+            .select('*')
+            .order('likes', { ascending: true })
+            .limit(limit);
+          
+          if (lessLikesError) {
+            console.error('Supabase Client - Error fetching less liked fusions:', lessLikesError);
+            return [];
+          }
+          
+          return lessLikesData || [];
+          
         case 'most_likes':
+          const { data: mostLikesData, error: mostLikesError } = await supabase
+            .from('fusions')
+            .select('*')
+            .order('likes', { ascending: false })
+            .order('created_at', { ascending: true })
+            .limit(limit);
+          
+          if (mostLikesError) {
+            console.error('Supabase Client - Error fetching most liked fusions:', mostLikesError);
+            return [];
+          }
+          
+          return mostLikesData || [];
+          
         default:
-          // Default to most likes first, then oldest (for equal likes)
-          query = query.order('likes', { ascending: false }).order('created_at', { ascending: true });
-          break;
+          // Default to hot score ranking
+          const { data: defaultData, error: defaultError } = await supabase
+            .from('fusions')
+            .select('*, get_hot_score(likes, created_at) as hot_score')
+            .order('hot_score', { ascending: false })
+            .limit(limit);
+          
+          if (defaultError) {
+            console.error('Supabase Client - Error fetching default (hot) fusions:', defaultError);
+            return [];
+          }
+          
+          console.log(`Supabase Client - Fetched ${defaultData?.length || 0} fusions with default hot score ranking`);
+          return defaultData || [];
       }
-      
-      const { data, error } = await query.limit(limit);
-      
-      if (error) {
-        console.error('Supabase Client - Error fetching popular fusions:', error);
-        return [];
-      }
-      
-      console.log(`Supabase Client - Fetched ${data?.length || 0} fusions with sort: ${sortBy}`);
-      return data || [];
     } catch (error) {
       console.error('Supabase Client - Exception in getPopularFusions:', error);
       return [];

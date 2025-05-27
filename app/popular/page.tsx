@@ -19,7 +19,7 @@ export default function PopularPage() {
     const fetchPopularFusions = async () => {
       try {
         setIsLoading(true);
-        const fusions = await dbService.getPopularFusions(12, "most_likes"); // Always fetch by most likes
+        const fusions = await dbService.getPopularFusions(12, "hot"); // Use hot score ranking by default
         
         if (!fusions || fusions.length === 0) {
           console.warn("No fusions returned from the database");

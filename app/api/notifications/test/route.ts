@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { sendDailyNotification, sendNotificationToAll } from '@/lib/notifications'
+import { sendDailyNotification, sendNotificationToAll, sendTestNotification } from '@/lib/notifications'
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +25,9 @@ export async function POST(request: Request) {
           timestamp: new Date().toISOString()
         }
       })
+    } else if (body.type === 'targeting') {
+      // Send targeting test notification
+      result = await sendTestNotification()
     } else {
       // Send daily notification
       result = await sendDailyNotification()

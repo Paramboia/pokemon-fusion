@@ -34,7 +34,8 @@ export async function sendNotificationToAll({
     notification.app_id = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''
     notification.contents = { en: content }
     notification.headings = { en: title }
-    notification.included_segments = ['All']
+    // Target all subscribed users - this targets everyone who has opted in
+    notification.included_segments = ['Subscribed Users']
     
     if (url) {
       notification.url = url
@@ -126,6 +127,30 @@ export async function sendDailyNotification() {
       {
         id: 'generate_fusion',
         text: 'Generate Fusion',
+        icon: 'https://www.pokemon-fusion.com/favicon-32x32.png'
+      }
+    ]
+  })
+}
+
+// Send test notification to verify targeting
+export async function sendTestNotification() {
+  const title = "Pokemon-Fusion Test 🧪"
+  const content = "This is a test notification to verify all subscribers are receiving messages!"
+  const url = "https://www.pokemon-fusion.com"
+  
+  return await sendNotificationToAll({
+    title,
+    content,
+    url,
+    data: {
+      type: 'test_notification',
+      timestamp: new Date().toISOString()
+    },
+    buttons: [
+      {
+        id: 'test_action',
+        text: 'Test Successful',
         icon: 'https://www.pokemon-fusion.com/favicon-32x32.png'
       }
     ]

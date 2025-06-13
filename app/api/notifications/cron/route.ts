@@ -4,9 +4,6 @@ export const runtime = 'edge'
 
 export async function GET(request: Request) {
   try {
-    // Verify the request is from Vercel Cron
-    const authHeader = request.headers.get('authorization')
-    
     // Add proper response headers
     const headers = {
       'Content-Type': 'application/json',
@@ -15,20 +12,53 @@ export async function GET(request: Request) {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     }
 
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      console.error('Unauthorized cron request')
+    // Verify this is a legitimate Vercel cron request
+    const userAgent = request.headers.get('user-agent') || ''
+    const isVercelCron = userAgent.includes('vercel-cron') || userAgent.includes('Vercel')
+    
+    // In production, verify it's from Vercel cron
+    // In development, allow requests with the cron secret for testing
+    const url = new URL(request.url)
+    const testSecret = url.searchParams.get('secret')
+    const authHeader = request.headers.get('authorization')
+    
+    const isValidRequest = 
+      isVercelCron || 
+      (process.env.NODE_ENV !== 'production') ||
+      (testSecret === process.env.CRON_SECRET) ||
+      (authHeader === `Bearer ${process.env.CRON_SECRET}`)
+
+    if (!isValidRequest) {
+      console.error('Unauthorized cron request:', {
+        userAgent,
+        isVercelCron,
+        environment: process.env.NODE_ENV,
+        hasTestSecret: !!testSecret,
+        hasAuthHeader: !!authHeader,
+        headers: Object.fromEntries(request.headers.entries())
+      })
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - This endpoint is only accessible by Vercel cron jobs' },
         { status: 401, headers }
       )
     }
 
+    console.log('Cron job triggered successfully:', {
+      userAgent,
+      isVercelCron,
+      timestamp: new Date().toISOString()
+    })
+
     // Check if required env vars are present
     const restApiKey = process.env.ONESIGNAL_REST_API_KEY
     const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pokemon-fusion-ai.vercel.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.pokemon-fusion.com'
 
     if (!restApiKey || !appId) {
+      console.error('Missing OneSignal configuration:', {
+        hasRestApiKey: !!restApiKey,
+        hasAppId: !!appId
+      })
       throw new Error('Missing required OneSignal configuration')
     }
 

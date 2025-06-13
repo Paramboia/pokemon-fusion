@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ClientLayout } from "@/components/client-layout";
 import { ClientPageTracker } from "@/components/ClientPageTracker";
+import { OneSignalInit } from "@/components/onesignal-init";
 import Script from "next/script";
 import { Suspense } from "react";
 
@@ -152,6 +153,7 @@ export default function RootLayout({
             <AuthProvider>
               <ClientLayout>
                 <ClientPageTracker />
+                <OneSignalInit />
                 {children}
               </ClientLayout>
             </AuthProvider>

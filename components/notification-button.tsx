@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/tooltip'
 
 export function NotificationButton() {
-  const { isSubscribed, toggleNotifications } = useNotifications()
+  const { isSubscribed, isLoading, toggleNotifications } = useNotifications()
 
   return (
     <Tooltip>
@@ -19,8 +19,11 @@ export function NotificationButton() {
           variant="ghost"
           size="icon"
           onClick={toggleNotifications}
+          disabled={isLoading}
         >
-          {isSubscribed ? (
+          {isLoading ? (
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          ) : isSubscribed ? (
             <Bell className="h-5 w-5" />
           ) : (
             <BellOff className="h-5 w-5" />
@@ -28,7 +31,12 @@ export function NotificationButton() {
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {isSubscribed ? 'Disable notifications' : 'Enable notifications'}
+        {isLoading 
+          ? 'Updating notifications...' 
+          : isSubscribed 
+          ? 'Disable notifications' 
+          : 'Enable notifications'
+        }
       </TooltipContent>
     </Tooltip>
   )

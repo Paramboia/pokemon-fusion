@@ -6,7 +6,7 @@ const configuration = OneSignal.createConfiguration({
     app_key: {
       tokenProvider: {
         getToken(): string {
-          return process.env.OS_V2_APP_KEY || ''
+          return process.env.ONESIGNAL_REST_API_KEY || ''
         }
       }
     }
@@ -31,7 +31,7 @@ export async function sendNotificationToAll({
 }) {
   try {
     const notification = new OneSignal.Notification()
-    notification.app_id = process.env.OS_V2_APP_ID || ''
+    notification.app_id = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''
     notification.contents = { en: content }
     notification.headings = { en: title }
     notification.included_segments = ['All']
@@ -86,7 +86,7 @@ export async function sendNotification({
 }) {
   try {
     const notification = new OneSignal.Notification()
-    notification.app_id = process.env.OS_V2_APP_ID || ''
+    notification.app_id = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''
     notification.contents = { en: message }
     notification.headings = { en: title }
     notification.include_external_user_ids = [userId]

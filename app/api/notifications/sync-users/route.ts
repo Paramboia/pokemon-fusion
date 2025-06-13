@@ -68,22 +68,17 @@ export async function POST(request: Request) {
 
     for (const user of users) {
       try {
-        // Create external user ID record in OneSignal
-        const player = new OneSignal.Player()
-        player.app_id = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''
-        player.external_user_id = user.clerk_id || user.id
-        
-        // Add user metadata
-        if (user.email) {
-          player.email = user.email
-        }
-        
-        if (user.name) {
-          player.tags = { name: user.name }
+        // Create player object with proper OneSignal format
+        const playerData = {
+          app_id: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || '',
+          external_user_id: user.clerk_id || user.id,
+          device_type: 11, // Web Push (required field)
+          identifier: user.email || undefined, // Email identifier
+          tags: user.name ? { name: user.name } : undefined
         }
 
         // Create the player record
-        const result = await client.createPlayer(player)
+        const result = await client.createPlayer(playerData as OneSignal.Player)
         syncedCount++
         
         console.log(`Synced user: ${user.email} (${user.id})`)

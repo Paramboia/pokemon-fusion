@@ -34,7 +34,7 @@ export async function sendNotificationToAll({
     notification.app_id = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''
     notification.contents = { en: content }
     notification.headings = { en: title }
-    // Target all subscribed users - this targets everyone who has opted in
+    // Target all subscribed users - using the standard OneSignal segment
     notification.included_segments = ['Subscribed Users']
     
     if (url) {
@@ -45,7 +45,7 @@ export async function sendNotificationToAll({
       notification.data = data
     }
 
-    // Add custom action buttons if provided
+    // Add custom action buttons if provided (simplified configuration)
     if (buttons && buttons.length > 0) {
       notification.buttons = buttons.map(button => ({
         id: button.id,
@@ -54,17 +54,28 @@ export async function sendNotificationToAll({
       }))
     }
 
-    // Configure web push settings to customize behavior
-    notification.web_buttons = buttons ? buttons.map(button => ({
-      id: button.id,
-      text: button.text,
-      icon: button.icon,
-      url: url || 'https://www.pokemon-fusion.com'
-    })) : undefined
-
     const response = await client.createNotification(notification)
-    console.log('OneSignal notification sent successfully:', response)
-    return { success: true, id: response.id }
+    
+    // Enhanced logging for debugging
+    console.log('OneSignal API Response:', {
+      id: response.id,
+      recipients: response.recipients,
+      errors: response.errors
+    })
+    
+    // Check for errors in the response
+    if (response.errors && Object.keys(response.errors).length > 0) {
+      console.error('OneSignal notification errors:', response.errors)
+      throw new Error(`OneSignal notification failed: ${JSON.stringify(response.errors)}`)
+    }
+    
+    if (!response.id) {
+      console.error('OneSignal notification failed: No notification ID returned')
+      throw new Error('OneSignal notification failed: No notification ID returned')
+    }
+    
+    console.log('OneSignal notification sent successfully with ID:', response.id)
+    return { success: true, id: response.id, recipients: response.recipients }
   } catch (error) {
     console.error('Error sending OneSignal notification:', error)
     throw error
@@ -122,14 +133,15 @@ export async function sendDailyNotification() {
     data: {
       type: 'daily_motivation',
       timestamp: new Date().toISOString()
-    },
-    buttons: [
-      {
-        id: 'generate_fusion',
-        text: 'Generate Fusion',
-        icon: 'https://www.pokemon-fusion.com/favicon-32x32.png'
-      }
-    ]
+    }
+    // Temporarily removing buttons to test if they're causing the issue
+    // buttons: [
+    //   {
+    //     id: 'generate_fusion',
+    //     text: 'Generate Fusion',
+    //     icon: 'https://www.pokemon-fusion.com/favicon-32x32.png'
+    //   }
+    // ]
   })
 }
 

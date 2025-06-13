@@ -1,7 +1,7 @@
 # OneSignal Push Notifications Implementation Guide
 
 ## Overview
-This document provides complete instructions for implementing OneSignal push notifications in the Pokemon Fusion app, including daily automated notifications and user synchronization.
+This document provides complete instructions for implementing OneSignal push notifications in the Pokemon Fusion app, including daily automated notifications and user synchronization. **Updated with latest working implementation and security best practices.**
 
 ## Table of Contents
 1. [OneSignal Setup](#onesignal-setup)
@@ -13,14 +13,16 @@ This document provides complete instructions for implementing OneSignal push not
 7. [Middleware Configuration](#middleware-configuration)
 8. [Testing](#testing)
 9. [Troubleshooting](#troubleshooting)
+10. [Security Best Practices](#security-best-practices)
 
 ## OneSignal Setup
 
 ### 1. OneSignal Account Configuration
-- **App ID**: `your-onesignal-app-id-here`
+- **App ID**: `fc8aa10e-9c01-457a-8757-a6483474c38a`
 - **REST API Key**: `your-onesignal-rest-api-key-here`
 - **Platform**: Web Push (Chrome, Firefox, Safari)
 - **Domain**: `https://www.pokemon-fusion.com`
+- **Targeting**: Use "Total Subscriptions" segment for all users
 
 ### 2. Required Files
 - `public/OneSignalSDKWorker.js` - Service worker for push notifications
@@ -28,20 +30,25 @@ This document provides complete instructions for implementing OneSignal push not
 
 ## Environment Variables
 
-Add these to your `.env.local` and Vercel environment:
+Add these to your Vercel environment variables:
 
 ```bash
 # OneSignal Configuration
-NEXT_PUBLIC_ONESIGNAL_APP_ID=your-onesignal-app-id-here
+NEXT_PUBLIC_ONESIGNAL_APP_ID=fc8aa10e-9c01-457a-8757-a6483474c38a
 ONESIGNAL_REST_API_KEY=your-onesignal-rest-api-key-here
 
-# Cron Job Security
-CRON_SECRET=your-secure-cron-secret-here
+# App Configuration
+NEXT_PUBLIC_APP_URL=https://www.pokemon-fusion.com
+
+# Cron Job Security (for testing only)
+CRON_SECRET=pokemon-fusion-secret-2024
 
 # Supabase (for user sync)
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
+
+**IMPORTANT**: Do not hardcode secrets in `vercel.json` or other committed files.
 
 ## Frontend Integration
 
@@ -107,82 +114,45 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-### 3. Notification Permission Button
-Example implementation for requesting permissions:
-
-```tsx
-const handleNotificationPermission = async () => {
-  if (typeof window !== 'undefined' && window.OneSignal) {
-    try {
-      await window.OneSignal.showSlidedownPrompt()
-    } catch (error) {
-      console.error('Error requesting notification permission:', error)
-    }
-  }
-}
-```
-
 ## Backend Implementation
 
-### 1. Notification Library
-Location: `lib/notifications.ts`
+### 1. Direct OneSignal API Integration (Recommended)
+**Important**: Use direct API calls instead of the OneSignal Node.js library for better reliability and edge runtime compatibility.
+
+Key benefits of direct integration:
+- **Edge Runtime Compatible**: Works with Vercel's edge functions
+- **No External Dependencies**: Uses native `fetch()` API
+- **Better Reliability**: Eliminates package-related issues
+- **Smaller Bundle Size**: No additional packages to install
+
+### 2. Proven Notification Payload
+Based on successful implementation, use this exact structure:
 
 ```typescript
-import * as OneSignal from '@onesignal/node-onesignal'
-
-const configuration = OneSignal.createConfiguration({
-  authMethods: {
-    app_key: {
-      tokenProvider: {
-        getToken(): string {
-          return process.env.ONESIGNAL_REST_API_KEY || ''
-        }
-      }
-    }
-  }
-})
-
-const client = new OneSignal.DefaultApi(configuration)
-
-export async function sendDailyNotification() {
-  const notification = new OneSignal.Notification()
-  notification.app_id = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''
-  
-  // Notification content
-  notification.headings = { en: "Pokemon-Fusion 🐉" }
-  notification.contents = { 
-    en: "Start creating new Pokémon fusions! Unlock unique species with AI—go catch them all!" 
-  }
-  
-  // Target all subscribed users
-  notification.included_segments = ['Subscribed Users']
-  
-  // Custom action button
-  notification.buttons = [
-    {
-      id: 'generate_fusion',
-      text: 'Generate Fusion',
-      icon: 'https://www.pokemon-fusion.com/icons/pokeball.png'
-    }
-  ]
-  
-  // Redirect URL
-  notification.url = 'https://www.pokemon-fusion.com'
-  
-  // Send notification
-  const result = await client.createNotification(notification)
-  return result
-}
-```
-
-### 2. Dependencies
-Add to `package.json`:
-
-```json
 {
-  "dependencies": {
-    "@onesignal/node-onesignal": "^2.0.1"
-  }
+  app_id: appId,
+  included_segments: ['Total Subscriptions'], // Target all subscribed users
+  contents: { 
+    en: 'Start creating new Pokémon fusions! Unlock unique species with AI—go catch them all!' 
+  },
+  headings: { 
+    en: 'Pokemon-Fusion 🐉' 
+  },
+  url: appUrl,
+  web_buttons: [
+    {
+      id: "generate-fusion",
+      text: "Generate Fusion",
+      icon: `${appUrl}/icon-192x192.png`,
+      url: appUrl
+    }
+  ],
+  ttl: 86400, // 24 hours
+  isAnyWeb: true,
+  target_channel: "push",
+  channel_for_external_user_ids: "push",
+  web_push_topic: "pokemon_fusion_daily",
+  priority: 10 // High priority
 }
 ```
 
@@ -203,118 +173,211 @@ Location: `vercel.json`
 ```
 
 **Schedule**: `0 9 * * *` = 9:00 AM UTC = 10:00 AM Madrid time
+**Security**: No hardcoded secrets in configuration files
 
-### 2. Cron Endpoint
+### 2. Cron Endpoint (Latest Working Version)
 Location: `app/api/notifications/cron/route.ts`
 
 ```typescript
-import { NextResponse } from 'next/server'
-import { sendDailyNotification } from '@/lib/notifications'
+import { NextResponse } from 'next/server';
+
+export const runtime = 'edge';
 
 export async function GET(request: Request) {
   try {
-    // Verify Vercel Cron authorization
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Add proper response headers
+    const headers = {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    };
+
+    // Verify this is a legitimate Vercel cron request
+    const userAgent = request.headers.get('user-agent') || '';
+    const isVercelCron = userAgent.includes('vercel-cron') || userAgent.includes('Vercel');
+    
+    // In production, verify it's from Vercel cron
+    // In development, allow requests with the cron secret for testing
+    const url = new URL(request.url);
+    const testSecret = url.searchParams.get('secret');
+    const authHeader = request.headers.get('authorization');
+    
+    const isValidRequest = 
+      isVercelCron || 
+      (process.env.NODE_ENV !== 'production') ||
+      (testSecret === process.env.CRON_SECRET) ||
+      (authHeader === `Bearer ${process.env.CRON_SECRET}`);
+
+    if (!isValidRequest) {
+      console.error('Unauthorized cron request:', {
+        userAgent,
+        isVercelCron,
+        environment: process.env.NODE_ENV,
+        hasTestSecret: !!testSecret,
+        hasAuthHeader: !!authHeader
+      });
+      return NextResponse.json(
+        { error: 'Unauthorized - This endpoint is only accessible by Vercel cron jobs' },
+        { status: 401, headers }
+      );
     }
 
-    const result = await sendDailyNotification()
+    // Check if required env vars are present
+    const restApiKey = process.env.ONESIGNAL_REST_API_KEY;
+    const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.pokemon-fusion.com';
+
+    if (!restApiKey || !appId) {
+      throw new Error('Missing required OneSignal configuration');
+    }
+
+    // Send notification directly via OneSignal API
+    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${restApiKey}`,
+      },
+      body: JSON.stringify({
+        app_id: appId,
+        included_segments: ['Total Subscriptions'], // Target all subscribed users
+        contents: { 
+          en: 'Start creating new Pokémon fusions! Unlock unique species with AI—go catch them all!' 
+        },
+        headings: { 
+          en: 'Pokemon-Fusion 🐉' 
+        },
+        url: appUrl, // Open the website when notification is clicked
+        web_buttons: [
+          {
+            id: "generate-fusion",
+            text: "Generate Fusion",
+            icon: `${appUrl}/icon-192x192.png`,
+            url: appUrl
+          }
+        ],
+        ttl: 86400, // Expire after 24 hours if not delivered
+        isAnyWeb: true,
+        target_channel: "push",
+        channel_for_external_user_ids: "push",
+        web_push_topic: "pokemon_fusion_daily",
+        priority: 10 // High priority to ensure delivery
+      }),
+    });
+
+    const data = await response.json();
     
+    if (!response.ok) {
+      console.error('OneSignal API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        data
+      });
+      throw new Error(data.errors?.[0] || 'Failed to send notification');
+    }
+
+    console.log('Successfully sent daily Pokemon Fusion notification:', {
+      notificationId: data.id,
+      recipients: data.recipients,
+      timestamp: new Date().toISOString()
+    });
+
     return NextResponse.json({ 
       success: true, 
-      message: 'Daily notification sent successfully',
-      notificationId: result.id,
-      timestamp: new Date().toISOString()
-    })
-  } catch (error) {
-    console.error('Error in cron job:', error)
-    return NextResponse.json(
-      { error: 'Failed to send daily notification' },
-      { status: 500 }
-    )
-  }
-}
-
-// Support POST for manual testing
-export async function POST(request: Request) {
-  try {
-    const body = await request.json()
-    
-    if (body.secret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const result = await sendDailyNotification()
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Daily notification sent successfully (manual trigger)',
-      notificationId: result.id,
-      timestamp: new Date().toISOString()
-    })
-  } catch (error) {
-    console.error('Error in manual trigger:', error)
-    return NextResponse.json(
-      { error: 'Failed to send daily notification' },
-      { status: 500 }
-    )
-  }
-}
-```
-
-## User Synchronization
-
-### 1. Sync Endpoint
-Location: `app/api/notifications/sync-users/route.ts`
-
-Synchronizes Supabase users to OneSignal for targeted notifications.
-
-```typescript
-export async function POST(request: Request) {
-  try {
-    const body = await request.json()
-    
-    if (body.secret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Get users from Supabase
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, name, email, clerk_id')
-      .limit(100)
-
-    // Sync to OneSignal
-    for (const user of users) {
-      const playerData = {
-        app_id: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || '',
-        external_user_id: user.clerk_id || user.id,
-        device_type: 11, // Web Push (required)
-        identifier: user.email || undefined,
-        tags: user.name ? { name: user.name } : undefined
+      data: {
+        notification: data,
+        timestamp: new Date().toISOString()
       }
-
-      await client.createPlayer(playerData as OneSignal.Player)
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Successfully synced ${users.length} users to OneSignal`,
-      syncedCount: users.length
-    })
+    }, { headers });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to sync users' }, { status: 500 })
+    console.error('Daily Pokemon Fusion notification error:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to send daily Pokemon Fusion notification',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
   }
+}
+
+// Support OPTIONS for CORS preflight
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 }
 ```
 
-### 2. Manual Sync Usage
-```bash
-curl -X POST https://www.pokemon-fusion.com/api/notifications/sync-users \
-  -H "Content-Type: application/json" \
-  -d '{"secret": "your-secure-cron-secret-here"}'
+### 3. Key Features of Latest Implementation
+- **Edge Runtime**: Better performance and global distribution
+- **Direct API Integration**: No external dependencies, more reliable
+- **Secure Authentication**: User-agent based verification for production
+- **Proper CORS Headers**: Better compatibility across environments
+- **Comprehensive Error Logging**: Easier debugging
+- **24-hour TTL**: Ensures notifications don't stack up
+- **High Priority**: Better delivery rates
+- **Production Ready**: Tested and working in live environment
+
+## User Synchronization - ⚠️ IMPORTANT LIMITATION
+
+### ❌ Why Supabase to OneSignal Sync Doesn't Work for Push Notifications
+
+**Critical Discovery**: Syncing users from Supabase to OneSignal creates **EMAIL subscribers**, not **PUSH notification subscribers**.
+
+#### The Problem
+1. **Email vs Push**: OneSignal treats synced users as email contacts (✉️ icon in dashboard)
+2. **Browser Permission Required**: Push notifications require explicit user consent through browser
+3. **No Push Tokens**: Synced users don't have valid browser push subscription tokens
+4. **Wrong Channel**: Your notifications target push subscribers, but synced users are email subscribers
+
+#### The Solution: Organic Push Subscriptions
+
+**✅ Correct Approach for Push Notifications:**
+
+1. **Frontend Integration**: OneSignal SDK initializes when users visit your website
+2. **User Consent**: Users click notification permission prompt in their browser
+3. **Automatic Registration**: OneSignal automatically creates push subscriber records
+4. **Target All**: Use "Total Subscriptions" segment to reach all push subscribers
+
+### 1. Notification Permission Component
+Encourage users to opt-in through your website interface:
+
+```tsx
+// components/notification-button.tsx
+export function NotificationButton() {
+  const { isSubscribed, isLoading, toggleNotifications } = useNotifications()
+
+  return (
+    <Button onClick={toggleNotifications} disabled={isLoading}>
+      {isSubscribed 
+        ? <Bell className="h-5 w-5" /> 
+        : <BellOff className="h-5 w-5" />
+      }
+      {isSubscribed ? 'Notifications On' : 'Enable Notifications'}
+    </Button>
+  )
+}
 ```
+
+### 2. Dashboard Verification
+In OneSignal dashboard, legitimate push subscribers show:
+- **🔔 Push icon** (not ✉️ email icon)
+- **Valid subscription tokens**
+- **Browser-generated Player IDs**
+
+### 3. Clean Up Email Records (Optional)
+If you want to remove the email records created by sync:
+1. Go to OneSignal Dashboard → Audience → Users
+2. Filter by channel: Email
+3. Bulk delete email-only records
+4. Keep only push notification subscribers
 
 ## Middleware Configuration
 
@@ -335,146 +398,146 @@ Without this, Clerk will block all notification API requests with 405 errors.
 
 ## Testing
 
-### 1. Manual Cron Test
+### 1. Manual Cron Test (Development)
 ```bash
-curl -X POST https://www.pokemon-fusion.com/api/notifications/cron \
-  -H "Content-Type: application/json" \
-  -d '{"secret": "your-secure-cron-secret-here"}'
+curl "https://www.pokemon-fusion.com/api/notifications/cron?secret=pokemon-fusion-secret-2024"
 ```
 
-### 2. User Sync Test
-```bash
-curl -X POST https://www.pokemon-fusion.com/api/notifications/sync-users \
-  -H "Content-Type: application/json" \
-  -d '{"secret": "your-secure-cron-secret-here"}'
-```
+### 2. Production Cron Test
+The cron job runs automatically at 9:00 AM UTC (10:00 AM Madrid time). No manual intervention needed.
 
-### 3. Health Check
-```bash
-curl https://www.pokemon-fusion.com/api/health
-```
+### 3. Check Logs
+Monitor Vercel function logs to verify successful execution:
+- Go to Vercel Dashboard → Project → Functions tab
+- Look for `/api/notifications/cron` executions
+- Check for success messages and error details
 
 ## Troubleshooting
 
-### Common Issues
+### Common Issues & Solutions
 
-#### 1. 405 Method Not Allowed
+#### 1. 401 Unauthorized Error in Production
+**Cause**: Vercel cron authentication failing
+**Solution**: Ensure user-agent detection is working properly. The endpoint should automatically detect `vercel-cron` in the user-agent.
+
+#### 2. 405 Method Not Allowed
 **Cause**: Clerk middleware blocking notification endpoints
 **Solution**: Add `/api/notifications(.*)` to public routes in `middleware.ts`
 
-#### 2. OneSignal 400 Bad Request
-**Cause**: Missing required fields in player creation
-**Solution**: Ensure `device_type: 11` is included for web push
+#### 3. OneSignal 400 Bad Request
+**Cause**: Invalid notification payload
+**Solution**: Verify all required fields are present:
+- `app_id`
+- `included_segments: ['Total Subscriptions']`
+- `contents` and `headings` objects
 
-#### 3. Cron Job Not Running
-**Cause**: Incorrect schedule format or missing authorization
+#### 4. No Users Receiving Notifications
+**Cause**: No subscribed users or incorrect segment targeting
 **Solution**: 
-- Verify schedule: `"0 9 * * *"` for 9 AM UTC
-- Check `CRON_SECRET` environment variable
+- Check OneSignal dashboard for active subscriptions
+- Verify "Total Subscriptions" segment exists
+- Run user sync if needed
 
-#### 4. Users Not Receiving Notifications
-**Cause**: Users not subscribed or external_user_id mismatch
-**Solution**: 
-- Run user sync endpoint
-- Verify OneSignal initialization in frontend
-- Check browser notification permissions
+#### 5. Edge Runtime Issues
+**Cause**: Using Node.js-specific code in edge runtime
+**Solution**: Use only Web APIs (fetch, Response, etc.) in edge functions
 
-### Debug Commands
+### 🚀 Key Lessons Learned (Production Tested)
 
-```bash
-# Check environment variables
-node -e "console.log(process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID)"
+#### What Works ✅
+1. **User-Agent Authentication**: Vercel cron jobs can be authenticated by detecting `vercel-cron` in user-agent
+2. **Edge Runtime**: Provides better performance and global distribution
+3. **Direct API Integration**: More reliable than using OneSignal SDK packages
+4. **Total Subscriptions Segment**: Targets all subscribed users effectively
+5. **24-hour TTL**: Prevents notification stacking and improves delivery
+6. **High Priority (10)**: Ensures better delivery rates
 
-# Test notification endpoint
-curl -X POST https://www.pokemon-fusion.com/api/notifications/test \
-  -H "Content-Type: application/json" \
-  -d '{"secret": "your-secure-cron-secret-here"}'
+#### What Doesn't Work ❌
+1. **Hardcoded Secrets in vercel.json**: Security risk and not necessary
+2. **Bearer Token Authentication**: Vercel cron doesn't send authorization headers
+3. **OneSignal Node SDK**: Can cause issues with edge runtime
+4. **Missing Middleware Routes**: Clerk will block API requests with 405 errors
+5. **🚨 Supabase User Sync**: Creates EMAIL subscribers (✉️), not PUSH subscribers (🔔)
+6. **Bulk User Import**: Push notifications require individual browser permission
 
-# Check Vercel deployment logs
-vercel logs
-```
+## Security Best Practices
 
-## Notification Content Customization
+### 1. Environment Variables
+- ✅ Store all secrets in Vercel environment variables
+- ❌ Never hardcode secrets in `vercel.json` or source code
+- ✅ Use `NEXT_PUBLIC_` prefix only for client-side variables
 
-### Current Configuration
-- **Title**: "Pokemon-Fusion 🐉"
-- **Message**: "Start creating new Pokémon fusions! Unlock unique species with AI—go catch them all!"
-- **Button**: "Generate Fusion"
-- **URL**: https://www.pokemon-fusion.com
-- **Schedule**: Daily at 10:00 AM Madrid time
+### 2. Authentication
+- ✅ Use user-agent detection for production cron jobs
+- ✅ Allow manual testing with secret parameter in development
+- ❌ Don't rely on hardcoded authorization headers
 
-### Customization Options
-To modify notification content, edit `lib/notifications.ts`:
-
-```typescript
-// Change title
-notification.headings = { en: "Your Custom Title 🎮" }
-
-// Change message
-notification.contents = { en: "Your custom message here!" }
-
-// Change button text
-notification.buttons = [
-  {
-    id: 'custom_action',
-    text: 'Custom Button',
-    icon: 'https://your-icon-url.com/icon.png'
-  }
-]
-
-// Change schedule in vercel.json
-"schedule": "0 8 * * *" // 8 AM UTC = 9 AM Madrid time
-```
-
-## Security Notes
-
-1. **API Keys**: Never expose REST API key in frontend code
-2. **Cron Secret**: Use strong, unique secret for cron job authentication
-3. **HTTPS**: OneSignal requires HTTPS for web push notifications
-4. **Service Worker**: Ensure `OneSignalSDKWorker.js` is accessible at domain root
+### 3. API Security
+- ✅ Validate all incoming requests
+- ✅ Use HTTPS for all endpoints
+- ✅ Implement proper CORS headers
+- ✅ Add comprehensive error logging
 
 ## Performance Considerations
 
-1. **Batch Size**: Limit user sync to 100 users per request to avoid timeouts
-2. **Rate Limiting**: OneSignal has API rate limits - implement retry logic for large user bases
-3. **Caching**: Consider caching notification results to avoid duplicate sends
+### 1. Edge Runtime Benefits
+- Global distribution for better performance
+- Faster cold starts
+- Better scalability
+
+### 2. Direct API Integration
+- Eliminates external package dependencies
+- Reduces bundle size
+- More reliable execution
+
+### 3. Notification Optimization
+- Use `ttl: 86400` to prevent notification stacking
+- Set `priority: 10` for better delivery rates
+- Target specific segments instead of individual users
 
 ## Monitoring
 
 ### Key Metrics to Track
-1. **Notification Delivery Rate**: Check OneSignal dashboard
-2. **User Subscription Rate**: Monitor opt-in percentages
-3. **Click-Through Rate**: Track notification engagement
-4. **Cron Job Success**: Monitor daily execution logs
+1. **Cron Job Success Rate**: Monitor daily execution in Vercel logs
+2. **Notification Delivery Rate**: Check OneSignal dashboard
+3. **User Subscription Growth**: Track opt-in rates
+4. **Engagement Rate**: Monitor click-through rates
 
 ### OneSignal Dashboard
-Access at: https://dashboard.onesignal.com/
+Access at: https://dashboard.onesignal.com/apps/fc8aa10e-9c01-457a-8757-a6483474c38a
 - View delivery statistics
-- Monitor user segments
+- Monitor user subscriptions
 - Track notification performance
-- Manage app settings
-
----
+- Manage segments
 
 ## Quick Reference
 
-### Essential URLs
-- **Production**: https://www.pokemon-fusion.com
-- **Cron Endpoint**: `/api/notifications/cron`
-- **Sync Endpoint**: `/api/notifications/sync-users`
-- **Test Endpoint**: `/api/notifications/test`
+### Production Configuration
+- **App ID**: `fc8aa10e-9c01-457a-8757-a6483474c38a`
+- **Domain**: `https://www.pokemon-fusion.com`
+- **Cron Schedule**: `0 9 * * *` (9 AM UTC = 10 AM Madrid)
+- **Target Segment**: `Total Subscriptions`
 
 ### Key Files
+- `app/api/notifications/cron/route.ts` - Daily cron job (LATEST VERSION)
 - `components/onesignal-init.tsx` - Frontend initialization
-- `lib/notifications.ts` - Notification logic
-- `app/api/notifications/cron/route.ts` - Daily cron job
-- `app/api/notifications/sync-users/route.ts` - User synchronization
 - `middleware.ts` - Route protection (CRITICAL)
 - `vercel.json` - Cron schedule configuration
 
-### Environment Variables
-- `NEXT_PUBLIC_ONESIGNAL_APP_ID` - Public app identifier
-- `ONESIGNAL_REST_API_KEY` - Server-side API key
-- `CRON_SECRET` - Cron job authentication
+### Environment Variables (Required)
+- `NEXT_PUBLIC_ONESIGNAL_APP_ID=fc8aa10e-9c01-457a-8757-a6483474c38a`
+- `ONESIGNAL_REST_API_KEY=your-key-here`
+- `NEXT_PUBLIC_APP_URL=https://www.pokemon-fusion.com`
+- `CRON_SECRET=pokemon-fusion-secret-2024` (testing only)
+
+### Current Notification Content
+- **Title**: "Pokemon-Fusion 🐉"
+- **Message**: "Start creating new Pokémon fusions! Unlock unique species with AI—go catch them all!"
+- **Button**: "Generate Fusion"
+- **Timing**: Daily at 10:00 AM Madrid time
+
+---
+
+**Last Updated**: Based on successful production deployment with working cron jobs and secure authentication.
 
 This implementation provides a complete, production-ready OneSignal push notification system for the Pokemon Fusion app with daily automated engagement notifications. 

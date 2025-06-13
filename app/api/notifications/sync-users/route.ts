@@ -2,111 +2,51 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import * as OneSignal from '@onesignal/node-onesignal'
 
+export const runtime = 'edge'
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     
+    const headers = {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    }
+    
     // Basic authentication
     if (body.secret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers })
     }
 
-    console.log('Starting OneSignal user sync...')
+    console.log('IMPORTANT: This endpoint should NOT be used for push notifications!')
     
-    // Initialize OneSignal client
-    const configuration = OneSignal.createConfiguration({
-      authMethods: {
-        app_key: {
-          tokenProvider: {
-            getToken(): string {
-              return process.env.ONESIGNAL_REST_API_KEY || ''
-            }
-          }
-        }
-      }
-    })
-
-    const client = new OneSignal.DefaultApi(configuration)
-    
-    // Create Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({ error: 'Supabase configuration missing' }, { status: 500 })
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-    
-    // Get all users from Supabase
-    const { data: users, error: fetchError } = await supabase
-      .from('users')
-      .select('id, name, email, clerk_id')
-      .limit(100) // Start with smaller batch
-    
-    if (fetchError) {
-      console.error('Error fetching users from Supabase:', fetchError)
-      return NextResponse.json(
-        { error: 'Failed to fetch users from Supabase', details: fetchError.message },
-        { status: 500 }
-      )
-    }
-
-    if (!users || users.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No users found in Supabase',
-        syncedCount: 0
-      })
-    }
-
-    console.log(`Found ${users.length} users in Supabase`)
-
-    // Sync users to OneSignal
-    let syncedCount = 0
-    let errors = []
-
-    for (const user of users) {
-      try {
-        // Create player object with proper OneSignal format
-        const playerData = {
-          app_id: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || '',
-          external_user_id: user.clerk_id || user.id,
-          device_type: 11, // Web Push (required field)
-          identifier: user.email || undefined, // Email identifier
-          tags: user.name ? { name: user.name } : undefined
-        }
-
-        // Create the player record
-        const result = await client.createPlayer(playerData as OneSignal.Player)
-        syncedCount++
-        
-        console.log(`Synced user: ${user.email} (${user.id})`)
-      } catch (userError: any) {
-        console.error(`Error syncing user ${user.email}:`, userError)
-        errors.push({
-          userId: user.id,
-          email: user.email,
-          error: userError?.message || 'Unknown error'
-        })
-      }
-    }
-
-    console.log(`Successfully synced ${syncedCount} out of ${users.length} users`)
-
     return NextResponse.json({
-      success: true,
-      message: `Successfully synced ${syncedCount} users to OneSignal`,
-      totalUsers: users.length,
-      syncedCount,
-      errors: errors.length > 0 ? errors : undefined
-    })
+      success: false,
+      important_notice: "⚠️ Push Notification Sync Not Supported",
+      explanation: {
+        issue: "Syncing users from Supabase creates EMAIL subscribers, not PUSH subscribers",
+        why: "Push notifications require explicit browser permission from each user",
+        solution: "Users must opt-in through the website frontend using OneSignal's SDK"
+      },
+      correct_approach: {
+        step1: "Users visit your website with OneSignal SDK initialized",
+        step2: "Users click notification permission prompt in their browser", 
+        step3: "OneSignal automatically creates push subscribers",
+        step4: "Use 'Total Subscriptions' segment to target all push subscribers"
+      },
+      current_stats: {
+        message: "Check OneSignal dashboard - synced users show as EMAIL (✉️) not PUSH (🔔)",
+        recommendation: "Remove synced email records and focus on organic push subscriptions"
+      }
+    }, { headers })
 
   } catch (error: any) {
-    console.error('Error in sync-users endpoint:', error)
+    console.error('Error in sync-users info endpoint:', error)
     return NextResponse.json(
       { 
-        error: 'Failed to sync users',
+        error: 'Failed to provide sync info',
         details: error?.message || 'Unknown error'
       },
       { status: 500 }
@@ -114,7 +54,22 @@ export async function POST(request: Request) {
   }
 }
 
-// Explicitly export GET to return 405 for GET requests
+// Support OPTIONS for CORS preflight
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}
+
+// Explicitly export GET to return method info
 export async function GET() {
-  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 })
+  return NextResponse.json({ 
+    message: 'This endpoint provides information about user sync limitations for push notifications',
+    method: 'Use POST with secret parameter to get detailed information'
+  }, { status: 200 })
 } 

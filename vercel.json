@@ -7,6 +7,12 @@
     "NEXT_TELEMETRY_DISABLED": "1"
   },
   "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/notifications/cron",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "redirects": [
     { 
       "source": "/:path*",

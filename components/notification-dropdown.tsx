@@ -195,32 +195,54 @@ export function NotificationDropdown() {
     })
     
     // Hidden manual sync functionality - sync user to OneSignal in background
-    if (user && supabaseUser) {
+    // Using the exact same logic as the working "🔗 Link to OneSignal" button
+    if (user?.id && supabaseUser?.id) {
       try {
-        // Get OneSignal player ID if available
-        const playerId = await executeOneSignalCommand(async (OneSignal) => {
-          return OneSignal.User?.PushSubscription?.id || null
-        }).catch(() => null)
-
-        // Call our backend API to sync/link the user
-        await fetch('/api/notifications/link-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            clerkUserId: user.id,
-            supabaseUserId: supabaseUser.id,
-            oneSignalPlayerId: playerId,
-            userEmail: user.primaryEmailAddress?.emailAddress
+        // Get current OneSignal Player ID and validate subscription
+        const playerInfo = await executeOneSignalCommand(async (OneSignal) => {
+          return {
+            playerId: OneSignal.User?.PushSubscription?.id || null,
+            optedIn: OneSignal.User?.PushSubscription?.optedIn || false
+          }
+        }).catch(() => ({ playerId: null, optedIn: false }))
+        
+        // Only proceed if user has a valid OneSignal subscription
+        if (playerInfo.playerId) {
+          console.log('Background sync: Linking OneSignal player', playerInfo.playerId.substring(0, 8) + '... to Supabase ID:', supabaseUser.id)
+          
+          // Set external user ID in OneSignal (prefer Supabase ID) - EXACT same as working button
+          await executeOneSignalCommand(async (OneSignal) => {
+            if (typeof OneSignal.login === 'function') {
+              await OneSignal.login(supabaseUser.id)
+              console.log('Background sync: Successfully linked OneSignal to Supabase ID:', supabaseUser.id)
+            } else {
+              console.log('Background sync: OneSignal.login function not available')
+            }
+          }).catch(error => {
+            console.log('Background sync: OneSignal.login failed (silent):', error.message)
           })
-        }).catch(error => {
-          // Silent fail - don't show errors to user for this hidden functionality
-          console.log('Background sync attempt (silent):', error.message)
-        })
+          
+          // Also call our backend to record this linking - EXACT same as working button
+          await fetch('/api/notifications/link-user', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              clerkUserId: user.id,
+              supabaseUserId: supabaseUser.id,
+              oneSignalPlayerId: playerInfo.playerId,
+              userEmail: user.primaryEmailAddress?.emailAddress
+            })
+          }).catch(error => {
+            console.log('Background sync: Backend linking failed (silent):', error.message)
+          })
+        } else {
+          console.log('Background sync: No OneSignal Player ID available - user needs to be subscribed first')
+        }
       } catch (error) {
         // Silent fail - this is hidden functionality
-        console.log('Background sync attempt (silent):', error)
+        console.log('Background sync: Error during sync (silent):', error)
       }
     }
     

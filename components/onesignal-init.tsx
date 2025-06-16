@@ -45,6 +45,34 @@ export function OneSignalInit() {
       }
     }
 
+    // Helper function to wait for OneSignal methods to be ready
+    const waitForOneSignalMethods = async (): Promise<boolean> => {
+      let attempts = 0
+      const maxAttempts = 50 // 5 seconds
+      
+      while (attempts < maxAttempts) {
+        try {
+          if (window.OneSignal && 
+              typeof window.OneSignal.isPushNotificationsEnabled === 'function' &&
+              typeof window.OneSignal.requestPermission === 'function' &&
+              typeof window.OneSignal.setSubscription === 'function' &&
+              typeof window.OneSignal.setExternalUserId === 'function' &&
+              typeof window.OneSignal.getPlayerId === 'function' &&
+              typeof window.OneSignal.on === 'function') {
+            console.log('All OneSignal methods are now available!')
+            return true
+          }
+        } catch (e) {
+          // Methods not ready
+        }
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+      }
+      
+      console.warn('OneSignal methods not ready after 5 seconds')
+      return false
+    }
+
     const initializeOneSignal = async () => {
       try {
         // Wait for OneSignal to be available
@@ -64,10 +92,16 @@ export function OneSignalInit() {
 
         // Check if OneSignal is already initialized
         if (window.OneSignal.initialized) {
-          console.log('OneSignal already initialized, setting up user linking...')
+          console.log('OneSignal already initialized, waiting for methods and setting up user linking...')
           window._oneSignalInitialized = true
           window._oneSignalInitializing = false
-          await setupUserLinking()
+          
+          // Wait for methods to be ready then set up user linking
+          const methodsReady = await waitForOneSignalMethods()
+          if (methodsReady) {
+            await setupUserLinking()
+            setupEventListeners()
+          }
           return
         }
 
@@ -103,9 +137,16 @@ export function OneSignalInit() {
         window._oneSignalInitialized = true
         window._oneSignalInitializing = false
 
-        // Set up user linking and event listeners
-        await setupUserLinking()
-        setupEventListeners()
+        // Wait for methods to be ready before setting up user linking and event listeners
+        console.log('Waiting for OneSignal methods to be ready...')
+        const methodsReady = await waitForOneSignalMethods()
+        
+        if (methodsReady) {
+          await setupUserLinking()
+          setupEventListeners()
+        } else {
+          console.error('OneSignal methods not ready, skipping user linking and event listeners')
+        }
 
       } catch (error) {
         console.error('Error initializing OneSignal:', error)
@@ -120,30 +161,6 @@ export function OneSignalInit() {
         console.log('Setting OneSignal external user ID:', externalUserId)
         
         try {
-          // Wait for OneSignal methods to be available
-          let methodsAvailable = false
-          let attempts = 0
-          const maxAttempts = 30
-          
-          while (!methodsAvailable && attempts < maxAttempts) {
-            try {
-              if (typeof window.OneSignal.getPlayerId === 'function' && 
-                  typeof window.OneSignal.setExternalUserId === 'function') {
-                methodsAvailable = true
-                break
-              }
-            } catch (e) {
-              // Methods not ready yet
-            }
-            await new Promise(resolve => setTimeout(resolve, 100))
-            attempts++
-          }
-
-          if (!methodsAvailable) {
-            console.warn('OneSignal methods not available after waiting')
-            return
-          }
-
           // Get current player ID for logging
           const playerId = await window.OneSignal.getPlayerId()
           console.log('Current OneSignal player ID:', playerId)
@@ -172,14 +189,12 @@ export function OneSignalInit() {
           }
 
           // Check if user is already subscribed
-          if (typeof window.OneSignal.isPushNotificationsEnabled === 'function') {
-            const isSubscribed = await window.OneSignal.isPushNotificationsEnabled()
-            console.log('User push notification status:', isSubscribed)
+          const isSubscribed = await window.OneSignal.isPushNotificationsEnabled()
+          console.log('User push notification status:', isSubscribed)
 
-            // If not subscribed, we can show a prompt later
-            if (!isSubscribed) {
-              console.log('User is not subscribed to push notifications')
-            }
+          // If not subscribed, we can show a prompt later
+          if (!isSubscribed) {
+            console.log('User is not subscribed to push notifications')
           }
 
         } catch (setExternalUserIdError) {
@@ -190,40 +205,41 @@ export function OneSignalInit() {
 
     const setupEventListeners = () => {
       try {
+        console.log('Setting up OneSignal event listeners...')
+        
         // Listen for subscription changes
-        if (typeof window.OneSignal.on === 'function') {
-          window.OneSignal.on('subscriptionChange', function(isSubscribed: boolean) {
-            console.log('OneSignal subscription changed:', isSubscribed)
+        window.OneSignal.on('subscriptionChange', function(isSubscribed: boolean) {
+          console.log('OneSignal subscription changed:', isSubscribed)
+          
+          if (isSubscribed) {
+            console.log('User subscribed to push notifications!')
             
-            if (isSubscribed) {
-              console.log('User subscribed to push notifications!')
-              
-              // If user is logged in, immediately set their external user ID
-              if (user?.id) {
-                window.OneSignal.setExternalUserId(user.id).then(() => {
-                  console.log('External user ID set after subscription change')
-                }).catch((error: any) => {
-                  console.error('Failed to set external user ID after subscription:', error)
-                })
-              }
-            } else {
-              console.log('User unsubscribed from push notifications')
+            // If user is logged in, immediately set their external user ID
+            if (user?.id) {
+              window.OneSignal.setExternalUserId(user.id).then(() => {
+                console.log('External user ID set after subscription change')
+              }).catch((error: any) => {
+                console.error('Failed to set external user ID after subscription:', error)
+              })
             }
-          })
+          } else {
+            console.log('User unsubscribed from push notifications')
+          }
+        })
 
-          // Listen for notification clicks
-          window.OneSignal.on('notificationClick', function(event: any) {
-            console.log('OneSignal notification clicked:', event)
-            
-            // Handle notification click based on the data
-            if (event.data && event.data.type === 'daily_motivation') {
-              // Navigate to the home page or show fusion generator
-              window.location.href = '/'
-            }
-          })
-        } else {
-          console.warn('OneSignal.on method not available for setting up event listeners')
-        }
+        // Listen for notification clicks
+        window.OneSignal.on('notificationClick', function(event: any) {
+          console.log('OneSignal notification clicked:', event)
+          
+          // Handle notification click based on the data
+          if (event.data && event.data.type === 'daily_motivation') {
+            // Navigate to the home page or show fusion generator
+            window.location.href = '/'
+          }
+        })
+        
+        console.log('OneSignal event listeners set up successfully!')
+        
       } catch (error) {
         console.error('Error setting up OneSignal event listeners:', error)
       }
@@ -242,7 +258,7 @@ export function OneSignalInit() {
   return null // This component doesn't render anything
 }
 
-// Helper function to wait for OneSignal to be available
+// Helper function to wait for OneSignal to be available with methods
 async function waitForOneSignal(): Promise<boolean> {
   if (typeof window === 'undefined') return false
   
@@ -257,12 +273,13 @@ async function waitForOneSignal(): Promise<boolean> {
   if (window.OneSignal) {
     // Also wait for methods to be available
     let methodsAttempts = 0
-    const maxMethodsAttempts = 30
+    const maxMethodsAttempts = 50 // Increased timeout
     
     while (methodsAttempts < maxMethodsAttempts) {
       try {
         if (typeof window.OneSignal.isPushNotificationsEnabled === 'function' &&
-            typeof window.OneSignal.requestPermission === 'function') {
+            typeof window.OneSignal.requestPermission === 'function' &&
+            typeof window.OneSignal.setSubscription === 'function') {
           return true
         }
       } catch (e) {

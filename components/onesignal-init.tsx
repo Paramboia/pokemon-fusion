@@ -51,13 +51,42 @@ export function OneSignalInit() {
 
         console.log('OneSignal initialized successfully!')
 
-        // Set external user ID when user is loaded
+        // Set external user ID when user is loaded and logged in
         if (isLoaded && user) {
           const externalUserId = user.id
           console.log('Setting OneSignal external user ID:', externalUserId)
           
-          await OneSignal.setExternalUserId(externalUserId)
-          console.log('OneSignal external user ID set successfully')
+          try {
+            // Get current player ID for logging
+            const playerId = await OneSignal.getPlayerId()
+            console.log('Current OneSignal player ID:', playerId)
+            
+            // Set the external user ID to link this subscription to our user
+            await OneSignal.setExternalUserId(externalUserId)
+            console.log('OneSignal external user ID set successfully')
+
+            // Also send this information to our backend for tracking
+            try {
+              await fetch('/api/notifications/link-user', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  clerkUserId: externalUserId,
+                  oneSignalPlayerId: playerId,
+                  userEmail: user.primaryEmailAddress?.emailAddress
+                })
+              })
+              console.log('User linking info sent to backend')
+            } catch (linkError) {
+              console.warn('Failed to send user linking info to backend:', linkError)
+              // Don't fail the whole process if backend linking fails
+            }
+
+          } catch (setExternalUserIdError) {
+            console.error('Failed to set OneSignal external user ID:', setExternalUserIdError)
+          }
 
           // Check if user is already subscribed
           const isSubscribed = await OneSignal.isPushNotificationsEnabled()
@@ -76,7 +105,15 @@ export function OneSignalInit() {
           
           if (isSubscribed) {
             console.log('User subscribed to push notifications!')
-            // You can track this event or show a success message
+            
+            // If user is logged in, immediately set their external user ID
+            if (user?.id) {
+              OneSignal.setExternalUserId(user.id).then(() => {
+                console.log('External user ID set after subscription change')
+              }).catch((error: any) => {
+                console.error('Failed to set external user ID after subscription:', error)
+              })
+            }
           } else {
             console.log('User unsubscribed from push notifications')
           }
@@ -124,4 +161,22 @@ export async function promptForNotifications() {
     }
   }
   return false
+}
+
+// Helper function to manually link user if they're already subscribed
+export async function linkCurrentUser() {
+  if (typeof window !== 'undefined' && window.OneSignal) {
+    try {
+      const playerId = await window.OneSignal.getPlayerId()
+      const isSubscribed = await window.OneSignal.isPushNotificationsEnabled()
+      
+      console.log('Current subscription status:', { playerId, isSubscribed })
+      
+      return { playerId, isSubscribed }
+    } catch (error) {
+      console.error('Error checking current user subscription:', error)
+      return null
+    }
+  }
+  return null
 } 

@@ -4,6 +4,7 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { Toaster } from "@/components/ui/sonner";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { registerServiceWorker } from "@/app/register-sw";
@@ -84,6 +85,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         </main>
         <Footer />
         {isMounted && <PwaInstallPrompt />}
+        <Toaster />
       </div>
     </div>
   );

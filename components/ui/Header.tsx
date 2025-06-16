@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { UserButton } from "@/components/ui/user-button";
 import { CreditBalance } from "@/components/CreditBalance";
+import { NotificationDropdown } from "@/components/notification-dropdown";
 import { event as gaEvent } from "@/lib/gtag";
 
 export function Header() {
@@ -114,6 +115,7 @@ export function Header() {
                 )
               )}
             </button>
+            <NotificationDropdown />
             <CreditBalance />
             <UserButton />
             <button
@@ -175,6 +177,9 @@ export function Header() {
               <Palette className="h-5 w-5 mr-2" />
               <span>Gallery</span>
             </Link>
+            <div className="px-3 py-2">
+              <NotificationDropdown />
+            </div>
           </div>
         )}
       </div>

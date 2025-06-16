@@ -59,6 +59,50 @@ export function NotificationDropdown() {
     }
   }, [])
 
+  // Helper function to refresh subscription status
+  const refreshSubscriptionStatus = async () => {
+    try {
+      const subscribed = await executeOneSignalCommand(async (OneSignal) => {
+        // Check OneSignal v16 subscription status
+        if (typeof OneSignal.User?.PushSubscription?.optedIn === 'boolean') {
+          console.log('Refreshed OneSignal subscription status (optedIn):', OneSignal.User.PushSubscription.optedIn)
+          return OneSignal.User.PushSubscription.optedIn
+        }
+        
+        // Fallback: Check browser permission and OneSignal permission
+        let browserPermission = 'default'
+        if (typeof OneSignal.Notifications?.permission === 'string') {
+          browserPermission = OneSignal.Notifications.permission
+        } else if (typeof Notification !== 'undefined') {
+          browserPermission = Notification.permission
+        }
+        
+        // If browser permission is denied, definitely not subscribed
+        if (browserPermission === 'denied') {
+          return false
+        }
+        
+        // If browser permission is granted, check if OneSignal subscription is active
+        if (browserPermission === 'granted') {
+          // Try to get subscription ID to verify active subscription
+          if (OneSignal.User?.PushSubscription?.id) {
+            return true
+          }
+          return false
+        }
+        
+        return false
+      })
+      
+      console.log('Refreshed subscription status:', subscribed)
+      setIsSubscribed(subscribed)
+      return subscribed
+    } catch (error) {
+      console.error('Error refreshing subscription status:', error)
+      return isSubscribed // Return current state if refresh fails
+    }
+  }
+
   // Check subscription status when component mounts
   useEffect(() => {
     const checkSubscriptionStatus = async () => {
@@ -66,19 +110,45 @@ export function NotificationDropdown() {
       
       try {
         const subscribed = await executeOneSignalCommand(async (OneSignal) => {
-          // Try different methods that might be available in v16
+          // Check OneSignal v16 subscription status
           if (typeof OneSignal.User?.PushSubscription?.optedIn === 'boolean') {
+            console.log('OneSignal subscription status (optedIn):', OneSignal.User.PushSubscription.optedIn)
             return OneSignal.User.PushSubscription.optedIn
           }
           
+          // Fallback: Check browser permission and OneSignal permission
+          let browserPermission = 'default'
           if (typeof OneSignal.Notifications?.permission === 'string') {
-            return OneSignal.Notifications.permission === 'granted'
+            browserPermission = OneSignal.Notifications.permission
+            console.log('Browser notification permission:', browserPermission)
+          } else if (typeof Notification !== 'undefined') {
+            browserPermission = Notification.permission
+            console.log('Native browser notification permission:', browserPermission)
           }
-
-          // Fallback: assume subscribed since you're receiving notifications
-          return true
+          
+          // If browser permission is denied, definitely not subscribed
+          if (browserPermission === 'denied') {
+            return false
+          }
+          
+          // If browser permission is granted, check if OneSignal subscription is active
+          if (browserPermission === 'granted') {
+            // Try to get subscription ID to verify active subscription
+            if (OneSignal.User?.PushSubscription?.id) {
+              console.log('OneSignal player ID exists:', OneSignal.User.PushSubscription.id)
+              return true
+            }
+            
+            // If we have permission but no subscription ID, might be opted out
+            console.log('Browser permission granted but no OneSignal subscription ID')
+            return false
+          }
+          
+          // Default case: not subscribed
+          return false
         })
         
+        console.log('Final subscription status:', subscribed)
         setIsSubscribed(subscribed)
         
         // Track initial subscription status
@@ -90,8 +160,20 @@ export function NotificationDropdown() {
         })
       } catch (error) {
         console.error('Error checking OneSignal subscription status:', error)
-        // Since you're receiving notifications, assume subscribed
-        setIsSubscribed(true)
+        
+        // Fallback: Check browser permission directly
+        try {
+          if (typeof Notification !== 'undefined') {
+            const browserPermission = Notification.permission
+            console.log('Fallback: Browser permission is', browserPermission)
+            setIsSubscribed(browserPermission === 'granted')
+          } else {
+            setIsSubscribed(false)
+          }
+        } catch (fallbackError) {
+          console.error('Fallback permission check failed:', fallbackError)
+          setIsSubscribed(false)
+        }
       }
     }
 
@@ -213,7 +295,11 @@ export function NotificationDropdown() {
         })
         
         if (success) {
-          setIsSubscribed(true)
+          // Refresh status after successful enable
+          setTimeout(async () => {
+            await refreshSubscriptionStatus()
+          }, 1000)
+          
           toast.success('Push notifications enabled! You\'ll get daily Pokemon fusion reminders.')
           
           // Track successful notification enable
@@ -236,26 +322,49 @@ export function NotificationDropdown() {
         }
       } else {
         // Disable notifications using v16 pattern
-        await executeOneSignalCommand(async (OneSignal) => {
+        const success = await executeOneSignalCommand(async (OneSignal) => {
+          console.log('Attempting to opt out from OneSignal notifications...')
+          
           if (typeof OneSignal.User?.PushSubscription?.optOut === 'function') {
             await OneSignal.User.PushSubscription.optOut()
+            console.log('OneSignal optOut called successfully')
+            return true
           } else if (typeof OneSignal.Notifications?.setSubscription === 'function') {
             await OneSignal.Notifications.setSubscription(false)
+            console.log('OneSignal setSubscription(false) called successfully')
+            return true
           } else {
-            throw new Error('No opt-out method available')
+            console.warn('No OneSignal opt-out method available')
+            return false
           }
         })
         
-        setIsSubscribed(false)
-        toast.success('Push notifications disabled')
-        
-        // Track successful notification disable
-        gaEvent({
-          action: 'notifications_disabled',
-          category: 'notifications',
-          label: 'success',
-          value: undefined
-        })
+        if (success) {
+          // Refresh status after successful disable
+          setTimeout(async () => {
+            await refreshSubscriptionStatus()
+          }, 1000)
+          
+          toast.success('Push notifications disabled. You won\'t receive daily reminders anymore.')
+          
+          // Track successful notification disable
+          gaEvent({
+            action: 'notifications_disabled',
+            category: 'notifications',
+            label: 'success',
+            value: undefined
+          })
+        } else {
+          toast.error('Failed to disable notifications. Please try again or disable in your browser settings.')
+          
+          // Track failed notification disable
+          gaEvent({
+            action: 'notifications_disable_failed',
+            category: 'notifications',
+            label: 'api_error',
+            value: undefined
+          })
+        }
       }
     } catch (error) {
       console.error('Error toggling notifications:', error)

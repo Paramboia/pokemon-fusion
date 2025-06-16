@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/auth-context'
 
 declare global {
   interface Window {
@@ -14,6 +15,7 @@ declare global {
 
 export function OneSignalInit() {
   const { user, isLoaded } = useUser()
+  const { supabaseUser } = useAuth() // Get Supabase user from auth context
 
   useEffect(() => {
     // Only initialize OneSignal in the browser
@@ -72,11 +74,11 @@ export function OneSignalInit() {
 
             // Set up user linking if user is logged in
             if (isLoaded && user) {
-              await setupUserLinking(OneSignal, user)
+              await setupUserLinking(OneSignal, user, supabaseUser)
             }
 
             // Set up event listeners
-            setupEventListeners(OneSignal)
+            setupEventListeners(OneSignal, user, supabaseUser)
 
           } catch (error) {
             console.error('Error in OneSignal initialization:', error)
@@ -90,14 +92,16 @@ export function OneSignalInit() {
       }
     }
 
-    const setupUserLinking = async (OneSignal: any, user: any) => {
+    const setupUserLinking = async (OneSignal: any, user: any, supabaseUser: any) => {
       try {
-        console.log('Setting up user linking for:', user.id)
+        // Prefer Supabase user ID over Clerk ID
+        const externalUserId = supabaseUser?.id || user.id
+        console.log('Setting up user linking for:', externalUserId, '(Supabase ID preferred)')
         
         // Use OneSignal v16 login method to set external user ID
         if (typeof OneSignal.login === 'function') {
-          await OneSignal.login(user.id)
-          console.log('OneSignal user logged in with external ID:', user.id)
+          await OneSignal.login(externalUserId)
+          console.log('OneSignal user logged in with external ID (Supabase):', externalUserId)
         } else {
           console.warn('OneSignal.login method not available')
         }
@@ -117,11 +121,12 @@ export function OneSignalInit() {
             },
             body: JSON.stringify({
               clerkUserId: user.id,
+              supabaseUserId: supabaseUser?.id,
               oneSignalPlayerId: playerId,
               userEmail: user.primaryEmailAddress?.emailAddress
             })
           })
-          console.log('User linking info sent to backend')
+          console.log('User linking info sent to backend with Supabase ID')
         } catch (linkError) {
           console.warn('Failed to send user linking info to backend:', linkError)
           // Don't fail the whole process if backend linking fails
@@ -132,7 +137,7 @@ export function OneSignalInit() {
       }
     }
 
-    const setupEventListeners = (OneSignal: any) => {
+    const setupEventListeners = (OneSignal: any, user: any, supabaseUser: any) => {
       try {
         console.log('Setting up OneSignal event listeners...')
         
@@ -141,10 +146,11 @@ export function OneSignalInit() {
           OneSignal.User.PushSubscription.addEventListener('change', function(event: any) {
             console.log('OneSignal subscription changed:', event)
             
-            if (event.current.optedIn && user?.id) {
-              // User subscribed, make sure they're logged in
-              OneSignal.login(user.id).then(() => {
-                console.log('External user ID set after subscription change')
+            if (event.current.optedIn && (supabaseUser?.id || user?.id)) {
+              // User subscribed, make sure they're logged in with the correct ID
+              const externalUserId = supabaseUser?.id || user.id
+              OneSignal.login(externalUserId).then(() => {
+                console.log('External user ID set after subscription change (Supabase):', externalUserId)
               }).catch((error: any) => {
                 console.error('Failed to set external user ID after subscription:', error)
               })
@@ -180,7 +186,7 @@ export function OneSignalInit() {
       // Don't reset the initialization flag on cleanup as OneSignal should persist
     }
 
-  }, [isLoaded, user])
+  }, [isLoaded, user, supabaseUser]) // Added supabaseUser to dependencies
 
   return null // This component doesn't render anything
 }

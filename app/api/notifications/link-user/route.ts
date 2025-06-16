@@ -5,7 +5,7 @@ export const runtime = 'edge'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { clerkUserId, oneSignalPlayerId, userEmail } = body
+    const { clerkUserId, supabaseUserId, oneSignalPlayerId, userEmail } = body
 
     // Add proper response headers
     const headers = {
@@ -15,10 +15,11 @@ export async function POST(request: Request) {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     }
 
-    // Validate required fields
-    if (!clerkUserId || !oneSignalPlayerId) {
+    // Validate required fields - prefer Supabase ID but allow Clerk ID as fallback
+    const primaryUserId = supabaseUserId || clerkUserId
+    if (!primaryUserId || !oneSignalPlayerId) {
       return NextResponse.json(
-        { error: 'Missing required fields: clerkUserId and oneSignalPlayerId' },
+        { error: 'Missing required fields: (supabaseUserId or clerkUserId) and oneSignalPlayerId' },
         { status: 400, headers }
       )
     }
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
     // Log the user linking for debugging
     console.log('User linking notification received:', {
       clerkUserId,
+      supabaseUserId,
+      primaryUserId,
       oneSignalPlayerId,
       userEmail,
       timestamp: new Date().toISOString()
@@ -37,6 +40,30 @@ export async function POST(request: Request) {
 
     if (restApiKey && appId) {
       try {
+        // Prepare tags with both IDs for comprehensive tracking
+        const tags: Record<string, string> = {
+          user_email: userEmail || '',
+          last_linked: new Date().toISOString(),
+          source: 'pokemon_fusion_app'
+        }
+
+        // Add Supabase ID as primary identifier
+        if (supabaseUserId) {
+          tags.supabase_user_id = supabaseUserId
+          tags.primary_user_id = supabaseUserId
+        }
+
+        // Add Clerk ID as secondary identifier
+        if (clerkUserId) {
+          tags.clerk_user_id = clerkUserId
+          // Only use Clerk ID as primary if no Supabase ID
+          if (!supabaseUserId) {
+            tags.primary_user_id = clerkUserId
+          }
+        }
+
+        console.log('Updating OneSignal player with tags:', tags)
+
         // Update the OneSignal player with additional user information
         const updateResponse = await fetch(`https://onesignal.com/api/v1/players/${oneSignalPlayerId}`, {
           method: 'PUT',
@@ -46,19 +73,16 @@ export async function POST(request: Request) {
           },
           body: JSON.stringify({
             app_id: appId,
-            tags: {
-              clerk_user_id: clerkUserId,
-              user_email: userEmail || '',
-              last_linked: new Date().toISOString(),
-              source: 'pokemon_fusion_app'
-            }
+            tags
           }),
         })
 
         if (updateResponse.ok) {
-          console.log('Successfully updated OneSignal player with tags')
+          const updateData = await updateResponse.json()
+          console.log('Successfully updated OneSignal player with tags:', updateData)
         } else {
-          console.warn('Failed to update OneSignal player with tags:', await updateResponse.text())
+          const errorText = await updateResponse.text()
+          console.warn('Failed to update OneSignal player with tags:', errorText)
         }
       } catch (updateError) {
         console.warn('Error updating OneSignal player:', updateError)
@@ -71,6 +95,8 @@ export async function POST(request: Request) {
       message: 'User linking recorded successfully',
       data: {
         clerkUserId,
+        supabaseUserId,
+        primaryUserId,
         oneSignalPlayerId,
         timestamp: new Date().toISOString()
       }

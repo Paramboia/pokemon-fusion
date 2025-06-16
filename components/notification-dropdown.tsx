@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Bell, BellOff, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/auth-context'
 import { toast } from 'sonner'
 
 declare global {
@@ -19,6 +20,7 @@ export function NotificationDropdown() {
   const [isLoading, setIsLoading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { user, isLoaded } = useUser()
+  const { supabaseUser } = useAuth() // Get Supabase user from auth context
 
   // Helper function to execute OneSignal commands using the deferred pattern
   const executeOneSignalCommand = (command: (OneSignal: any) => Promise<any>): Promise<any> => {
@@ -107,13 +109,36 @@ export function NotificationDropdown() {
           if (typeof OneSignal.Notifications?.requestPermission === 'function') {
             const granted = await OneSignal.Notifications.requestPermission()
             
-            // Set external user ID when user subscribes
-            if (granted && user?.id && typeof OneSignal.login === 'function') {
-              try {
-                await OneSignal.login(user.id)
-                console.log('User logged in with external ID:', user.id)
-              } catch (loginError) {
-                console.warn('Failed to set external user ID:', loginError)
+            // Set external user ID when user subscribes - prefer Supabase ID
+            if (granted) {
+              const externalUserId = supabaseUser?.id || user?.id
+              if (externalUserId && typeof OneSignal.login === 'function') {
+                try {
+                  await OneSignal.login(externalUserId)
+                  console.log('User logged in with external ID (Supabase):', externalUserId)
+                  
+                  // Also send this information to our backend for tracking
+                  try {
+                    const playerId = OneSignal.User?.PushSubscription?.id || null
+                    await fetch('/api/notifications/link-user', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        clerkUserId: user?.id,
+                        supabaseUserId: supabaseUser?.id,
+                        oneSignalPlayerId: playerId,
+                        userEmail: user?.primaryEmailAddress?.emailAddress
+                      })
+                    })
+                    console.log('User linking info sent to backend with Supabase ID')
+                  } catch (linkError) {
+                    console.warn('Failed to send user linking info to backend:', linkError)
+                  }
+                } catch (loginError) {
+                  console.warn('Failed to set external user ID:', loginError)
+                }
               }
             }
             
@@ -121,11 +146,32 @@ export function NotificationDropdown() {
           } else if (typeof OneSignal.User?.PushSubscription?.optIn === 'function') {
             await OneSignal.User.PushSubscription.optIn()
             
-            // Set external user ID when user subscribes
-            if (user?.id && typeof OneSignal.login === 'function') {
+            // Set external user ID when user subscribes - prefer Supabase ID
+            const externalUserId = supabaseUser?.id || user?.id
+            if (externalUserId && typeof OneSignal.login === 'function') {
               try {
-                await OneSignal.login(user.id)
-                console.log('User logged in with external ID:', user.id)
+                await OneSignal.login(externalUserId)
+                console.log('User logged in with external ID (Supabase):', externalUserId)
+                
+                // Also send this information to our backend for tracking
+                try {
+                  const playerId = OneSignal.User?.PushSubscription?.id || null
+                  await fetch('/api/notifications/link-user', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      clerkUserId: user?.id,
+                      supabaseUserId: supabaseUser?.id,
+                      oneSignalPlayerId: playerId,
+                      userEmail: user?.primaryEmailAddress?.emailAddress
+                    })
+                  })
+                  console.log('User linking info sent to backend with Supabase ID')
+                } catch (linkError) {
+                  console.warn('Failed to send user linking info to backend:', linkError)
+                }
               } catch (loginError) {
                 console.warn('Failed to set external user ID:', loginError)
               }

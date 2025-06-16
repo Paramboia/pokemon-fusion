@@ -82,7 +82,7 @@ export async function sendNotificationToAll({
   }
 }
 
-// Send notification to specific user
+// Send notification to specific user by external user ID (Supabase or Clerk ID)
 export async function sendNotification({
   userId,
   title,
@@ -90,7 +90,7 @@ export async function sendNotification({
   url,
   data,
 }: {
-  userId: string
+  userId: string // This should be the Supabase user ID (preferred) or Clerk ID
   title: string
   message: string
   url?: string
@@ -116,6 +116,68 @@ export async function sendNotification({
     return { success: true, id: response.id }
   } catch (error) {
     console.error('Error sending OneSignal notification:', error)
+    throw error
+  }
+}
+
+// Send notification to specific user by Supabase user ID
+export async function sendNotificationToSupabaseUser({
+  supabaseUserId,
+  title,
+  message,
+  url,
+  data,
+}: {
+  supabaseUserId: string
+  title: string
+  message: string
+  url?: string
+  data?: Record<string, any>
+}) {
+  console.log('Sending notification to Supabase user:', supabaseUserId)
+  return await sendNotification({
+    userId: supabaseUserId,
+    title,
+    message,
+    url,
+    data
+  })
+}
+
+// Send notification to multiple users by their Supabase user IDs
+export async function sendNotificationToSupabaseUsers({
+  supabaseUserIds,
+  title,
+  message,
+  url,
+  data,
+}: {
+  supabaseUserIds: string[]
+  title: string
+  message: string
+  url?: string
+  data?: Record<string, any>
+}) {
+  try {
+    const notification = new OneSignal.Notification()
+    notification.app_id = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''
+    notification.contents = { en: message }
+    notification.headings = { en: title }
+    notification.include_external_user_ids = supabaseUserIds
+    
+    if (url) {
+      notification.url = url
+    }
+    
+    if (data) {
+      notification.data = data
+    }
+
+    const response = await client.createNotification(notification)
+    console.log('OneSignal notification sent to multiple Supabase users successfully:', response)
+    return { success: true, id: response.id, recipients: response.recipients }
+  } catch (error) {
+    console.error('Error sending OneSignal notification to multiple users:', error)
     throw error
   }
 }

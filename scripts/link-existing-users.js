@@ -9,6 +9,9 @@
  * 2. Run: node scripts/link-existing-users.js
  */
 
+// Load environment variables from .env.local
+require('dotenv').config({ path: '.env.local' })
+
 const ONESIGNAL_APP_ID = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL

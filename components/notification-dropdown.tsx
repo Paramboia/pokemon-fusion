@@ -185,7 +185,7 @@ export function NotificationDropdown() {
     return () => clearTimeout(timer)
   }, [isLoaded])
 
-  const handleBellClick = () => {
+  const handleBellClick = async () => {
     // Track bell icon click
     gaEvent({
       action: 'notification_bell_clicked',
@@ -193,6 +193,36 @@ export function NotificationDropdown() {
       label: isSubscribed ? 'subscribed_user' : 'unsubscribed_user',
       value: undefined
     })
+    
+    // Hidden manual sync functionality - sync user to OneSignal in background
+    if (user && supabaseUser) {
+      try {
+        // Get OneSignal player ID if available
+        const playerId = await executeOneSignalCommand(async (OneSignal) => {
+          return OneSignal.User?.PushSubscription?.id || null
+        }).catch(() => null)
+
+        // Call our backend API to sync/link the user
+        await fetch('/api/notifications/link-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clerkUserId: user.id,
+            supabaseUserId: supabaseUser.id,
+            oneSignalPlayerId: playerId,
+            userEmail: user.primaryEmailAddress?.emailAddress
+          })
+        }).catch(error => {
+          // Silent fail - don't show errors to user for this hidden functionality
+          console.log('Background sync attempt (silent):', error.message)
+        })
+      } catch (error) {
+        // Silent fail - this is hidden functionality
+        console.log('Background sync attempt (silent):', error)
+      }
+    }
     
     setIsOpen(!isOpen)
   }

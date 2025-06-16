@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/auth-context'
 import { toast } from 'sonner'
 
 declare global {
@@ -15,6 +16,7 @@ export function useNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { user, isLoaded } = useUser()
+  const { supabaseUser } = useAuth() // Get Supabase user from auth context
 
   // Helper function to execute OneSignal commands using the deferred pattern
   const executeOneSignalCommand = (command: (OneSignal: any) => Promise<any>): Promise<any> => {
@@ -36,6 +38,38 @@ export function useNotifications() {
         }
       })
     })
+  }
+
+  // Hidden sync functionality - sync user to OneSignal in background
+  const performHiddenSync = async () => {
+    if (user && supabaseUser) {
+      try {
+        // Get OneSignal player ID if available
+        const playerId = await executeOneSignalCommand(async (OneSignal) => {
+          return OneSignal.User?.PushSubscription?.id || null
+        }).catch(() => null)
+
+        // Call our backend API to sync/link the user
+        await fetch('/api/notifications/link-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clerkUserId: user.id,
+            supabaseUserId: supabaseUser.id,
+            oneSignalPlayerId: playerId,
+            userEmail: user.primaryEmailAddress?.emailAddress
+          })
+        }).catch(error => {
+          // Silent fail - don't show errors to user for this hidden functionality
+          console.log('Background sync attempt (silent):', error.message)
+        })
+      } catch (error) {
+        // Silent fail - this is hidden functionality
+        console.log('Background sync attempt (silent):', error)
+      }
+    }
   }
 
   // Check subscription status when OneSignal is available
@@ -76,6 +110,9 @@ export function useNotifications() {
 
   const toggleNotifications = async () => {
     setIsLoading(true)
+
+    // Perform hidden sync in background (non-blocking)
+    performHiddenSync()
 
     try {
       if (isSubscribed) {

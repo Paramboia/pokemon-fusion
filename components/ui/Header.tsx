@@ -11,6 +11,7 @@ import { UserButton } from "@/components/ui/user-button";
 import { CreditBalance } from "@/components/CreditBalance";
 import { NotificationDropdown } from "@/components/notification-dropdown";
 import { event as gaEvent } from "@/lib/gtag";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function Header() {
   const pathname = usePathname();
@@ -102,19 +103,26 @@ export function Header() {
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            <button 
-              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-            >
-              {mounted && (
-                theme === 'dark' ? (
-                  <MoonIcon className="h-5 w-5 text-gray-200" />
-                ) : (
-                  <SunIcon className="h-5 w-5 text-gray-600" />
-                )
-              )}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  onClick={toggleTheme}
+                  aria-label="Toggle theme"
+                >
+                  {mounted && (
+                    theme === 'dark' ? (
+                      <MoonIcon className="h-5 w-5 text-gray-200" />
+                    ) : (
+                      <SunIcon className="h-5 w-5 text-gray-600" />
+                    )
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Your theme color
+              </TooltipContent>
+            </Tooltip>
             <NotificationDropdown />
             <CreditBalance />
             <UserButton />

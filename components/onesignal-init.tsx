@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useAuth } from '@/contexts/auth-context'
+import { event as gaEvent } from '@/lib/gtag'
 
 declare global {
   interface Window {
@@ -39,6 +40,14 @@ export function OneSignalInit() {
         script.onerror = () => {
           console.error('Failed to load OneSignal SDK')
           window._oneSignalInitializing = false
+          
+          // Track OneSignal SDK load failure
+          gaEvent({
+            action: 'onesignal_sdk_load_failed',
+            category: 'notifications',
+            label: 'script_error',
+            value: undefined
+          })
         }
         document.head.appendChild(script)
       } else {
@@ -72,6 +81,14 @@ export function OneSignalInit() {
             window._oneSignalInitialized = true
             window._oneSignalInitializing = false
 
+            // Track successful OneSignal initialization
+            gaEvent({
+              action: 'onesignal_initialized',
+              category: 'notifications',
+              label: 'success',
+              value: undefined
+            })
+
             // Set up user linking if user is logged in
             if (isLoaded && user) {
               await setupUserLinking(OneSignal, user, supabaseUser)
@@ -83,12 +100,28 @@ export function OneSignalInit() {
           } catch (error) {
             console.error('Error in OneSignal initialization:', error)
             window._oneSignalInitializing = false
+            
+            // Track OneSignal initialization failure
+            gaEvent({
+              action: 'onesignal_init_failed',
+              category: 'notifications',
+              label: error instanceof Error ? error.message : 'unknown_error',
+              value: undefined
+            })
           }
         })
 
       } catch (error) {
         console.error('Error setting up OneSignal initialization:', error)
         window._oneSignalInitializing = false
+        
+        // Track OneSignal setup failure
+        gaEvent({
+          action: 'onesignal_setup_failed',
+          category: 'notifications',
+          label: error instanceof Error ? error.message : 'unknown_error',
+          value: undefined
+        })
       }
     }
 
@@ -102,8 +135,24 @@ export function OneSignalInit() {
         if (typeof OneSignal.login === 'function') {
           await OneSignal.login(externalUserId)
           console.log('OneSignal user logged in with external ID (Supabase):', externalUserId)
+          
+          // Track successful user linking
+          gaEvent({
+            action: 'onesignal_user_linked',
+            category: 'notifications',
+            label: supabaseUser?.id ? 'supabase_id' : 'clerk_id',
+            value: undefined
+          })
         } else {
           console.warn('OneSignal.login method not available')
+          
+          // Track user linking failure
+          gaEvent({
+            action: 'onesignal_user_link_failed',
+            category: 'notifications',
+            label: 'login_method_unavailable',
+            value: undefined
+          })
         }
 
         // Also send this information to our backend for tracking
@@ -127,13 +176,37 @@ export function OneSignalInit() {
             })
           })
           console.log('User linking info sent to backend with Supabase ID')
+          
+          // Track successful backend linking
+          gaEvent({
+            action: 'onesignal_backend_link_success',
+            category: 'notifications',
+            label: 'api_call_success',
+            value: undefined
+          })
         } catch (linkError) {
           console.warn('Failed to send user linking info to backend:', linkError)
+          
+          // Track backend linking failure
+          gaEvent({
+            action: 'onesignal_backend_link_failed',
+            category: 'notifications',
+            label: linkError instanceof Error ? linkError.message : 'unknown_error',
+            value: undefined
+          })
           // Don't fail the whole process if backend linking fails
         }
 
       } catch (error) {
         console.error('Failed to set up user linking:', error)
+        
+        // Track user linking setup failure
+        gaEvent({
+          action: 'onesignal_user_setup_failed',
+          category: 'notifications',
+          label: error instanceof Error ? error.message : 'unknown_error',
+          value: undefined
+        })
       }
     }
 
@@ -146,13 +219,37 @@ export function OneSignalInit() {
           OneSignal.User.PushSubscription.addEventListener('change', function(event: any) {
             console.log('OneSignal subscription changed:', event)
             
+            // Track subscription change
+            gaEvent({
+              action: 'onesignal_subscription_changed',
+              category: 'notifications',
+              label: event.current?.optedIn ? 'subscribed' : 'unsubscribed',
+              value: undefined
+            })
+            
             if (event.current.optedIn && (supabaseUser?.id || user?.id)) {
               // User subscribed, make sure they're logged in with the correct ID
               const externalUserId = supabaseUser?.id || user.id
               OneSignal.login(externalUserId).then(() => {
                 console.log('External user ID set after subscription change (Supabase):', externalUserId)
+                
+                // Track successful re-linking after subscription
+                gaEvent({
+                  action: 'onesignal_relink_after_subscription',
+                  category: 'notifications',
+                  label: 'success',
+                  value: undefined
+                })
               }).catch((error: any) => {
                 console.error('Failed to set external user ID after subscription:', error)
+                
+                // Track failed re-linking after subscription
+                gaEvent({
+                  action: 'onesignal_relink_failed',
+                  category: 'notifications',
+                  label: error.message || 'unknown_error',
+                  value: undefined
+                })
               })
             }
           })
@@ -163,8 +260,24 @@ export function OneSignalInit() {
           OneSignal.Notifications.addEventListener('click', function(event: any) {
             console.log('OneSignal notification clicked:', event)
             
+            // Track notification click with details
+            gaEvent({
+              action: 'notification_clicked',
+              category: 'notifications',
+              label: event.notification?.data?.type || 'unknown_type',
+              value: undefined
+            })
+            
             // Handle notification click based on the data
             if (event.notification?.data?.type === 'daily_motivation') {
+              // Track specific daily motivation click
+              gaEvent({
+                action: 'daily_notification_clicked',
+                category: 'engagement',
+                label: 'daily_motivation',
+                value: undefined
+              })
+              
               // Navigate to the home page or show fusion generator
               window.location.href = '/'
             }
@@ -173,8 +286,24 @@ export function OneSignalInit() {
         
         console.log('OneSignal event listeners set up successfully!')
         
+        // Track successful event listener setup
+        gaEvent({
+          action: 'onesignal_listeners_setup',
+          category: 'notifications',
+          label: 'success',
+          value: undefined
+        })
+        
       } catch (error) {
         console.error('Error setting up OneSignal event listeners:', error)
+        
+        // Track event listener setup failure
+        gaEvent({
+          action: 'onesignal_listeners_setup_failed',
+          category: 'notifications',
+          label: error instanceof Error ? error.message : 'unknown_error',
+          value: undefined
+        })
       }
     }
 

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useUser } from '@clerk/nextjs'
 import { useAuth } from '@/contexts/auth-context'
 import { toast } from 'sonner'
+import { event as gaEvent } from '@/lib/gtag'
 
 declare global {
   interface Window {
@@ -79,6 +80,14 @@ export function NotificationDropdown() {
         })
         
         setIsSubscribed(subscribed)
+        
+        // Track initial subscription status
+        gaEvent({
+          action: 'notification_status_checked',
+          category: 'notifications',
+          label: subscribed ? 'subscribed' : 'not_subscribed',
+          value: undefined
+        })
       } catch (error) {
         console.error('Error checking OneSignal subscription status:', error)
         // Since you're receiving notifications, assume subscribed
@@ -94,6 +103,18 @@ export function NotificationDropdown() {
     return () => clearTimeout(timer)
   }, [isLoaded])
 
+  const handleBellClick = () => {
+    // Track bell icon click
+    gaEvent({
+      action: 'notification_bell_clicked',
+      category: 'notifications',
+      label: isSubscribed ? 'subscribed_user' : 'unsubscribed_user',
+      value: undefined
+    })
+    
+    setIsOpen(!isOpen)
+  }
+
   const handleOptionClick = async (enable: boolean) => {
     if (enable === isSubscribed) {
       setIsOpen(false)
@@ -101,6 +122,14 @@ export function NotificationDropdown() {
     }
 
     setIsLoading(true)
+
+    // Track the attempt to change notification settings
+    gaEvent({
+      action: 'notification_setting_change_attempt',
+      category: 'notifications',
+      label: enable ? 'enable_attempt' : 'disable_attempt',
+      value: undefined
+    })
 
     try {
       if (enable) {
@@ -186,8 +215,24 @@ export function NotificationDropdown() {
         if (success) {
           setIsSubscribed(true)
           toast.success('Push notifications enabled! You\'ll get daily Pokemon fusion reminders.')
+          
+          // Track successful notification enable
+          gaEvent({
+            action: 'notifications_enabled',
+            category: 'notifications',
+            label: 'success',
+            value: undefined
+          })
         } else {
           toast.error('Permission denied. You can enable notifications in your browser settings.')
+          
+          // Track failed notification enable
+          gaEvent({
+            action: 'notifications_enable_failed',
+            category: 'notifications',
+            label: 'permission_denied',
+            value: undefined
+          })
         }
       } else {
         // Disable notifications using v16 pattern
@@ -203,10 +248,26 @@ export function NotificationDropdown() {
         
         setIsSubscribed(false)
         toast.success('Push notifications disabled')
+        
+        // Track successful notification disable
+        gaEvent({
+          action: 'notifications_disabled',
+          category: 'notifications',
+          label: 'success',
+          value: undefined
+        })
       }
     } catch (error) {
       console.error('Error toggling notifications:', error)
       toast.error('Failed to update notification settings. Please try again.')
+      
+      // Track error in notification settings change
+      gaEvent({
+        action: 'notification_setting_error',
+        category: 'notifications',
+        label: enable ? 'enable_error' : 'disable_error',
+        value: undefined
+      })
     } finally {
       setIsLoading(false)
     }
@@ -223,7 +284,7 @@ export function NotificationDropdown() {
     <div className="relative" ref={dropdownRef}>
       <button
         className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleBellClick}
         aria-label="Notification settings"
         disabled={isLoading}
       >

@@ -189,7 +189,7 @@ export function NotificationDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
           <div className="py-1">
             <button
               onClick={() => handleOptionClick(true)}
@@ -224,7 +224,7 @@ export function NotificationDropdown() {
           
           {/* Optional: Show current status */}
           <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-2">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
               Status: {isSubscribed ? 'Enabled' : 'Disabled'}
             </p>
           </div>

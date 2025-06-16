@@ -177,9 +177,6 @@ export function Header() {
               <Palette className="h-5 w-5 mr-2" />
               <span>Gallery</span>
             </Link>
-            <div className="px-3 py-2">
-              <NotificationDropdown />
-            </div>
           </div>
         )}
       </div>

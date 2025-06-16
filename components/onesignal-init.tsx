@@ -48,28 +48,55 @@ export function OneSignalInit() {
     // Helper function to wait for OneSignal methods to be ready
     const waitForOneSignalMethods = async (): Promise<boolean> => {
       let attempts = 0
-      const maxAttempts = 50 // 5 seconds
+      const maxAttempts = 100 // 10 seconds - increased timeout
       
       while (attempts < maxAttempts) {
         try {
-          if (window.OneSignal && 
-              typeof window.OneSignal.isPushNotificationsEnabled === 'function' &&
-              typeof window.OneSignal.requestPermission === 'function' &&
-              typeof window.OneSignal.setSubscription === 'function' &&
-              typeof window.OneSignal.setExternalUserId === 'function' &&
-              typeof window.OneSignal.getPlayerId === 'function' &&
-              typeof window.OneSignal.on === 'function') {
-            console.log('All OneSignal methods are now available!')
+          // First check if OneSignal object exists
+          if (!window.OneSignal) {
+            console.log(`Init - Attempt ${attempts + 1}: OneSignal object not found`)
+            await new Promise(resolve => setTimeout(resolve, 100))
+            attempts++
+            continue
+          }
+
+          // Check if OneSignal is initialized
+          if (!window.OneSignal.initialized) {
+            console.log(`Init - Attempt ${attempts + 1}: OneSignal not initialized yet`)
+            await new Promise(resolve => setTimeout(resolve, 100))
+            attempts++
+            continue
+          }
+
+          // Check for required methods
+          const requiredMethods = [
+            'isPushNotificationsEnabled',
+            'requestPermission', 
+            'setSubscription',
+            'setExternalUserId',
+            'getPlayerId',
+            'on'
+          ]
+
+          const missingMethods = requiredMethods.filter(method => 
+            typeof window.OneSignal[method] !== 'function'
+          )
+
+          if (missingMethods.length === 0) {
+            console.log('Init - All OneSignal methods are now available!')
             return true
+          } else {
+            console.log(`Init - Attempt ${attempts + 1}: Missing methods:`, missingMethods)
           }
         } catch (e) {
-          // Methods not ready
+          console.log(`Init - Attempt ${attempts + 1}: Error checking methods:`, e)
         }
+        
         await new Promise(resolve => setTimeout(resolve, 100))
         attempts++
       }
       
-      console.warn('OneSignal methods not ready after 5 seconds')
+      console.warn('Init - OneSignal methods not ready after 10 seconds')
       return false
     }
 

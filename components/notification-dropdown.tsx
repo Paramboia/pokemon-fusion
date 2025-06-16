@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { Bell, BellOff, ChevronDown } from 'lucide-react'
+import { Bell, BellOff } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 
@@ -30,30 +30,62 @@ export function NotificationDropdown() {
     if (typeof window === 'undefined') return false
     
     let attempts = 0
-    const maxAttempts = 50 // 5 seconds
+    const maxAttempts = 100 // 10 seconds - increased timeout
     
     while (attempts < maxAttempts) {
       try {
-        if (window.OneSignal && 
-            typeof window.OneSignal.isPushNotificationsEnabled === 'function' &&
-            typeof window.OneSignal.requestPermission === 'function' &&
-            typeof window.OneSignal.setSubscription === 'function' &&
-            typeof window.OneSignal.setExternalUserId === 'function') {
+        // First check if OneSignal object exists
+        if (!window.OneSignal) {
+          console.log(`Attempt ${attempts + 1}: OneSignal object not found`)
+          await new Promise(resolve => setTimeout(resolve, 100))
+          attempts++
+          continue
+        }
+
+        // Check if OneSignal is initialized
+        if (!window.OneSignal.initialized) {
+          console.log(`Attempt ${attempts + 1}: OneSignal not initialized yet`)
+          await new Promise(resolve => setTimeout(resolve, 100))
+          attempts++
+          continue
+        }
+
+        // Check for required methods
+        const requiredMethods = [
+          'isPushNotificationsEnabled',
+          'requestPermission', 
+          'setSubscription',
+          'setExternalUserId',
+          'getPlayerId',
+          'on'
+        ]
+
+        const missingMethods = requiredMethods.filter(method => 
+          typeof window.OneSignal[method] !== 'function'
+        )
+
+        if (missingMethods.length === 0) {
+          console.log('All OneSignal methods are now available!')
           return true
+        } else {
+          console.log(`Attempt ${attempts + 1}: Missing methods:`, missingMethods)
         }
       } catch (e) {
-        // Methods not ready
+        console.log(`Attempt ${attempts + 1}: Error checking methods:`, e)
       }
+      
       await new Promise(resolve => setTimeout(resolve, 100))
       attempts++
     }
     
+    console.warn('OneSignal methods not ready after 10 seconds')
     return false
   }
 
   // Check current notification status
   const checkNotificationStatus = async () => {
     try {
+      console.log('Checking notification status...')
       const methodsAvailable = await waitForOneSignalMethods()
       if (!methodsAvailable) {
         console.warn('OneSignal methods not available for status check')
@@ -75,7 +107,7 @@ export function NotificationDropdown() {
       // Add a small delay to ensure OneSignal has had time to initialize
       const timer = setTimeout(() => {
         checkNotificationStatus()
-      }, 1000)
+      }, 2000) // Increased delay
       
       return () => clearTimeout(timer)
     }
@@ -99,6 +131,7 @@ export function NotificationDropdown() {
     setIsLoading(true)
     
     try {
+      console.log('Attempting to toggle notifications...')
       const methodsAvailable = await waitForOneSignalMethods()
       if (!methodsAvailable) {
         throw new Error('OneSignal is not ready yet. Please try again in a moment.')
@@ -175,26 +208,25 @@ export function NotificationDropdown() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="relative">
           {isEnabled === null ? (
-            // Loading state
+            // Loading state - still clickable
             <Bell className="h-4 w-4 animate-pulse" />
           ) : isEnabled ? (
             <Bell className="h-4 w-4" />
           ) : (
             <BellOff className="h-4 w-4" />
           )}
-          <ChevronDown className="h-3 w-3 ml-1" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem 
           onClick={handleToggleNotifications}
-          disabled={isLoading || isEnabled === null}
+          disabled={isLoading}
           className="cursor-pointer"
         >
           <div className="flex items-center justify-between w-full">
             <span>
               {isEnabled === null 
-                ? 'Checking...' 
+                ? 'Check Status' 
                 : isEnabled 
                   ? 'Disable Notifications' 
                   : 'Enable Notifications'
@@ -210,7 +242,7 @@ export function NotificationDropdown() {
         </DropdownMenuItem>
         <DropdownMenuItem disabled className="text-xs text-muted-foreground">
           {isEnabled === null 
-            ? 'Loading status...'
+            ? 'Click to check notification status'
             : isEnabled 
               ? 'Daily Pokemon fusion reminders' 
               : 'Get notified about new fusions'

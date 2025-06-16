@@ -15,10 +15,28 @@ export function useNotifications() {
   const [isLoading, setIsLoading] = useState(false)
   const { user, isLoaded } = useUser()
 
+  // Helper function to wait for OneSignal to be available
+  const waitForOneSignal = async (): Promise<boolean> => {
+    if (typeof window === 'undefined') return false
+    
+    let attempts = 0
+    const maxAttempts = 50
+    
+    while (!window.OneSignal && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      attempts++
+    }
+    
+    return !!window.OneSignal
+  }
+
   // Check subscription status when OneSignal is available
   useEffect(() => {
     const checkSubscriptionStatus = async () => {
-      if (typeof window !== 'undefined' && window.OneSignal && isLoaded) {
+      if (!isLoaded) return
+      
+      const isAvailable = await waitForOneSignal()
+      if (isAvailable) {
         try {
           const subscribed = await window.OneSignal.isPushNotificationsEnabled()
           setIsSubscribed(subscribed)
@@ -28,27 +46,21 @@ export function useNotifications() {
       }
     }
 
-    // Check immediately if OneSignal is already loaded
+    // Check subscription status
     checkSubscriptionStatus()
-
-    // Also check periodically in case OneSignal loads later
-    const interval = setInterval(checkSubscriptionStatus, 1000)
-    
-    // Clear interval after 10 seconds
-    setTimeout(() => clearInterval(interval), 10000)
-
-    return () => clearInterval(interval)
   }, [isLoaded])
 
   const toggleNotifications = async () => {
-    if (!window.OneSignal) {
-      toast.error('Notifications are not available yet. Please try again in a moment.')
-      return
-    }
-
     setIsLoading(true)
 
     try {
+      const isAvailable = await waitForOneSignal()
+      
+      if (!isAvailable) {
+        toast.error('Notifications are not available yet. Please try again in a moment.')
+        return
+      }
+
       if (isSubscribed) {
         // Unsubscribe
         await window.OneSignal.setSubscription(false)

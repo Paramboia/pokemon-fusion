@@ -158,6 +158,88 @@ export default function TestNotificationsPage() {
     }
   }
 
+  // New function to link current user to OneSignal
+  const linkUserToOneSignal = async () => {
+    setIsSyncing(true)
+    try {
+      console.log('Linking user to OneSignal...')
+      
+      // First ensure we have both IDs
+      if (!user?.id) {
+        console.error('No Clerk user ID available')
+        return
+      }
+      
+      if (!supabaseUser?.id) {
+        console.error('No Supabase user ID available - try Manual Sync first')
+        return
+      }
+      
+      // Get current OneSignal Player ID
+      const playerInfo = await executeOneSignalCommand(async (OneSignal) => {
+        return {
+          playerId: OneSignal.User?.PushSubscription?.id || null,
+          optedIn: OneSignal.User?.PushSubscription?.optedIn || false
+        }
+      })
+      
+      if (!playerInfo.playerId) {
+        console.error('No OneSignal Player ID available - user needs to be subscribed first')
+        return
+      }
+      
+      console.log('Current OneSignal Player ID:', playerInfo.playerId)
+      console.log('Linking to Clerk ID:', user.id)
+      console.log('Linking to Supabase ID:', supabaseUser.id)
+      
+      // Set external user ID in OneSignal (prefer Supabase ID)
+      await executeOneSignalCommand(async (OneSignal) => {
+        if (typeof OneSignal.login === 'function') {
+          await OneSignal.login(supabaseUser.id)
+          console.log('Successfully linked OneSignal to Supabase ID:', supabaseUser.id)
+        } else {
+          console.error('OneSignal.login function not available')
+        }
+      })
+      
+      // Also call our backend to record this linking
+      try {
+        const response = await fetch('/api/notifications/link-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clerkUserId: user.id,
+            supabaseUserId: supabaseUser.id,
+            oneSignalPlayerId: playerInfo.playerId,
+            userEmail: user.primaryEmailAddress?.emailAddress
+          })
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          console.log('Backend linking successful:', result)
+        } else {
+          console.error('Backend linking failed:', await response.text())
+        }
+      } catch (linkError) {
+        console.warn('Failed to send linking info to backend:', linkError)
+      }
+      
+      // Refresh debug info
+      setTimeout(() => {
+        refreshAuthDebugInfo()
+        refreshDebugInfo()
+      }, 1000)
+      
+    } catch (error) {
+      console.error('Error linking user to OneSignal:', error)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const testOptIn = async () => {
     try {
       await executeOneSignalCommand(async (OneSignal) => {
@@ -258,7 +340,7 @@ export default function TestNotificationsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button onClick={refreshAuthDebugInfo} variant="outline">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh Auth Info
@@ -266,6 +348,9 @@ export default function TestNotificationsPage() {
             <Button onClick={manualSync} disabled={isSyncing} variant="outline">
               <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
               {isSyncing ? 'Syncing...' : 'Manual Sync'}
+            </Button>
+            <Button onClick={linkUserToOneSignal} disabled={isSyncing} variant="default">
+              🔗 Link to OneSignal
             </Button>
           </div>
           

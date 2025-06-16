@@ -613,6 +613,40 @@ Monitor Vercel function logs to verify successful execution:
 - Look for `/api/notifications/cron` executions
 - Check for success messages and error details
 
+### 4. Debug Tools & Testing Pages
+
+#### OneSignal Notification Debug Page
+**URL**: `/test-notifications`
+
+**Features**:
+- **OneSignal Status**: Check if OneSignal SDK is loaded and working
+- **Push Subscription**: View current subscription status and Player ID
+- **Auth Context Debug**: Troubleshoot Supabase user sync issues
+- **Manual Controls**: Test opt-in/opt-out functionality
+- **Manual Sync**: Trigger immediate Supabase user sync
+
+**Usage**:
+1. Sign in to your account
+2. Navigate to `/test-notifications`
+3. Click "Refresh Status" to get current OneSignal state
+4. Click "Refresh Auth Info" to check auth context state
+5. Use "Manual Sync" if `supabaseUserId` shows "not_available"
+6. Test opt-in/opt-out with the respective buttons
+
+**Key Debug Information**:
+- **Browser Permission**: Shows notification permission status
+- **OneSignal Available**: Confirms SDK is loaded
+- **Opted In**: Current subscription status
+- **Player ID**: OneSignal subscription identifier
+- **Clerk ID**: User ID from Clerk authentication
+- **Supabase ID**: User ID from Supabase database
+- **Auth Context State**: Complete auth context debug information
+
+#### Other Debug Endpoints
+- `/debug` - General authentication debug page
+- `/tests/test-auth` - Supabase connection testing
+- `/api/debug/user-mapping` - User ID mapping verification
+
 ## Troubleshooting
 
 ### Common Issues & Solutions
@@ -643,23 +677,85 @@ Monitor Vercel function logs to verify successful execution:
 **Cause**: Using Node.js-specific code in edge runtime
 **Solution**: Use only Web APIs (fetch, Response, etc.) in edge functions
 
-### 🚀 Key Lessons Learned (Production Tested)
+#### 6. "supabaseUserId": "not_available" in Debug
+**Cause**: Auth context hasn't completed Supabase user sync yet
+**Symptoms**: 
+- Test notifications page shows `supabaseUserId: "not_available"`
+- Bell icon components can't link OneSignal subscription to user account
 
-#### What Works ✅
-1. **User-Agent Authentication**: Vercel cron jobs can be authenticated by detecting `vercel-cron` in user-agent
-2. **Edge Runtime**: Provides better performance and global distribution
-3. **Direct API Integration**: More reliable than using OneSignal SDK packages
-4. **Total Subscriptions Segment**: Targets all subscribed users effectively
-5. **24-hour TTL**: Prevents notification stacking and improves delivery
-6. **High Priority (10)**: Ensures better delivery rates
+**Solution**: 
+1. **Check timing**: Auth context sync happens asynchronously after user login
+2. **Use debug tools**: Go to `/test-notifications` page and use "Auth Context Debug" section
+3. **Manual sync**: Click "Manual Sync" button to trigger immediate sync
+4. **Check console**: Look for auth context log messages starting with "Auth Context -"
+5. **Verify API**: Ensure `/api/auth/sync-user` endpoint is working properly
 
-#### What Doesn't Work ❌
-1. **Hardcoded Secrets in vercel.json**: Security risk and not necessary
-2. **Bearer Token Authentication**: Vercel cron doesn't send authorization headers
-3. **OneSignal Node SDK**: Can cause issues with edge runtime
-4. **Missing Middleware Routes**: Clerk will block API requests with 405 errors
-5. **🚨 Supabase User Sync**: Creates EMAIL subscribers (✉️), not PUSH subscribers (🔔)
-6. **Bulk User Import**: Push notifications require individual browser permission
+**Debug Steps**:
+```bash
+# 1. Check auth context logs in browser console
+# Look for messages like:
+# "Auth Context - User is signed in, syncing to Supabase"
+# "Auth Context - User synced to Supabase: {user data}"
+
+# 2. Test manual sync on /test-notifications page
+# Click "Manual Sync" and check the result
+
+# 3. Verify Supabase user exists
+# Check your Supabase users table for the user record
+```
+
+**Expected behavior**: After successful sync, you should see:
+- `supabaseUserId`: Shows proper UUID (e.g., `6f579f30-090d-4...`)
+- Auth context debug shows `supabaseUser.available: true`
+- OneSignal user linking works properly with external user ID
+
+#### 7. Missing External User IDs in OneSignal
+**Cause**: Users subscribed before external user ID linking was implemented
+**Symptoms**: 
+- OneSignal dashboard shows players without External IDs
+- Cannot send targeted notifications (e.g., "fusion generated")
+- Notifications can only target "Total Subscriptions" segment
+
+**Critical Impact**: Without External User IDs, you cannot:
+- Send personalized notifications when a user generates a fusion
+- Track which specific user performed actions
+- Send targeted notifications based on user behavior
+
+**Solutions**:
+
+**Option A: Individual User Linking (Recommended for active users)**
+1. Go to `/test-notifications` page while signed in
+2. Click "🔗 Link to OneSignal" button
+3. This will set your Supabase user ID as the External User ID in OneSignal
+4. Verify in OneSignal dashboard that External ID is now populated
+
+**Option B: Bulk Linking Script (For all existing users)**
+```bash
+# Run the bulk linking script to link all existing subscribers
+node scripts/link-existing-users.js
+```
+
+**Option C: Automatic Linking (For new subscriptions)**
+- New users who subscribe through the bell icon will automatically be linked
+- The notification components now include proper external user ID linking
+- No manual intervention needed for new subscribers
+
+**Verification Steps**:
+1. Check OneSignal dashboard → Audience → Users
+2. Look for "External ID" column to be populated
+3. External ID should match Supabase user ID (UUID format)
+4. Test targeted notification using External User ID
+
+**For Targeted Notifications** (e.g., fusion generated):
+```javascript
+// Example: Send notification to specific user
+{
+  app_id: "your-app-id",
+  include_external_user_ids: ["6f579f30-090d-4..."], // Supabase user ID
+  contents: { en: "Your Pokémon fusion is ready!" },
+  headings: { en: "Fusion Complete! 🎉" }
+}
+```
 
 ## Security Best Practices
 

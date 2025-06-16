@@ -17,11 +17,13 @@ declare global {
 
 export default function TestNotificationsPage() {
   const { user, isLoaded } = useUser()
-  const { supabaseUser } = useAuth()
+  const { supabaseUser, authError, syncUserToSupabase } = useAuth()
   const [debugInfo, setDebugInfo] = useState<any>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [authDebugInfo, setAuthDebugInfo] = useState<any>({})
+  const [isSyncing, setIsSyncing] = useState(false)
 
-  // Helper function to execute OneSignal commands
+  // Helper function to execute OneSignal commands using the deferred pattern
   const executeOneSignalCommand = (command: (OneSignal: any) => Promise<any>): Promise<any> => {
     return new Promise((resolve, reject) => {
       if (typeof window === 'undefined') {
@@ -29,6 +31,7 @@ export default function TestNotificationsPage() {
         return
       }
 
+      // Initialize OneSignalDeferred if it doesn't exist
       window.OneSignalDeferred = window.OneSignalDeferred || []
       
       window.OneSignalDeferred.push(async function(OneSignal: any) {
@@ -105,6 +108,56 @@ export default function TestNotificationsPage() {
     }
   }
 
+  // New function to debug auth context
+  const refreshAuthDebugInfo = () => {
+    const authInfo = {
+      timestamp: new Date().toISOString(),
+      clerkUser: {
+        available: !!user,
+        id: user?.id || 'not_available',
+        email: user?.primaryEmailAddress?.emailAddress || 'not_available',
+        fullName: user?.fullName || 'not_available',
+        firstName: user?.firstName || 'not_available',
+        lastName: user?.lastName || 'not_available'
+      },
+      supabaseUser: {
+        available: !!supabaseUser,
+        data: supabaseUser || 'not_available',
+        id: supabaseUser?.id || 'not_available',
+        name: supabaseUser?.name || 'not_available',
+        email: supabaseUser?.email || 'not_available'
+      },
+      authError: authError || 'none',
+      isLoaded,
+      contextState: {
+        supabaseUserType: typeof supabaseUser,
+        supabaseUserKeys: supabaseUser ? Object.keys(supabaseUser) : 'none'
+      }
+    }
+    
+    setAuthDebugInfo(authInfo)
+  }
+
+  // Manual sync function
+  const manualSync = async () => {
+    setIsSyncing(true)
+    try {
+      console.log('Manual sync triggered...')
+      const result = await syncUserToSupabase()
+      console.log('Manual sync result:', result)
+      
+      // Refresh debug info after sync
+      setTimeout(() => {
+        refreshAuthDebugInfo()
+        refreshDebugInfo()
+      }, 1000)
+    } catch (error) {
+      console.error('Manual sync error:', error)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const testOptIn = async () => {
     try {
       await executeOneSignalCommand(async (OneSignal) => {
@@ -144,9 +197,12 @@ export default function TestNotificationsPage() {
   useEffect(() => {
     if (isLoaded) {
       // Initial load after a delay
-      setTimeout(() => refreshDebugInfo(), 3000)
+      setTimeout(() => {
+        refreshDebugInfo()
+        refreshAuthDebugInfo()
+      }, 3000)
     }
-  }, [isLoaded])
+  }, [isLoaded, supabaseUser]) // Add supabaseUser as dependency
 
   if (!isLoaded || !user) {
     return (
@@ -188,6 +244,39 @@ export default function TestNotificationsPage() {
               Test Opt-Out
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* New Auth Context Debug Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🔍 Auth Context Debug
+          </CardTitle>
+          <CardDescription>
+            Debug information for Supabase user sync issue
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Button onClick={refreshAuthDebugInfo} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Auth Info
+            </Button>
+            <Button onClick={manualSync} disabled={isSyncing} variant="outline">
+              <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing...' : 'Manual Sync'}
+            </Button>
+          </div>
+          
+          {authDebugInfo.timestamp && (
+            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+              <h4 className="font-semibold mb-2">Auth Context State:</h4>
+              <pre className="text-sm overflow-auto max-h-96">
+                {JSON.stringify(authDebugInfo, null, 2)}
+              </pre>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -277,13 +366,21 @@ export default function TestNotificationsPage() {
                 <div className="flex justify-between">
                   <span>Clerk ID:</span>
                   <span className="text-sm font-mono">
-                    {debugInfo.userContext?.clerkUserId?.substring(0, 15) + '...' || 'None'}
+                    {debugInfo.userContext?.clerkUserId === 'not_available' ? 'None' : 
+                     debugInfo.userContext?.clerkUserId?.substring(0, 20) + '...' || 'None'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Supabase ID:</span>
-                  <span className="text-sm font-mono">
-                    {debugInfo.userContext?.supabaseUserId?.substring(0, 15) + '...' || 'None'}
+                  <Badge variant={debugInfo.userContext?.supabaseUserId !== 'not_available' ? 'default' : 'destructive'}>
+                    {debugInfo.userContext?.supabaseUserId === 'not_available' ? 'NOT AVAILABLE' : 
+                     debugInfo.userContext?.supabaseUserId?.substring(0, 20) + '...' || 'None'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Email:</span>
+                  <span className="text-sm">
+                    {debugInfo.userContext?.userEmail || 'None'}
                   </span>
                 </div>
               </div>
@@ -293,17 +390,19 @@ export default function TestNotificationsPage() {
       )}
 
       {/* Raw Debug Data */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Raw Debug Data</CardTitle>
-          <CardDescription>Complete debug information (for developers)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md text-sm overflow-auto">
-            {JSON.stringify(debugInfo, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
+      {debugInfo.timestamp && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Raw Debug Data</CardTitle>
+            <CardDescription>Complete debug information (for developers)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg text-sm overflow-auto max-h-96">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 } 

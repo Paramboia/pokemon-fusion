@@ -7,6 +7,8 @@ declare global {
   interface Window {
     OneSignal: any
     OneSignalDeferred: any[]
+    _oneSignalInitialized: boolean
+    _oneSignalInitializing: boolean
   }
 }
 
@@ -17,6 +19,14 @@ export function OneSignalInit() {
     // Only initialize OneSignal in the browser
     if (typeof window === 'undefined') return
     
+    // Prevent multiple initializations
+    if (window._oneSignalInitialized || window._oneSignalInitializing) {
+      console.log('OneSignal already initialized or initializing, skipping...')
+      return
+    }
+
+    window._oneSignalInitializing = true
+    
     // Load OneSignal SDK first
     const loadOneSignal = () => {
       if (!document.querySelector('script[src*="OneSignalSDK"]')) {
@@ -26,6 +36,7 @@ export function OneSignalInit() {
         script.onload = initializeOneSignal
         script.onerror = () => {
           console.error('Failed to load OneSignal SDK')
+          window._oneSignalInitializing = false
         }
         document.head.appendChild(script)
       } else {
@@ -35,21 +46,31 @@ export function OneSignalInit() {
     }
 
     const initializeOneSignal = async () => {
-      // Wait for OneSignal to be available
-      let attempts = 0
-      const maxAttempts = 50
-      
-      while (!window.OneSignal && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-        attempts++
-      }
-      
-      if (!window.OneSignal) {
-        console.error('OneSignal SDK failed to load after', maxAttempts * 100, 'ms')
-        return
-      }
-
       try {
+        // Wait for OneSignal to be available
+        let attempts = 0
+        const maxAttempts = 50
+        
+        while (!window.OneSignal && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          attempts++
+        }
+        
+        if (!window.OneSignal) {
+          console.error('OneSignal SDK failed to load after', maxAttempts * 100, 'ms')
+          window._oneSignalInitializing = false
+          return
+        }
+
+        // Check if OneSignal is already initialized
+        if (window.OneSignal.initialized) {
+          console.log('OneSignal already initialized, setting up user linking...')
+          window._oneSignalInitialized = true
+          window._oneSignalInitializing = false
+          await setupUserLinking()
+          return
+        }
+
         console.log('Initializing OneSignal...')
         
         await window.OneSignal.init({
@@ -79,93 +100,142 @@ export function OneSignalInit() {
         })
 
         console.log('OneSignal initialized successfully!')
+        window._oneSignalInitialized = true
+        window._oneSignalInitializing = false
 
-        // Set external user ID when user is loaded and logged in
-        if (isLoaded && user) {
-          const externalUserId = user.id
-          console.log('Setting OneSignal external user ID:', externalUserId)
-          
-          try {
-            // Get current player ID for logging
-            const playerId = await window.OneSignal.getPlayerId()
-            console.log('Current OneSignal player ID:', playerId)
-            
-            // Set the external user ID to link this subscription to our user
-            await window.OneSignal.setExternalUserId(externalUserId)
-            console.log('OneSignal external user ID set successfully')
-
-            // Also send this information to our backend for tracking
-            try {
-              await fetch('/api/notifications/link-user', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  clerkUserId: externalUserId,
-                  oneSignalPlayerId: playerId,
-                  userEmail: user.primaryEmailAddress?.emailAddress
-                })
-              })
-              console.log('User linking info sent to backend')
-            } catch (linkError) {
-              console.warn('Failed to send user linking info to backend:', linkError)
-              // Don't fail the whole process if backend linking fails
-            }
-
-          } catch (setExternalUserIdError) {
-            console.error('Failed to set OneSignal external user ID:', setExternalUserIdError)
-          }
-
-          // Check if user is already subscribed
-          const isSubscribed = await window.OneSignal.isPushNotificationsEnabled()
-          console.log('User push notification status:', isSubscribed)
-
-          // If not subscribed, we can show a prompt later
-          if (!isSubscribed) {
-            console.log('User is not subscribed to push notifications')
-            // You can trigger a prompt here or store this state to show a custom prompt
-          }
-        }
-
-        // Listen for subscription changes
-        window.OneSignal.on('subscriptionChange', function(isSubscribed: boolean) {
-          console.log('OneSignal subscription changed:', isSubscribed)
-          
-          if (isSubscribed) {
-            console.log('User subscribed to push notifications!')
-            
-            // If user is logged in, immediately set their external user ID
-            if (user?.id) {
-              window.OneSignal.setExternalUserId(user.id).then(() => {
-                console.log('External user ID set after subscription change')
-              }).catch((error: any) => {
-                console.error('Failed to set external user ID after subscription:', error)
-              })
-            }
-          } else {
-            console.log('User unsubscribed from push notifications')
-          }
-        })
-
-        // Listen for notification clicks
-        window.OneSignal.on('notificationClick', function(event: any) {
-          console.log('OneSignal notification clicked:', event)
-          
-          // Handle notification click based on the data
-          if (event.data && event.data.type === 'daily_motivation') {
-            // Navigate to the home page or show fusion generator
-            window.location.href = '/'
-          }
-        })
+        // Set up user linking and event listeners
+        await setupUserLinking()
+        setupEventListeners()
 
       } catch (error) {
         console.error('Error initializing OneSignal:', error)
+        window._oneSignalInitializing = false
+      }
+    }
+
+    const setupUserLinking = async () => {
+      // Set external user ID when user is loaded and logged in
+      if (isLoaded && user) {
+        const externalUserId = user.id
+        console.log('Setting OneSignal external user ID:', externalUserId)
+        
+        try {
+          // Wait for OneSignal methods to be available
+          let methodsAvailable = false
+          let attempts = 0
+          const maxAttempts = 30
+          
+          while (!methodsAvailable && attempts < maxAttempts) {
+            try {
+              if (typeof window.OneSignal.getPlayerId === 'function' && 
+                  typeof window.OneSignal.setExternalUserId === 'function') {
+                methodsAvailable = true
+                break
+              }
+            } catch (e) {
+              // Methods not ready yet
+            }
+            await new Promise(resolve => setTimeout(resolve, 100))
+            attempts++
+          }
+
+          if (!methodsAvailable) {
+            console.warn('OneSignal methods not available after waiting')
+            return
+          }
+
+          // Get current player ID for logging
+          const playerId = await window.OneSignal.getPlayerId()
+          console.log('Current OneSignal player ID:', playerId)
+          
+          // Set the external user ID to link this subscription to our user
+          await window.OneSignal.setExternalUserId(externalUserId)
+          console.log('OneSignal external user ID set successfully')
+
+          // Also send this information to our backend for tracking
+          try {
+            await fetch('/api/notifications/link-user', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                clerkUserId: externalUserId,
+                oneSignalPlayerId: playerId,
+                userEmail: user.primaryEmailAddress?.emailAddress
+              })
+            })
+            console.log('User linking info sent to backend')
+          } catch (linkError) {
+            console.warn('Failed to send user linking info to backend:', linkError)
+            // Don't fail the whole process if backend linking fails
+          }
+
+          // Check if user is already subscribed
+          if (typeof window.OneSignal.isPushNotificationsEnabled === 'function') {
+            const isSubscribed = await window.OneSignal.isPushNotificationsEnabled()
+            console.log('User push notification status:', isSubscribed)
+
+            // If not subscribed, we can show a prompt later
+            if (!isSubscribed) {
+              console.log('User is not subscribed to push notifications')
+            }
+          }
+
+        } catch (setExternalUserIdError) {
+          console.error('Failed to set OneSignal external user ID:', setExternalUserIdError)
+        }
+      }
+    }
+
+    const setupEventListeners = () => {
+      try {
+        // Listen for subscription changes
+        if (typeof window.OneSignal.on === 'function') {
+          window.OneSignal.on('subscriptionChange', function(isSubscribed: boolean) {
+            console.log('OneSignal subscription changed:', isSubscribed)
+            
+            if (isSubscribed) {
+              console.log('User subscribed to push notifications!')
+              
+              // If user is logged in, immediately set their external user ID
+              if (user?.id) {
+                window.OneSignal.setExternalUserId(user.id).then(() => {
+                  console.log('External user ID set after subscription change')
+                }).catch((error: any) => {
+                  console.error('Failed to set external user ID after subscription:', error)
+                })
+              }
+            } else {
+              console.log('User unsubscribed from push notifications')
+            }
+          })
+
+          // Listen for notification clicks
+          window.OneSignal.on('notificationClick', function(event: any) {
+            console.log('OneSignal notification clicked:', event)
+            
+            // Handle notification click based on the data
+            if (event.data && event.data.type === 'daily_motivation') {
+              // Navigate to the home page or show fusion generator
+              window.location.href = '/'
+            }
+          })
+        } else {
+          console.warn('OneSignal.on method not available for setting up event listeners')
+        }
+      } catch (error) {
+        console.error('Error setting up OneSignal event listeners:', error)
       }
     }
 
     // Start the loading process
     loadOneSignal()
+
+    // Cleanup function
+    return () => {
+      // Don't reset the initialization flag on cleanup as OneSignal should persist
+    }
 
   }, [isLoaded, user])
 
@@ -184,7 +254,26 @@ async function waitForOneSignal(): Promise<boolean> {
     attempts++
   }
   
-  return !!window.OneSignal
+  if (window.OneSignal) {
+    // Also wait for methods to be available
+    let methodsAttempts = 0
+    const maxMethodsAttempts = 30
+    
+    while (methodsAttempts < maxMethodsAttempts) {
+      try {
+        if (typeof window.OneSignal.isPushNotificationsEnabled === 'function' &&
+            typeof window.OneSignal.requestPermission === 'function') {
+          return true
+        }
+      } catch (e) {
+        // Methods not ready
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+      methodsAttempts++
+    }
+  }
+  
+  return false
 }
 
 // Helper function to manually trigger notification prompt

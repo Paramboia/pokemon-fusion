@@ -15,7 +15,7 @@ export function useNotifications() {
   const [isLoading, setIsLoading] = useState(false)
   const { user, isLoaded } = useUser()
 
-  // Helper function to wait for OneSignal to be available
+  // Helper function to wait for OneSignal to be available with methods
   const waitForOneSignal = async (): Promise<boolean> => {
     if (typeof window === 'undefined') return false
     
@@ -27,7 +27,27 @@ export function useNotifications() {
       attempts++
     }
     
-    return !!window.OneSignal
+    if (window.OneSignal) {
+      // Also wait for methods to be available
+      let methodsAttempts = 0
+      const maxMethodsAttempts = 30
+      
+      while (methodsAttempts < maxMethodsAttempts) {
+        try {
+          if (typeof window.OneSignal.isPushNotificationsEnabled === 'function' &&
+              typeof window.OneSignal.requestPermission === 'function' &&
+              typeof window.OneSignal.setSubscription === 'function') {
+            return true
+          }
+        } catch (e) {
+          // Methods not ready
+        }
+        await new Promise(resolve => setTimeout(resolve, 100))
+        methodsAttempts++
+      }
+    }
+    
+    return false
   }
 
   // Check subscription status when OneSignal is available

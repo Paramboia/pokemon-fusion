@@ -7,7 +7,6 @@ import { useUser } from '@clerk/nextjs'
 import { useAuth } from '@/contexts/auth-context'
 import { toast } from 'sonner'
 import { event as gaEvent } from '@/lib/gtag'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 declare global {
   interface Window {
@@ -392,25 +391,19 @@ export function NotificationDropdown() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            onClick={handleBellClick}
-            aria-label="Notification settings"
-            disabled={isLoading}
-          >
-            {isSubscribed ? (
-              <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-            ) : (
-              <BellOff className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>
-          Your notifications
-        </TooltipContent>
-      </Tooltip>
+      <button
+        className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        onClick={handleBellClick}
+        aria-label="Notification settings"
+        disabled={isLoading}
+        title="Your notifications"
+      >
+        {isSubscribed ? (
+          <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+        ) : (
+          <BellOff className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+        )}
+      </button>
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">

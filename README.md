@@ -18,12 +18,8 @@ Pokemon Fusion is an innovative web application that lets users combine any two 
 
 - **Frontend:** Next.js, React, TypeScript, Tailwind CSS
 - **Backend:** Node.js, Supabase, Clerk Authentication
-- **AI Integration:** Gemini API (pending broad release)
+- **AI Integration:** Replicate models, OpenAI API 
 
-## Documentation
-
-For detailed information about our AI integration plans and current status, please see:
-- [Gemini API Requirements and Status](requirements/GEMINI_API_REQUIREMENTS.md)
 
 ## Getting Started
 
@@ -45,6 +41,3 @@ For detailed information about our AI integration plans and current status, plea
    npm run dev
    ```
 
-## Current Status
-
-The application is currently using a fallback image generation service while waiting for Gemini API's image generation capabilities to become broadly available. See our [Gemini API Requirements](requirements/GEMINI_API_REQUIREMENTS.md) document for detailed status and implementation plans.

@@ -39,9 +39,9 @@ export async function POST(request: Request) {
 
     const { user_id, id: fusionId, pokemon1_name, pokemon2_name, clerk_user_id } = record;
     
-    if (!user_id && !clerk_user_id) {
+    if (!user_id) {
       return NextResponse.json(
-        { error: 'No user ID provided in fusion record' },
+        { error: 'No user_id provided in fusion record' },
         { status: 400, headers }
       );
     }
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     console.log('Sending fusion creation notification:', {
       fusionId,
-      userId: user_id || clerk_user_id,
+      supabaseUserId: user_id,
       pokemon1: pokemon1_name,
       pokemon2: pokemon2_name
     });
@@ -76,8 +76,12 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         app_id: appId,
-        // Target specific user by external_user_id (Clerk ID)
-        include_external_user_ids: [clerk_user_id || user_id],
+        // Try multiple targeting methods to ensure delivery
+        include_external_user_ids: [user_id],
+        // Also try including as player ID in case external ID lookup fails
+        ...(user_id.includes('-') && {
+          include_player_ids: [user_id]
+        }),
         contents: { 
           en: `Trainer, congrats on your new Pokémon fusion! Your ${fusionName} is waiting for you.` 
         },
@@ -99,11 +103,13 @@ export async function POST(request: Request) {
         channel_for_external_user_ids: "push",
         web_push_topic: "pokemon_fusion_created",
         priority: 10, // High priority for immediate delivery
+        // Force immediate delivery
+        send_after: new Date().toISOString(),
         // Add custom data for tracking
         data: {
           type: 'fusion_created',
           fusion_id: fusionId,
-          user_id: user_id || clerk_user_id,
+          user_id: user_id,
           timestamp: new Date().toISOString()
         }
       }),
@@ -117,7 +123,7 @@ export async function POST(request: Request) {
         statusText: response.statusText,
         data,
         fusionId,
-        userId: user_id || clerk_user_id
+        userId: user_id
       });
       throw new Error(data.errors?.[0] || 'Failed to send fusion notification');
     }
@@ -137,7 +143,7 @@ export async function POST(request: Request) {
         fusion: {
           id: fusionId,
           name: fusionName,
-          user_id: user_id || clerk_user_id
+          user_id: user_id
         },
         timestamp: new Date().toISOString()
       }

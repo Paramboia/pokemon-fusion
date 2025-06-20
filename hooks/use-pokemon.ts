@@ -18,8 +18,8 @@ export function usePokemon() {
   const fetchPokemonList = async () => {
     try {
       setIsLoading(true);
-      // Fetch first 151 Pokemon (first generation)
-      const response = await fetch(`${POKEMON_API_BASE}/pokemon?limit=151`);
+      // Fetch all Pokemon from all generations (1,025 total as of Gen 9)
+      const response = await fetch(`${POKEMON_API_BASE}/pokemon?limit=1025`);
       const data: PokemonListResponse = await response.json();
       
       // Fetch details for each Pokemon

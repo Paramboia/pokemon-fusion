@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "install-types": "npm install --save-dev typescript @types/react @types/react-dom @types/node",
+    "extract-pokemon": "node scripts/extract-pokemon-data.js",
     "test:gpt-vision": "node tests/test-gpt-vision-enhancement.js",
     "test:gpt-direct": "node tests/test-gpt-vision-enhancement-direct.js"
   },

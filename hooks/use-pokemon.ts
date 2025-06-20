@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import type { Pokemon, PokemonListResponse } from '@/types/pokemon';
-
-const POKEMON_API_BASE = 'https://pokeapi.co/api/v2';
+import type { Pokemon } from '@/types/pokemon';
+// Import local Pokemon data
+import pokemonData from '@/data/pokemon-data.json';
 
 export function usePokemon() {
   const [pokemonList, setPokemonList] = useState<Pokemon[]>([]);
@@ -12,26 +12,33 @@ export function usePokemon() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchPokemonList();
+    loadPokemonData();
   }, []);
 
-  const fetchPokemonList = async () => {
+  const loadPokemonData = async () => {
     try {
       setIsLoading(true);
-      // Fetch all Pokemon from all generations (1,025 total as of Gen 9)
-      const response = await fetch(`${POKEMON_API_BASE}/pokemon?limit=1025`);
-      const data: PokemonListResponse = await response.json();
       
-      // Fetch details for each Pokemon
-      const pokemonDetails = await Promise.all(
-        data.results.map(pokemon => getPokemonDetails(pokemon.name))
-      );
+      // Transform local data to match Pokemon interface
+      const transformedData: Pokemon[] = pokemonData.map(pokemon => ({
+        id: pokemon.id,
+        name: pokemon.name,
+        sprites: {
+          front_default: pokemon.thumbnail,
+          other: {
+            'official-artwork': {
+              front_default: pokemon.image
+            }
+          }
+        },
+        types: [] // Empty array since types aren't used in the fusion UI
+      }));
 
-      setPokemonList(pokemonDetails.filter((p): p is Pokemon => p !== null));
+      setPokemonList(transformedData);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch Pokemon list');
-      console.error('Error fetching Pokemon:', err);
+      setError('Failed to load Pokemon data');
+      console.error('Error loading Pokemon:', err);
     } finally {
       setIsLoading(false);
     }
@@ -39,11 +46,31 @@ export function usePokemon() {
 
   const getPokemonDetails = async (nameOrId: string | number): Promise<Pokemon | null> => {
     try {
-      const response = await fetch(`${POKEMON_API_BASE}/pokemon/${nameOrId}`);
-      const data = await response.json();
-      return data;
+      // Find Pokemon in local data
+      const pokemon = pokemonData.find(p => 
+        p.name === nameOrId || p.id === parseInt(nameOrId.toString())
+      );
+      
+      if (!pokemon) {
+        return null;
+      }
+
+      // Transform to match Pokemon interface
+      return {
+        id: pokemon.id,
+        name: pokemon.name,
+        sprites: {
+          front_default: pokemon.thumbnail,
+          other: {
+            'official-artwork': {
+              front_default: pokemon.image
+            }
+          }
+        },
+        types: [] // Empty array since types aren't used in the fusion UI
+      };
     } catch (err) {
-      console.error(`Error fetching Pokemon ${nameOrId}:`, err);
+      console.error(`Error getting Pokemon ${nameOrId}:`, err);
       return null;
     }
   };

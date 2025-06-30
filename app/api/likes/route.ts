@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { v4 as uuidv4 } from 'uuid';
-// import { auth } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
+import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
 // Log environment variables for debugging
 console.log('Likes API - NEXT_PUBLIC_SUPABASE_URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -23,59 +22,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
-    // Get Supabase credentials from environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Get authenticated user from Clerk
+    const session = await auth();
+    const clerkUserId = session?.userId;
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Likes API - Supabase credentials not available');
-      return NextResponse.json({ 
-        error: 'Supabase credentials not available',
-        supabaseUrlAvailable: !!supabaseUrl,
-        supabaseServiceKeyAvailable: !!supabaseServiceKey
-      }, { status: 500 });
+    if (!clerkUserId) {
+      console.error('Likes API - No authenticated user found');
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log('Likes API - Authenticated user:', clerkUserId);
     
-    // Get the user ID from the session or generate a test user ID
-    let userId;
-    try {
-      // For testing, create a test user instead of using Clerk auth
-      // const session = await auth();
-      // userId = session?.userId;
-      // console.log('User ID from auth():', userId);
-      
-      // Create a test user
-      const testUserId = uuidv4();
-      console.log('Created test user ID:', testUserId);
-      
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: testUserId,
-          name: 'Test User',
-          email: `test-${Date.now()}@example.com`
-        })
-        .select();
-      
-      if (userError) {
-        console.error('Error creating test user:', userError);
-        return NextResponse.json({ 
-          error: 'Error creating test user',
-          details: userError
-        }, { status: 500 });
-      }
-      
-      console.log('Test user created successfully:', userData);
-      userId = testUserId;
-    } catch (authError) {
-      console.error('Error getting user ID:', authError);
-      return NextResponse.json({ 
-        error: 'Authentication error',
-        details: authError instanceof Error ? authError.message : String(authError)
-      }, { status: 500 });
+    // Get the corresponding Supabase user ID using the reliable function
+    const supabaseUserId = await getSupabaseUserIdFromClerk(clerkUserId);
+    
+    if (!supabaseUserId) {
+      console.error('Likes API - User not found in database');
+      return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
+    }
+    
+    console.log('Likes API - Supabase user ID:', supabaseUserId);
+    
+    // Get Supabase client
+    const supabase = await getSupabaseAdminClient();
+    
+    if (!supabase) {
+      console.error('Likes API - Failed to get Supabase admin client');
+      return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
     }
     
     // Check if the fusion exists
@@ -106,7 +79,7 @@ export async function POST(req: Request) {
     const { data: favoriteData, error: favoriteError } = await supabase
       .from('favorites')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', supabaseUserId)
       .eq('fusion_id', fusionId);
     
     if (favoriteError) {
@@ -131,7 +104,7 @@ export async function POST(req: Request) {
     const { data: newFavoriteData, error: newFavoriteError } = await supabase
       .from('favorites')
       .insert({
-        user_id: userId,
+        user_id: supabaseUserId,
         fusion_id: fusionId
       })
       .select();
@@ -199,117 +172,33 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
-    // Get Supabase credentials from environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Get authenticated user from Clerk
+    const session = await auth();
+    const clerkUserId = session?.userId;
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Likes API - Supabase credentials not available');
-      return NextResponse.json({ 
-        error: 'Supabase credentials not available',
-        supabaseUrlAvailable: !!supabaseUrl,
-        supabaseServiceKeyAvailable: !!supabaseServiceKey
-      }, { status: 500 });
+    if (!clerkUserId) {
+      console.error('Likes API - No authenticated user found');
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log('Likes API - Authenticated user:', clerkUserId);
     
-    // Get the user ID from the session or use a test user ID
-    let userId;
-    try {
-      // For testing, use a test user ID instead of Clerk auth
-      // const session = await auth();
-      // userId = session?.userId;
-      // console.log('User ID from auth():', userId);
-      
-      // For testing purposes, find a user who has liked this fusion
-      const { data: favoriteData, error: favoriteError } = await supabase
-        .from('favorites')
-        .select('user_id')
-        .eq('fusion_id', fusionId)
-        .limit(1);
-      
-      if (favoriteError) {
-        console.error('Error finding user who liked this fusion:', favoriteError);
-        
-        // Create a test user as fallback
-        const testUserId = uuidv4();
-        console.log('Created test user ID as fallback:', testUserId);
-        
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .insert({
-            id: testUserId,
-            name: 'Test User',
-            email: `test-${Date.now()}@example.com`
-          })
-          .select();
-        
-        if (userError) {
-          console.error('Error creating test user:', userError);
-          return NextResponse.json({ 
-            error: 'Error creating test user',
-            details: userError
-          }, { status: 500 });
-        }
-        
-        console.log('Test user created successfully:', userData);
-        userId = testUserId;
-      } else if (favoriteData && favoriteData.length > 0) {
-        userId = favoriteData[0].user_id;
-        console.log('Found user who liked this fusion:', userId);
-      } else {
-        console.log('No user found who liked this fusion, creating a test user');
-        
-        // Create a test user
-        const testUserId = uuidv4();
-        console.log('Created test user ID:', testUserId);
-        
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .insert({
-            id: testUserId,
-            name: 'Test User',
-            email: `test-${Date.now()}@example.com`
-          })
-          .select();
-        
-        if (userError) {
-          console.error('Error creating test user:', userError);
-          return NextResponse.json({ 
-            error: 'Error creating test user',
-            details: userError
-          }, { status: 500 });
-        }
-        
-        console.log('Test user created successfully:', userData);
-        userId = testUserId;
-        
-        // Add a favorite for this user and fusion
-        const { error: addFavoriteError } = await supabase
-          .from('favorites')
-          .insert({
-            user_id: userId,
-            fusion_id: fusionId
-          });
-        
-        if (addFavoriteError) {
-          console.error('Error adding favorite for test user:', addFavoriteError);
-          return NextResponse.json({ 
-            error: 'Error adding favorite for test user',
-            details: addFavoriteError
-          }, { status: 500 });
-        }
-        
-        console.log('Added favorite for test user');
-      }
-    } catch (authError) {
-      console.error('Error getting user ID:', authError);
-      return NextResponse.json({ 
-        error: 'Authentication error',
-        details: authError instanceof Error ? authError.message : String(authError)
-      }, { status: 500 });
+    // Get the corresponding Supabase user ID using the reliable function
+    const supabaseUserId = await getSupabaseUserIdFromClerk(clerkUserId);
+    
+    if (!supabaseUserId) {
+      console.error('Likes API - User not found in database');
+      return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
+    }
+    
+    console.log('Likes API - Supabase user ID:', supabaseUserId);
+    
+    // Get Supabase client
+    const supabase = await getSupabaseAdminClient();
+    
+    if (!supabase) {
+      console.error('Likes API - Failed to get Supabase admin client');
+      return NextResponse.json({ error: 'Failed to get Supabase admin client' }, { status: 500 });
     }
     
     // Check if the fusion exists
@@ -340,7 +229,7 @@ export async function DELETE(req: Request) {
     const { data: favoriteData, error: favoriteError } = await supabase
       .from('favorites')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', supabaseUserId)
       .eq('fusion_id', fusionId);
     
     if (favoriteError) {
@@ -365,7 +254,7 @@ export async function DELETE(req: Request) {
     const { error: removeFavoriteError } = await supabase
       .from('favorites')
       .delete()
-      .eq('user_id', userId)
+      .eq('user_id', supabaseUserId)
       .eq('fusion_id', fusionId);
     
     if (removeFavoriteError) {

@@ -372,44 +372,12 @@ export async function GET(req: Request) {
       // Continue anyway, as the table might already exist
     }
 
-    // Query the favorites table for this user
-    let query = supabaseClient
+    // First, get the favorite fusion IDs for this user
+    const { data: favoritesData, error: favoritesError } = await supabaseClient
       .from('favorites')
-      .select(`
-        fusion_id,
-        created_at,
-        fusions (
-          id,
-          pokemon_1_name,
-          pokemon_2_name,
-          fusion_name,
-          fusion_image,
-          created_at,
-          likes
-        )
-      `)
-      .eq('user_id', supabaseUserId);
-
-    // Apply sorting based on the sort parameter
-    switch (sortParam) {
-      case 'oldest':
-        query = query.order('created_at', { ascending: true });
-        break;
-      case 'most_likes':
-        // Sort by the likes count in the fusions table
-        query = query.order('fusions(likes)', { ascending: false, nullsFirst: false });
-        break;
-      case 'less_likes':
-        // Sort by the likes count in the fusions table (ascending)
-        query = query.order('fusions(likes)', { ascending: true, nullsFirst: true });
-        break;
-      default:
-        // Default to newest first
-        query = query.order('created_at', { ascending: false });
-        break;
-    }
-
-    const { data: favoritesData, error: favoritesError } = await query;
+      .select('fusion_id, created_at')
+      .eq('user_id', supabaseUserId)
+      .order('created_at', { ascending: sortParam === 'oldest' });
 
     if (favoritesError) {
       console.error('Favorites API - Error fetching favorites:', favoritesError.message);
@@ -421,22 +389,47 @@ export async function GET(req: Request) {
 
     console.log('Favorites API - Fetched favorites count:', favoritesData?.length || 0);
 
+    if (!favoritesData || favoritesData.length === 0) {
+      return NextResponse.json({ favorites: [] });
+    }
+
+    // Get the fusion IDs
+    const fusionIds = favoritesData.map(fav => fav.fusion_id);
+
+    // Now fetch the fusion details
+    let fusionQuery = supabaseClient
+      .from('fusions')
+      .select('id, pokemon_1_name, pokemon_2_name, fusion_name, fusion_image, created_at, likes')
+      .in('id', fusionIds);
+
+    // Apply sorting for likes if needed
+    if (sortParam === 'most_likes') {
+      fusionQuery = fusionQuery.order('likes', { ascending: false, nullsFirst: false });
+    } else if (sortParam === 'less_likes') {
+      fusionQuery = fusionQuery.order('likes', { ascending: true, nullsFirst: true });
+    }
+
+    const { data: fusionsData, error: fusionsError } = await fusionQuery;
+
+    if (fusionsError) {
+      console.error('Favorites API - Error fetching fusion details:', fusionsError.message);
+      return NextResponse.json(
+        { error: 'Failed to fetch fusion details' },
+        { status: 500 }
+      );
+    }
+
     // Transform the data to a more usable format
-    const favorites = favoritesData?.map(item => {
-      if (!item.fusions) return null;
-      
-      // Convert from Supabase format to our Fusion type format
-      return {
-        id: item.fusions.id,
-        pokemon1Name: item.fusions.pokemon_1_name,
-        pokemon2Name: item.fusions.pokemon_2_name,
-        fusionName: item.fusions.fusion_name,
-        fusionImage: item.fusions.fusion_image,
-        createdAt: item.fusions.created_at,
-        likes: item.fusions.likes || 0,
-        favoriteCreatedAt: item.created_at // Include when the fusion was favorited
-      };
-    }).filter(Boolean) || [];
+    const favorites = fusionsData?.map(fusion => ({
+      id: fusion.id,
+      pokemon1Name: fusion.pokemon_1_name,
+      pokemon2Name: fusion.pokemon_2_name,
+      fusionName: fusion.fusion_name,
+      fusionImage: fusion.fusion_image,
+      createdAt: fusion.created_at,
+      likes: fusion.likes || 0,
+      favoriteCreatedAt: favoritesData.find(fav => fav.fusion_id === fusion.id)?.created_at
+    })) || [];
 
     return NextResponse.json({ favorites });
   } catch (error) {

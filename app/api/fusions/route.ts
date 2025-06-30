@@ -1,63 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { clerkClient } from '@clerk/nextjs/server';
-import { getSupabaseAdminClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getSupabaseUserIdFromClerk } from '@/lib/supabase-server';
 
-// Helper function to get the Supabase user ID from Clerk ID
-async function getSupabaseUserId(clerkId: string): Promise<string | null> {
-  try {
-    console.log('Fusions API - Looking up Supabase user for Clerk ID:', clerkId);
-    
-    // Get the Supabase admin client
-    const supabaseClient = await getSupabaseAdminClient();
-    
-    // First, try to find the user directly by Clerk ID
-    const { data: userByClerkId, error: clerkIdError } = await supabaseClient
-      .from('users')
-      .select('id')
-      .eq('clerk_id', clerkId)
-      .maybeSingle();
-    
-    if (userByClerkId) {
-      console.log('Fusions API - Found Supabase user by Clerk ID:', userByClerkId.id);
-      return userByClerkId.id;
-    }
-    
-    // If not found by Clerk ID, try to find by email
-    try {
-      const user = await clerkClient.users.getUser(clerkId);
-      console.log('Fusions API - Clerk user found:', user ? 'Yes' : 'No');
-      
-      if (user && user.emailAddresses && user.emailAddresses.length > 0) {
-        // Get the primary email
-        const primaryEmailObj = user.emailAddresses.find(email => email.id === user.primaryEmailAddressId) || user.emailAddresses[0];
-        const email = primaryEmailObj.emailAddress;
-        console.log('Fusions API - Using email for lookup:', email);
-        
-        // Query Supabase for the user ID by email
-        const { data: userByEmail, error: emailError } = await supabaseClient
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
-        
-        if (userByEmail) {
-          console.log('Fusions API - Found Supabase user by email:', userByEmail.id);
-          return userByEmail.id;
-        }
-      }
-    } catch (clerkError) {
-      console.error('Fusions API - Error fetching user from Clerk:', clerkError);
-    }
-    
-    // If all else fails, return the Clerk ID as a last resort
-    console.log('Fusions API - All lookup methods failed, returning Clerk ID as fallback');
-    return clerkId;
-  } catch (error) {
-    console.error('Fusions API - Unexpected error in getSupabaseUserId:', error);
-    return clerkId; // Return the Clerk ID as a fallback
-  }
-}
+
 
 export async function GET(req: Request) {
   try {
@@ -124,8 +70,8 @@ export async function GET(req: Request) {
     const userIdToUse = clerkUserId || finalUserId;
     console.log('Fusions API - Using userId for lookup:', userIdToUse);
 
-    // Get the corresponding Supabase user ID
-    const supabaseUserId = await getSupabaseUserId(userIdToUse);
+    // Get the corresponding Supabase user ID using the reliable function
+    const supabaseUserId = await getSupabaseUserIdFromClerk(userIdToUse);
     console.log('Fusions API - Supabase user lookup result:', supabaseUserId ? 'Found' : 'Not found');
 
     if (!supabaseUserId) {

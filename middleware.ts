@@ -84,6 +84,12 @@ export default clerkMiddleware(async (auth, req) => {
   
   // Allow the request to proceed
   return NextResponse.next();
+}, {
+  // Add security configuration for production
+  // Update this with your actual domain when deploying to production
+  authorizedParties: process.env.NODE_ENV === 'production' 
+    ? [`https://${process.env.VERCEL_URL}`, 'https://pokemon-fusion.com'] // Replace with your actual domain
+    : undefined,
 });
 
 // Configure matcher to exclude static files but include API routes

@@ -387,7 +387,7 @@ export async function syncUserToSupabase(
   email: string
 ): Promise<boolean> {
   try {
-    console.log('Server Actions - Syncing user with email:', email);
+    console.log('Server Actions - Syncing user with email:', email, 'and clerk_id:', clerkId);
     const client = await getSupabaseClient();
     
     // Check if user already exists by email
@@ -399,12 +399,20 @@ export async function syncUserToSupabase(
 
     if (existingUser) {
       console.log('Server Actions - Updating existing user with ID:', existingUser.id);
+      
+      // Prepare update data - always include name and clerk_id
+      const updateData: any = { name };
+      
+      // Update clerk_id if it's different from current value
+      if (!existingUser.clerk_id || existingUser.clerk_id !== clerkId) {
+        console.log('Server Actions - Updating clerk_id from', existingUser.clerk_id, 'to', clerkId);
+        updateData.clerk_id = clerkId;
+      }
+      
       // Update existing user
       const { error } = await client
         .from('users')
-        .update({
-          name
-        })
+        .update(updateData)
         .eq('id', existingUser.id);
         
       if (error) {
@@ -416,11 +424,12 @@ export async function syncUserToSupabase(
       return true;
     }
     
-    // Insert new user without clerk_id
-    console.log('Server Actions - Creating new user with email:', email);
+    // Insert new user WITH clerk_id
+    console.log('Server Actions - Creating new user with email:', email, 'and clerk_id:', clerkId);
     const { error } = await client
       .from('users')
       .insert({
+        clerk_id: clerkId,
         name,
         email
       });

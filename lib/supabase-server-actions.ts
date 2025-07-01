@@ -384,36 +384,37 @@ async function ensureFavoritesTableExists() {
 export async function syncUserToSupabase(
   clerkId: string, 
   name: string, 
-  email: string
+  email: string,
+  isFallbackEmail = false
 ): Promise<boolean> {
   try {
-    console.log('Server Actions - Syncing user with email:', email, 'and clerk_id:', clerkId);
+    console.log('Server Actions - Syncing user with email:', email, 'clerk_id:', clerkId, 'isFallbackEmail:', isFallbackEmail);
     const client = await getSupabaseClient();
     
-    // Check if user already exists by email
-    const { data: existingUser } = await client
+    // First, check if user already exists by clerk_id (most reliable)
+    const { data: existingUserByClerkId } = await client
       .from('users')
       .select('*')
-      .eq('email', email)
+      .eq('clerk_id', clerkId)
       .single();
 
-    if (existingUser) {
-      console.log('Server Actions - Updating existing user with ID:', existingUser.id);
+    if (existingUserByClerkId) {
+      console.log('Server Actions - Found existing user by clerk_id:', existingUserByClerkId.id);
       
-      // Prepare update data - always include name and clerk_id
+      // Prepare update data - always include name
       const updateData: any = { name };
       
-      // Update clerk_id if it's different from current value
-      if (!existingUser.clerk_id || existingUser.clerk_id !== clerkId) {
-        console.log('Server Actions - Updating clerk_id from', existingUser.clerk_id, 'to', clerkId);
-        updateData.clerk_id = clerkId;
+      // Only update email if it's not a fallback email and different from current
+      if (!isFallbackEmail && existingUserByClerkId.email !== email) {
+        console.log('Server Actions - Updating email from', existingUserByClerkId.email, 'to', email);
+        updateData.email = email;
       }
       
       // Update existing user
       const { error } = await client
         .from('users')
         .update(updateData)
-        .eq('id', existingUser.id);
+        .eq('id', existingUserByClerkId.id);
         
       if (error) {
         console.error('Server Actions - Error updating user:', error);
@@ -424,8 +425,38 @@ export async function syncUserToSupabase(
       return true;
     }
     
+    // If not found by clerk_id, check by email (but only for real emails)
+    if (!isFallbackEmail) {
+      const { data: existingUserByEmail } = await client
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (existingUserByEmail) {
+        console.log('Server Actions - Found existing user by email, updating with clerk_id:', existingUserByEmail.id);
+        
+        // Update existing user with clerk_id
+        const { error } = await client
+          .from('users')
+          .update({ 
+            clerk_id: clerkId,
+            name 
+          })
+          .eq('id', existingUserByEmail.id);
+          
+        if (error) {
+          console.error('Server Actions - Error updating user with clerk_id:', error);
+          return false;
+        }
+        
+        console.log('Server Actions - Successfully updated user in Supabase');
+        return true;
+      }
+    }
+    
     // Insert new user WITH clerk_id
-    console.log('Server Actions - Creating new user with email:', email, 'and clerk_id:', clerkId);
+    console.log('Server Actions - Creating new user with email:', email, 'clerk_id:', clerkId, 'isFallback:', isFallbackEmail);
     const { error } = await client
       .from('users')
       .insert({

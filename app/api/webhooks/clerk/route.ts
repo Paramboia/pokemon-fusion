@@ -62,28 +62,34 @@ export async function POST(req: Request) {
 
   // Handle user creation and update events
   if (eventType === 'user.created' || eventType === 'user.updated') {
-    const { id, email_addresses, first_name, last_name } = evt.data;
+    const { id, email_addresses, first_name, last_name, username } = evt.data;
     
-    // Get the user's email
+    // Get the user's email (may not be available for X/Twitter OAuth)
     const email = email_addresses?.[0]?.email_address;
     
+    // Handle missing email (common with X/Twitter OAuth)
+    let fallbackEmail = email;
     if (!email) {
-      console.error('Clerk Webhook - No email found for user:', id);
-      return NextResponse.json(
-        { error: 'No email found for user' },
-        { status: 400 }
-      );
+      console.log('Clerk Webhook - No email found for user:', id, 'using fallback strategy');
+      // Create a fallback email using the username or Clerk ID
+      const fallbackIdentifier = username || id;
+      fallbackEmail = `${fallbackIdentifier}@clerk-fallback.local`;
     }
     
     // Get the user's name
     const firstName = first_name || '';
     const lastName = last_name || '';
-    const name = `${firstName} ${lastName}`.trim() || 'Anonymous User';
+    const name = `${firstName} ${lastName}`.trim() || username || 'Anonymous User';
     
-    console.log('Clerk Webhook - Syncing user to Supabase:', { id, name, email });
+    console.log('Clerk Webhook - Syncing user to Supabase:', { 
+      id, 
+      name, 
+      email: email || 'fallback', 
+      hasRealEmail: !!email 
+    });
     
     // Sync the user to Supabase
-    const success = await syncUserToSupabase(id, name, email);
+    const success = await syncUserToSupabase(id, name, fallbackEmail, !email);
     
     if (!success) {
       console.error('Clerk Webhook - Failed to sync user to Supabase');

@@ -6,7 +6,8 @@ export const runtime = 'edge'
 export async function POST(request: Request) {
   try {
     // Verify the request is from an authenticated user
-    const { userId } = auth()
+    const session = await auth()
+    const userId = session?.userId
     if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },

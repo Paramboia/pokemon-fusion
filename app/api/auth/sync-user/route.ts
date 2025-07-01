@@ -74,7 +74,8 @@ export async function POST(request: Request) {
     }
     
     // Get authenticated user ID from Clerk
-    const { userId: authUserId } = auth();
+    const session = await auth();
+    const authUserId = session?.userId;
     console.log('Authenticated user ID from Clerk:', authUserId);
     
     // Log request headers

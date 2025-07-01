@@ -29,9 +29,25 @@ export async function POST(request: Request) {
     console.log('Link User API - Linking user:', {
       clerkUserId,
       supabaseUserId,
-      oneSignalPlayerId: oneSignalPlayerId?.substring(0, 10) + '...',
+      oneSignalPlayerId: oneSignalPlayerId ? oneSignalPlayerId.substring(0, 10) + '...' : 'null',
       userEmail
     })
+
+    // If no OneSignal player ID is provided, just record the user info and return success
+    if (!oneSignalPlayerId) {
+      console.log('Link User API - No OneSignal player ID provided, skipping OneSignal update')
+      return NextResponse.json({
+        success: true,
+        message: 'User info recorded (no OneSignal player ID yet)',
+        data: {
+          clerkUserId,
+          supabaseUserId,
+          oneSignalPlayerId: null,
+          linkedAt: new Date().toISOString(),
+          note: 'User will be linked to OneSignal when they subscribe to notifications'
+        }
+      })
+    }
 
     // Get OneSignal configuration
     const restApiKey = process.env.ONESIGNAL_REST_API_KEY

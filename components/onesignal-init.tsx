@@ -163,7 +163,9 @@ export function OneSignalInit() {
             playerId = OneSignal.User.PushSubscription.id
           }
 
-          await fetch('/api/notifications/link-user', {
+          console.log('OneSignal linking - Player ID available:', !!playerId)
+
+          const response = await fetch('/api/notifications/link-user', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -175,15 +177,30 @@ export function OneSignalInit() {
               userEmail: user.primaryEmailAddress?.emailAddress
             })
           })
-          console.log('User linking info sent to backend with Supabase ID')
-          
-          // Track successful backend linking
-          gaEvent({
-            action: 'onesignal_backend_link_success',
-            category: 'notifications',
-            label: 'api_call_success',
-            value: undefined
-          })
+
+          if (response.ok) {
+            const data = await response.json()
+            console.log('User linking info sent to backend successfully:', data.message)
+            
+            // Track successful backend linking
+            gaEvent({
+              action: 'onesignal_backend_link_success',
+              category: 'notifications',
+              label: playerId ? 'with_player_id' : 'without_player_id',
+              value: undefined
+            })
+          } else {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+            console.warn('Backend linking failed with status:', response.status, errorData)
+            
+            // Track backend linking failure
+            gaEvent({
+              action: 'onesignal_backend_link_failed',
+              category: 'notifications',
+              label: `status_${response.status}`,
+              value: undefined
+            })
+          }
         } catch (linkError) {
           console.warn('Failed to send user linking info to backend:', linkError)
           

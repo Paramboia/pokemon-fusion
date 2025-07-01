@@ -54,6 +54,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setSyncInProgress(true);
     
+    // Get user data from Clerk (move outside try block for scope)
+    const name = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'Anonymous User';
+    const email = user.primaryEmailAddress?.emailAddress;
+    
+    // Handle missing email (common with X/Twitter OAuth)
+    let fallbackEmail = email;
+    if (!email) {
+      console.log('Auth Context - No email found for user, using fallback strategy');
+      const fallbackIdentifier = user.username || user.id;
+      fallbackEmail = `${fallbackIdentifier}@clerk-fallback.local`;
+    }
+    
     try {
       console.log('Auth Context - User is signed in, syncing to Supabase');
       console.log('Auth Context - User details:', {
@@ -64,34 +76,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasEmail: !!user.primaryEmailAddress
       });
       
-      // Get user data from Clerk
-      const name = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Anonymous User';
-      const email = user.primaryEmailAddress?.emailAddress || '';
+      console.log('Auth Context - Calling sync-user API with name:', name, 'email:', email || 'fallback', 'hasRealEmail:', !!email);
       
-      if (!email) {
-        console.error('Auth Context - No email found for user');
-        setAuthError('No email found for user');
-        setSyncInProgress(false);
-        return null;
-      }
-      
-      console.log('Auth Context - Calling sync-user API with name:', name, 'and email:', email);
-      
-      // Call our API to sync the user to Supabase
-      const response = await fetch('/api/auth/sync-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: user.id,
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-          emailAddresses: [
-            { emailAddress: email }
-          ]
-        }),
-      });
+              // Call our API to sync the user to Supabase
+        const response = await fetch('/api/auth/sync-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: user.id,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            username: user.username,
+            emailAddresses: [
+              { emailAddress: fallbackEmail }
+            ],
+            hasRealEmail: !!email
+          }),
+        });
       
       console.log('Auth Context - sync-user API response status:', response.status);
       
@@ -108,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const fallbackUser = {
           id: user.id,
           name,
-          email,
+          email: fallbackEmail,
         };
         
         setSupabaseUser(fallbackUser);
@@ -133,8 +136,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Auth Context - Using Clerk user data as fallback due to exception');
       const fallbackUser = {
         id: user.id,
-        name: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Anonymous User',
-        email: user.primaryEmailAddress?.emailAddress || '',
+        name: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'Anonymous User',
+        email: fallbackEmail,
       };
       
       setSupabaseUser(fallbackUser);

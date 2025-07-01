@@ -93,24 +93,26 @@ export async function POST(request: Request) {
     const userId = userData.id || authUserId;
     const firstName = userData.firstName || '';
     const lastName = userData.lastName || '';
+    const username = userData.username || '';
     const email = userData.emailAddresses?.[0]?.emailAddress;
-    const name = `${firstName} ${lastName}`.trim() || 'Unknown User';
+    const hasRealEmail = userData.hasRealEmail !== false; // Default to true for backward compatibility
+    const name = `${firstName} ${lastName}`.trim() || username || 'Unknown User';
     
-    console.log('Extracted user info:', { userId, name, email });
+    // Handle missing email (common with X/Twitter OAuth)
+    let fallbackEmail = email;
+    if (!email) {
+      console.log('Sync-user API - No email found, using fallback strategy');
+      const fallbackIdentifier = username || userId;
+      fallbackEmail = `${fallbackIdentifier}@clerk-fallback.local`;
+    }
+    
+    console.log('Extracted user info:', { userId, name, email: email || 'fallback', hasRealEmail });
     
     // Validate required fields
     if (!userId) {
       console.error('Missing required user ID');
       return NextResponse.json(
         { error: 'Missing required user ID' },
-        { status: 400 }
-      );
-    }
-    
-    if (!email) {
-      console.error('Missing required email');
-      return NextResponse.json(
-        { error: 'Missing required email' },
         { status: 400 }
       );
     }
@@ -150,9 +152,9 @@ export async function POST(request: Request) {
         }
       }
       
-      // If not found by clerk_id, check by email
-      if (!existingUser) {
-        console.log('Checking if user exists with email:', email);
+      // If not found by clerk_id, check by email (but only for real emails)
+      if (!existingUser && hasRealEmail && email) {
+        console.log('Checking if user exists with real email:', email);
         const { data: userByEmail, error: emailError } = await supabaseClient
           .from('users')
           .select('*')
@@ -164,7 +166,7 @@ export async function POST(request: Request) {
         }
         
         if (userByEmail) {
-          console.log('Found user by email:', userByEmail.id);
+          console.log('Found user by real email:', userByEmail.id);
           existingUser = userByEmail;
         }
       }
@@ -179,6 +181,12 @@ export async function POST(request: Request) {
         if (clerkIdColumnExists && (!existingUser.clerk_id || existingUser.clerk_id !== userId)) {
           console.log('Adding clerk_id to update data:', userId);
           updateData.clerk_id = userId;
+        }
+        
+        // Only update email if it's a real email and different from current
+        if (hasRealEmail && email && existingUser.email !== email) {
+          console.log('Updating email from', existingUser.email, 'to', email);
+          updateData.email = email;
         }
         
         // Update existing user
@@ -205,12 +213,12 @@ export async function POST(request: Request) {
           user: updatedUser?.[0] || existingUser
         });
       } else {
-        console.log('Creating new user with name:', name, 'and email:', email);
+        console.log('Creating new user with name:', name, 'email:', fallbackEmail, 'isRealEmail:', hasRealEmail);
         
         // Prepare insert data
         const insertData: any = {
           name,
-          email,
+          email: fallbackEmail,
           credits_balance: 0 // Initialize with 0 credits
         };
         

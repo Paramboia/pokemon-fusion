@@ -152,11 +152,18 @@ export default function GalleryPage() {
             </div>
           </div>
         ) : fusions.length === 0 ? (
-          <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
-            <p className="text-xl mb-4 text-gray-800 dark:text-gray-200">No fusions found</p>
-            <p className="text-gray-600 dark:text-gray-400">
-              Start creating Pokémon fusions to see them in your gallery!
-            </p>
+          <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center">
+            <div className="p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-md w-full">
+              <div className="flex items-center justify-center mb-4">
+                <AlertCircle className="h-10 w-10 text-gray-500" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
+                No fusions found
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-8">
+                Start creating Pokémon fusions to see them in your gallery!
+              </p>
+            </div>
           </div>
         ) : (
           <>

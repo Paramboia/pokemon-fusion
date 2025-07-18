@@ -3,7 +3,9 @@
  * This file ensures all required environment variables have default values
  */
 
-// Force set environment variables if not already set
+/**
+ * Initialize configuration by setting default values for environment variables
+ */
 export function initializeConfig() {
   // Default to true for enhancement - CRITICAL for GPT enhancement to work
   if (process.env.USE_GPT_VISION_ENHANCEMENT === undefined) {
@@ -59,17 +61,31 @@ export function initializeConfig() {
       process.env.ENHANCEMENT_TIMEOUT = '55000';
     }
   }
+
+  // Multi-step UI feature flag
+  if (!process.env.ENABLE_MULTI_STEP_UI) {
+    process.env.ENABLE_MULTI_STEP_UI = 'false'; // Disabled by default for safety
+  }
+  
+  // Also set the client-side environment variable
+  if (!process.env.NEXT_PUBLIC_ENABLE_MULTI_STEP_UI) {
+    process.env.NEXT_PUBLIC_ENABLE_MULTI_STEP_UI = process.env.ENABLE_MULTI_STEP_UI;
+  }
 }
 
-// Log configuration status
+/**
+ * Log the current configuration status
+ */
 export function logConfigStatus() {
-  console.log('*** Image Generation Configuration ***');
-  console.log(`USE_GPT_VISION_ENHANCEMENT: ${process.env.USE_GPT_VISION_ENHANCEMENT}`);
-  console.log(`USE_OPENAI_MODEL: ${process.env.USE_OPENAI_MODEL}`);
-  console.log(`USE_REPLICATE_BLEND: ${process.env.USE_REPLICATE_BLEND}`);
-  console.log(`ENHANCEMENT_TIMEOUT: ${process.env.ENHANCEMENT_TIMEOUT}`);
-  console.log(`REPLICATE_API_TOKEN available: ${!!process.env.REPLICATE_API_TOKEN}`);
-  console.log(`OPENAI_API_KEY available: ${!!process.env.OPENAI_API_KEY}`);
-  console.log(`OPENAI_API_KEY format: ${process.env.OPENAI_API_KEY ? (process.env.OPENAI_API_KEY.startsWith('sk-proj-') ? 'valid project key' : 'invalid format') : 'missing'}`);
-  console.log('*** End Configuration ***');
+  console.log('Configuration Status:', {
+    USE_GPT_VISION_ENHANCEMENT: process.env.USE_GPT_VISION_ENHANCEMENT,
+    USE_OPENAI_MODEL: process.env.USE_OPENAI_MODEL,
+    USE_REPLICATE_BLEND: process.env.USE_REPLICATE_BLEND,
+    ENHANCEMENT_TIMEOUT: process.env.ENHANCEMENT_TIMEOUT,
+    REPLICATE_API_TOKEN: !!process.env.REPLICATE_API_TOKEN,
+    OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+    OPENAI_API_KEY_FORMAT: process.env.OPENAI_API_KEY ? (process.env.OPENAI_API_KEY.startsWith('sk-proj-') ? 'valid project key' : 'invalid format') : 'missing',
+    ENABLE_MULTI_STEP_UI: process.env.ENABLE_MULTI_STEP_UI,
+    NEXT_PUBLIC_ENABLE_MULTI_STEP_UI: process.env.NEXT_PUBLIC_ENABLE_MULTI_STEP_UI,
+  });
 } 

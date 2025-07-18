@@ -26,6 +26,10 @@ import FormData from 'form-data';
 // Initialize configuration to ensure all environment variables are set
 initializeConfig();
 
+// NOTE: This is the legacy single-step API endpoint. 
+// For the new multi-step UI with streaming, use /api/generate/stream
+// This endpoint is maintained for backwards compatibility and as a fallback.
+
 // Log environment variables for debugging
 console.log('Generate API - REPLICATE_API_TOKEN available:', !!process.env.REPLICATE_API_TOKEN);
 console.log('Generate API - OPENAI_API_KEY available:', !!process.env.OPENAI_API_KEY);

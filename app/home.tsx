@@ -17,6 +17,7 @@ import { AlternatingText } from "@/components/ui";
 import { CreditGate } from "@/components/credit-gate";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCredits } from "@/hooks/useCredits";
+import { ProgressStepper } from '@/components/ui/progress-stepper';
 
 // Create a separate component to handle payment success detection
 function PaymentSuccessHandler({ onSuccess }: { onSuccess: (message: string) => void }) {
@@ -47,7 +48,6 @@ function PaymentSuccessHandler({ onSuccess }: { onSuccess: (message: string) => 
         toast.success("Payment successful! Your credits have been added to your account.", {
           id: 'payment-success-toast',
           duration: 8000, // 8 seconds
-          important: true,
         });
         
         // Notify parent component to show the success message
@@ -63,7 +63,18 @@ function PaymentSuccessHandler({ onSuccess }: { onSuccess: (message: string) => 
 
 export default function Home() {
   const { pokemonList, isLoading } = usePokemon();
-  const { generating, fusionImage, fusionId, error, isPaymentRequired, isLocalFallback, generateFusion } = useFusion();
+  const { 
+    generating, 
+    fusionImage, 
+    fusionId, 
+    error, 
+    isPaymentRequired, 
+    isLocalFallback, 
+    generateFusion,
+    // New multi-step UI states
+    generationState,
+    isMultiStepEnabled
+  } = useFusion();
   const { isSignedIn } = useAuthContext();
   const { getToken } = useAuth();
   const [selectedPokemon, setSelectedPokemon] = useState<{
@@ -237,112 +248,130 @@ export default function Home() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Suspense boundary for the payment success handler */}
-      <Suspense fallback={null}>
-        <PaymentSuccessHandler onSuccess={handlePaymentSuccess} />
-      </Suspense>
-      
-      {/* Success Alert - with longer timeout for payment success */}
-      <SuccessAlert
-        message={successMessage}
-        isVisible={showSuccessAlert}
-        onClose={() => setShowSuccessAlert(false)}
-        autoClose={true}
-        autoCloseTime={successMessage.includes("Credits added") ? 10000 : 5000} // Longer timeout for payment success
-      />
-      
-      <div className="flex flex-col items-center justify-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
-          <div className="text-gray-800 dark:!text-white" style={{ color: 'inherit', ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
-            <SparklesText text="Pokémon Fusion" />
-          </div>
-        </h1>
-        <p className="text-lg text-center text-gray-600 dark:!text-white max-w-2xl" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>
-          Create unique Pokémon combinations with our fusion generator
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-8">
+        {/* Suspense boundary for the payment success handler */}
+        <Suspense fallback={null}>
+          <PaymentSuccessHandler onSuccess={handlePaymentSuccess} />
+        </Suspense>
 
-      <div className="grid grid-cols-1 gap-8">
-        {/* Pokémon Selection Section */}
-        <div className="flex flex-col items-center">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>Select Your Pokémon</h2>
-          
-          <PokemonSelector
-            pokemonList={pokemonList}
-            onSelect={handlePokemonSelect}
-            selectedPokemon={selectedPokemon}
-          />
-          
-          <div className="mt-8 w-full flex justify-center">
-            <HomeAuthGate>
-              <Button
-                onClick={handleGenerateFusion}
-                disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
-                className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white"
-                size="lg"
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    <AlternatingText 
-                      messages={[
-                        "Generating Fusion...", 
-                        "It might take a few minutes...",
-                        "Please do not refresh...",
-                        "Please do not close the page...",
-                        "AI is still cooking...",
-                        "Thank you for your patience..."
-                      ]} 
-                      interval={3000} 
-                    />
-                  </>
-                ) : (
-                  <>
-                    Generate Fusion
-                  </>
-                )}
-              </Button>
-            </HomeAuthGate>
-          </div>
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">
+            Pokémon Fusion Generator
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300">
+            Create amazing new Pokémon by fusing two different species together!
+          </p>
         </div>
 
-        {/* Fusion Result Section */}
-        {fusionImage && (
-          <div className="mt-12 flex flex-col items-center">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>Your Pokémon Fusion</h2>
-            
-            <div className="w-full max-w-md">
-              <FusionCard 
-                fusion={{
-                  id: fusionId || "temp-fusion", // Use the actual fusion ID if available
-                  fusionName: fusionName || "Unnamed Fusion",
-                  fusionImage: fusionImage,
-                  pokemon1Name: selectedPokemon.pokemon1?.name || "",
-                  pokemon2Name: selectedPokemon.pokemon2?.name || "",
-                  isLocalFallback: isLocalFallback,
-                  likes: 0,
-                  createdAt: new Date().toISOString()
-                }}
-                showActions={true}
-                onLike={() => setIsLiked(!isLiked)}
-                showFallbackWarning={true}
-              />
-            </div>
+        {/* Success Alert */}
+        {showSuccessAlert && (
+          <div className="mb-8 flex justify-center">
+            <SuccessAlert 
+              message={successMessage} 
+              isVisible={showSuccessAlert}
+              onClose={() => setShowSuccessAlert(false)}
+            />
           </div>
         )}
 
-        {/* Error Messages and Payment Required Message combined into one component */}
-        {(error && !isLocalFallback) || isPaymentRequired ? (
-          <div className="mt-6 flex justify-center">
-            <CreditGate 
-              title="Ups... You need Credits"
-              message={error && !isLocalFallback ? error : "Purchase credits to continue creating amazing Pokémon fusions!"}
-              buttonText="Get Credits"
-              redirectPath="/credits"
+        <div className="grid grid-cols-1 gap-8">
+          {/* Pokémon Selection Section */}
+          <div className="flex flex-col items-center">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>Select Your Pokémon</h2>
+            
+            <PokemonSelector
+              pokemonList={pokemonList}
+              onSelect={handlePokemonSelect}
+              selectedPokemon={selectedPokemon}
             />
+            
+            <div className="mt-8 w-full flex justify-center">
+              <HomeAuthGate>
+                <Button
+                  onClick={handleGenerateFusion}
+                  disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
+                  className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white"
+                  size="lg"
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      {isMultiStepEnabled ? 'Generating Fusion...' : (
+                        <AlternatingText 
+                          messages={[
+                            "Generating Fusion...", 
+                            "It might take a few minutes...",
+                            "Please do not refresh...",
+                            "Please do not close the page...",
+                            "AI is still cooking...",
+                            "Thank you for your patience..."
+                          ]} 
+                          interval={3000} 
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      Generate Fusion
+                    </>
+                  )}
+                </Button>
+              </HomeAuthGate>
+            </div>
           </div>
-        ) : null}
+
+          {/* Multi-Step Progress Section */}
+          {generating && isMultiStepEnabled && (
+            <div className="flex flex-col items-center">
+              <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white">
+                Generation Progress
+              </h2>
+              <ProgressStepper
+                steps={generationState.steps}
+                currentStep={generationState.currentStep}
+                className="mb-8"
+              />
+            </div>
+          )}
+
+          {/* Fusion Result Section */}
+          {fusionImage && (
+            <div className="mt-12 flex flex-col items-center">
+              <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white" style={{ ...(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? { color: 'white !important' } : {}) }}>Your Pokémon Fusion</h2>
+              
+              <div className="w-full max-w-md">
+                <FusionCard 
+                  fusion={{
+                    id: fusionId || "temp-fusion",
+                    fusionName: fusionName || "Unnamed Fusion",
+                    fusionImage: fusionImage,
+                    pokemon1Name: selectedPokemon.pokemon1?.name || "",
+                    pokemon2Name: selectedPokemon.pokemon2?.name || "",
+                    isLocalFallback: isLocalFallback,
+                    likes: 0,
+                    createdAt: new Date().toISOString()
+                  }}
+                  showActions={true}
+                  onLike={() => setIsLiked(!isLiked)}
+                  showFallbackWarning={true}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Error Messages and Payment Required Message */}
+          {(error && !isLocalFallback) || isPaymentRequired ? (
+            <div className="mt-6 flex justify-center">
+              <CreditGate 
+                title="Ups... You need Credits"
+                message={error && !isLocalFallback ? error : "Purchase credits to continue creating amazing Pokémon fusions!"}
+                buttonText="Get Credits"
+                redirectPath="/credits"
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ export { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export { Label } from './label';
 export { Popover, PopoverContent, PopoverTrigger } from './popover';
 export { Progress } from './progress';
+export { ProgressStepper } from './progress-stepper';
 export { ScrollArea } from './scroll-area';
 export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 export { Skeleton } from './skeleton';

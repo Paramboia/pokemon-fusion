@@ -249,7 +249,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
         {/* Suspense boundary for the payment success handler */}
         <Suspense fallback={null}>

@@ -24,14 +24,14 @@ interface StepItemProps {
 // CSS for dotted lines
 const dotStyles = `
   .dotted-line-horizontal {
-    background: linear-gradient(to right, #9CA3AF 40%, transparent 40%);
-    background-size: 6px 1px;
+    background: linear-gradient(to right, #9CA3AF 30%, transparent 30%);
+    background-size: 4px 1px;
     background-repeat: repeat-x;
   }
   
   .dotted-line-vertical {
-    background: linear-gradient(to bottom, #9CA3AF 40%, transparent 40%);
-    background-size: 1px 6px;
+    background: linear-gradient(to bottom, #9CA3AF 30%, transparent 30%);
+    background-size: 1px 4px;
     background-repeat: repeat-y;
   }
 `;
@@ -110,16 +110,14 @@ const StepItem = ({ step, isActive, icon, isLast, isDesktop }: StepItemProps) =>
         <div className={cn(
           "absolute transition-all duration-500",
           isDesktop ? (
-            // Desktop: horizontal line to next step
-            "top-7 left-14 h-0.5 w-full z-0"
+            // Desktop: horizontal line to next step, starting from the edge of current circle
+            "top-7 left-14 h-0.25 w-full z-0"
           ) : (
-            // Mobile: vertical line below current step
-            "top-14 left-7 w-0.5 h-12 z-0"
+            // Mobile: vertical line below current step, starting from the edge of current circle
+            "top-14 left-7 w-0.25 h-12 z-0"
           )
         )}>
-          {/* Solid line base */}
-          <div className="absolute inset-0 bg-gray-300" />
-          {/* Dotted overlay */}
+          {/* Dotted line - no solid base needed */}
           <div className={cn(
             "absolute inset-0",
             isDesktop ? "dotted-line-horizontal" : "dotted-line-vertical"
@@ -195,8 +193,8 @@ export function FusionStepsCard({ steps, currentStep, className }: FusionStepsCa
     <Card className={cn(
       "w-full mx-auto p-6 lg:p-8 shadow-xl border border-gray-200 dark:border-gray-700",
       "bg-white dark:bg-gray-800 rounded-2xl transition-all duration-300",
-      // Desktop: match Pokemon selector width
-      "max-w-md lg:max-w-4xl",
+      // Desktop: slightly narrower than Pokemon selector width
+      "max-w-md lg:max-w-3xl",
       className
     )}>
       {/* Header */}

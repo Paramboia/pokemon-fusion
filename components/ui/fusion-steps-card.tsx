@@ -186,27 +186,27 @@ export function FusionStepsCard({ steps, currentStep, className }: FusionStepsCa
       <Image 
         src="/icon/icon_capturing.png" 
         alt="Capturing" 
-        width={32} 
-        height={32} 
-        className="w-8 h-8"
+        width={40} 
+        height={40} 
+        className="w-10 h-10"
       />
     ),
     'merging': (
       <Image 
         src="/icon/icon_merging.png" 
         alt="Merging" 
-        width={32} 
-        height={32} 
-        className="w-8 h-8"
+        width={40} 
+        height={40} 
+        className="w-10 h-10"
       />
     ),
     'entering': (
       <Image 
         src="/icon/icon_pokedex.png" 
         alt="Pokédex" 
-        width={32} 
-        height={32} 
-        className="w-8 h-8"
+        width={40} 
+        height={40} 
+        className="w-10 h-10"
       />
     )
   };

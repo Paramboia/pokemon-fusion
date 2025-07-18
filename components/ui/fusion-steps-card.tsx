@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import { Check, Loader2, X, Camera, GitMerge, BookOpen } from 'lucide-react';
+import { Check, Loader2, X } from 'lucide-react';
 import { FusionStep, StepState } from '@/types/fusion';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { AlternatingText } from '@/components/ui/alternating-text';
+import Image from 'next/image';
 
 interface FusionStepsCardProps {
   steps: FusionStep[];
@@ -179,11 +180,35 @@ export function FusionStepsCard({ steps, currentStep, className }: FusionStepsCa
     "Thank you for your patience..."
   ];
 
-  // Icons for each step
+  // Icons for each step - using custom icons
   const stepIcons = {
-    'capturing': <Camera className="w-6 h-6" />,
-    'merging': <GitMerge className="w-6 h-6" />,
-    'entering': <BookOpen className="w-6 h-6" />
+    'capturing': (
+      <Image 
+        src="/icon/icon_capturing.png" 
+        alt="Capturing" 
+        width={24} 
+        height={24} 
+        className="w-6 h-6"
+      />
+    ),
+    'merging': (
+      <Image 
+        src="/icon/icon_merging.png" 
+        alt="Merging" 
+        width={24} 
+        height={24} 
+        className="w-6 h-6"
+      />
+    ),
+    'entering': (
+      <Image 
+        src="/icon/icon_pokedex.png" 
+        alt="Pokédex" 
+        width={24} 
+        height={24} 
+        className="w-6 h-6"
+      />
+    )
   };
 
   // Check if any step is active

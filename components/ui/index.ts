@@ -21,4 +21,5 @@ export { Switch } from './switch';
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 export { AlternatingText } from './alternating-text';
 export { SuccessAlert } from './success-alert';
+export { FusionStepsCard } from './fusion-steps-card';
 // Add other UI components as needed 

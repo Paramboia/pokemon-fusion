@@ -18,6 +18,7 @@ import { CreditGate } from "@/components/credit-gate";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCredits } from "@/hooks/useCredits";
 import { ProgressStepper } from '@/components/ui/progress-stepper';
+import { FusionStepsCard } from '@/components/ui/fusion-steps-card';
 
 // Create a separate component to handle payment success detection
 function PaymentSuccessHandler({ onSuccess }: { onSuccess: (message: string) => void }) {
@@ -288,52 +289,45 @@ export default function Home() {
             
             <div className="mt-8 w-full flex justify-center">
               <HomeAuthGate>
-                <Button
-                  onClick={handleGenerateFusion}
-                  disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2 || generating}
-                  className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white"
-                  size="lg"
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      {isMultiStepEnabled ? 'Generating Fusion...' : (
-                        <AlternatingText 
-                          messages={[
-                            "Generating Fusion...", 
-                            "It might take a few minutes...",
-                            "Please do not refresh...",
-                            "Please do not close the page...",
-                            "AI is still cooking...",
-                            "Thank you for your patience..."
-                          ]} 
-                          interval={3000} 
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      Generate Fusion
-                    </>
-                  )}
-                </Button>
+                {/* Show Generate Button or Fusion Steps Card */}
+                {!generating ? (
+                  <Button
+                    onClick={handleGenerateFusion}
+                    disabled={!selectedPokemon.pokemon1 || !selectedPokemon.pokemon2}
+                    className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white"
+                    size="lg"
+                  >
+                    Generate Fusion
+                  </Button>
+                ) : isMultiStepEnabled ? (
+                  <FusionStepsCard
+                    steps={generationState.steps}
+                    currentStep={generationState.currentStep}
+                    className="mt-4"
+                  />
+                ) : (
+                  <Button
+                    disabled={true}
+                    className="px-8 py-2 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white"
+                    size="lg"
+                  >
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    <AlternatingText 
+                      messages={[
+                        "Generating Fusion...", 
+                        "It might take a few minutes...",
+                        "Please do not refresh...",
+                        "Please do not close the page...",
+                        "AI is still cooking...",
+                        "Thank you for your patience..."
+                      ]} 
+                      interval={3000} 
+                    />
+                  </Button>
+                )}
               </HomeAuthGate>
             </div>
           </div>
-
-          {/* Multi-Step Progress Section */}
-          {generating && isMultiStepEnabled && (
-            <div className="flex flex-col items-center">
-              <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:!text-white">
-                Generation Progress
-              </h2>
-              <ProgressStepper
-                steps={generationState.steps}
-                currentStep={generationState.currentStep}
-                className="mb-8"
-              />
-            </div>
-          )}
 
           {/* Fusion Result Section */}
           {fusionImage && (

@@ -104,11 +104,14 @@ export async function POST(req: Request) {
     const currentBalance = userData?.credits_balance || 0;
     
     if (currentBalance <= 0) {
+      console.error('Generate Stream API - Insufficient credits');
       return NextResponse.json({ 
         error: 'Insufficient credits',
         paymentRequired: true
       }, { status: 402 });
     }
+
+    console.log('Generate Stream API - User has sufficient credits:', currentBalance);
 
     // Create readable stream for SSE
     const encoder = new TextEncoder();
@@ -137,13 +140,24 @@ export async function POST(req: Request) {
           userUuid,
           supabase
         ).catch(error => {
-          console.error('Generate Stream API - Error in generation:', error);
+          console.error('Generate Stream API - Error in generation process:', error);
+          
+          // Always try to provide a fallback result even if there's an error
+          const fallbackImageUrl = getPokemonImageUrl(pokemon1Id);
+          
           sendSSEEvent(encoder, controller, {
-            step: 'capturing',
-            status: 'failed',
-            error: error.message || 'Unknown error occurred',
+            step: 'entering',
+            status: 'completed',
+            data: {
+              finalUrl: fallbackImageUrl,
+              fusionId: `fallback-${Date.now()}`,
+              fusionName: pokemon1Name,
+              isLocalFallback: true,
+              message: 'Using Simple Method due to system error'
+            },
             timestamp: Date.now()
           });
+          
           controller.close();
         });
       }
@@ -328,16 +342,28 @@ async function generateFusionWithSteps(
   } catch (error) {
     console.error('Generate Stream API - Generation failed, using Simple Method:', error);
     
-    // Fallback to Simple Method
+    // CRITICAL: Fallback to Simple Method
+    console.log('Generate Stream API - Falling back to Simple Method');
     fusionImageUrl = processedImage1;
     useSimpleFusion = true;
     
-    // Send fallback event
+    // Send fallback notification - mark the failed step as failed first
     sendSSEEvent(encoder, controller, {
       step: 'capturing',
-      status: 'completed',
-      data: { finalUrl: fusionImageUrl },
+      status: 'failed',
       error: 'Using Simple Method fallback',
+      timestamp: Date.now()
+    });
+    
+    // Then immediately show the Simple Method result
+    sendSSEEvent(encoder, controller, {
+      step: 'entering',
+      status: 'completed',
+      data: { 
+        finalUrl: fusionImageUrl,
+        isLocalFallback: true,
+        message: 'Using Simple Method due to AI service unavailable'
+      },
       timestamp: Date.now()
     });
   }
@@ -405,10 +431,19 @@ async function generateFusionWithSteps(
     
   } catch (error) {
     console.error('Generate Stream API - Error saving fusion:', error);
+    
+    // Even if saving fails, still try to send the result to the user
+    // This ensures they get something even if the database operation fails
     sendSSEEvent(encoder, controller, {
       step: 'entering',
-      status: 'failed',
-      error: error.message || 'Failed to save fusion',
+      status: 'completed',
+      data: {
+        finalUrl: fusionImageUrl || processedImage1,
+        fusionId: uuidv4(),
+        fusionName,
+        isLocalFallback: true,
+        message: 'Fusion generated but not saved to database'
+      },
       timestamp: Date.now()
     });
   }

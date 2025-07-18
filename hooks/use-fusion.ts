@@ -194,6 +194,18 @@ export function useFusion() {
       });
 
       if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 402) {
+          // Payment required - don't fall back, show payment required
+          const errorData = await response.json();
+          setIsPaymentRequired(true);
+          setError(errorData.error || 'Payment required');
+          toast.dismiss('fusion-generation');
+          toast.error('Please purchase more credits to generate fusions');
+          return;
+        }
+        
+        // For other errors, fall back to legacy API
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
@@ -203,6 +215,7 @@ export function useFusion() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let hasReceivedResult = false;
 
       try {
         while (true) {
@@ -223,12 +236,24 @@ export function useFusion() {
                 console.log('Received SSE event:', eventData);
                 
                 handleStepUpdate(eventData);
+                
+                // Check if we received a final result
+                if (eventData.step === 'entering' && eventData.status === 'completed' && eventData.data) {
+                  hasReceivedResult = true;
+                }
               } catch (parseError) {
                 console.error('Error parsing SSE event:', parseError, 'Line:', line);
               }
             }
           }
         }
+        
+        // If we didn't receive a final result, something went wrong
+        if (!hasReceivedResult) {
+          console.error('Stream ended without receiving final result');
+          throw new Error('Stream ended without receiving final result');
+        }
+        
       } finally {
         reader.releaseLock();
       }
@@ -236,18 +261,51 @@ export function useFusion() {
     } catch (streamError) {
       console.error('Error with streaming API:', streamError);
       toast.dismiss('fusion-generation');
-      toast.error('Stream connection failed. Using fallback method.');
       
-      // Fall back to legacy API
-      await generateWithLegacyUI(
-        token,
-        pokemon1Id,
-        pokemon2Id,
-        name1,
-        name2,
-        generatedFusionName,
-        fallbackImage
-      );
+      // Check if this is a payment required error
+      if (streamError.message?.includes('402') || streamError.message?.includes('Payment required')) {
+        setIsPaymentRequired(true);
+        setError('Payment required to generate fusions');
+        toast.error('Please purchase more credits to generate fusions');
+        return;
+      }
+      
+      // For any other error, fall back to Simple Method immediately
+      console.log('Falling back to Simple Method due to streaming error');
+      toast.loading('Switching to Simple Method...', {
+        id: 'fusion-generation',
+        duration: 5000,
+      });
+      
+      // Set Simple Method result immediately
+      setFusionImage(fallbackImage);
+      setFusionId('simple-' + Date.now());
+      setFusionName(name1);
+      setIsLocalFallback(true);
+      
+      // Update generation state to show Simple Method
+      setGenerationState(prev => {
+        const newSteps = prev.steps.map(step => ({
+          ...step,
+          state: 'completed' as StepState
+        }));
+        return {
+          ...prev,
+          steps: newSteps,
+          currentStep: 2
+        };
+      });
+      
+      toast.dismiss('fusion-generation');
+      toast.success('Using Simple Method - showing first Pokémon');
+      
+      // Track fallback
+      gaEvent({
+        action: 'fusion_generation_fallback',
+        category: 'engagement',
+        label: 'simple-method-fallback',
+        value: undefined
+      });
     }
   };
 
@@ -429,7 +487,7 @@ export function useFusion() {
           toast.dismiss('fusion-generation');
           
           if (eventData.data.isLocalFallback) {
-            toast.success('Showing simplified fusion.');
+            toast.success('Using Simple Method - showing first Pokémon');
           } else {
             toast.success('AI Fusion generated successfully!');
           }
@@ -459,22 +517,28 @@ export function useFusion() {
       } else if (eventData.status === 'failed') {
         newSteps = updateStepState(newSteps, eventData.step, 'failed', eventData.error);
         
-        // Handle failure - this should trigger Simple Method fallback
-        console.error('Step failed:', eventData.step, eventData.error);
-        
-        toast.dismiss('fusion-generation');
-        toast.error('AI generation failed. Using Simple Method instead.');
-        
-        // The streaming API should handle fallback, but if not, we set error state
-        setError('AI generation failed');
-        
-        // Track failure
-        gaEvent({
-          action: 'fusion_generation_step_failed',
-          category: 'error',
-          label: `${eventData.step}-${eventData.error}`,
-          value: undefined
-        });
+        // Handle failure - check if this is a fallback message
+        if (eventData.error?.includes('Simple Method fallback')) {
+          console.log('Step failed, but Simple Method fallback is being used');
+          // Don't show error, the backend will send a completion event next
+        } else {
+          // This is a real failure, show error
+          console.error('Step failed:', eventData.step, eventData.error);
+          
+          toast.dismiss('fusion-generation');
+          toast.error('AI generation failed. Please try again.');
+          
+          // Set error state but don't return - let the backend handle fallback
+          setError('AI generation failed');
+          
+          // Track failure
+          gaEvent({
+            action: 'fusion_generation_step_failed',
+            category: 'error',
+            label: `${eventData.step}-${eventData.error}`,
+            value: undefined
+          });
+        }
       }
 
       return {

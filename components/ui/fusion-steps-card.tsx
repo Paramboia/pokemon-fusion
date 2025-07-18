@@ -5,6 +5,7 @@ import { Check, Loader2, X, Camera, GitMerge, BookOpen } from 'lucide-react';
 import { FusionStep, StepState } from '@/types/fusion';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
+import { AlternatingText } from '@/components/ui/alternating-text';
 
 interface FusionStepsCardProps {
   steps: FusionStep[];
@@ -16,43 +17,60 @@ interface StepItemProps {
   step: FusionStep;
   isActive: boolean;
   icon: React.ReactNode;
+  isLast: boolean;
+  isDesktop?: boolean;
 }
 
-const StepItem = ({ step, isActive, icon }: StepItemProps) => {
+// CSS for dotted lines
+const dotStyles = `
+  .dotted-line-horizontal {
+    background: linear-gradient(to right, #9CA3AF 40%, transparent 40%);
+    background-size: 6px 1px;
+    background-repeat: repeat-x;
+  }
+  
+  .dotted-line-vertical {
+    background: linear-gradient(to bottom, #9CA3AF 40%, transparent 40%);
+    background-size: 1px 6px;
+    background-repeat: repeat-y;
+  }
+`;
+
+const StepItem = ({ step, isActive, icon, isLast, isDesktop }: StepItemProps) => {
   const getStepStatusIcon = () => {
     switch (step.state) {
       case 'completed':
-        return <Check className="w-4 h-4 text-green-600" />;
+        return <Check className="w-5 h-5 text-white" />;
       case 'failed':
-        return <X className="w-4 h-4 text-red-600" />;
+        return <X className="w-5 h-5 text-white" />;
       case 'loading':
-        return <Loader2 className="w-4 h-4 animate-spin text-blue-600" />;
+        return <Loader2 className="w-5 h-5 animate-spin text-white" />;
       default:
-        return null;
+        return icon;
     }
   };
 
   const getStepBackgroundColor = () => {
     switch (step.state) {
       case 'completed':
-        return 'bg-green-100 border-green-200';
+        return 'bg-green-500 border-green-500';
       case 'failed':
-        return 'bg-red-100 border-red-200';
+        return 'bg-red-500 border-red-500';
       case 'loading':
-        return 'bg-blue-100 border-blue-200';
+        return 'bg-blue-500 border-blue-500';
       default:
-        return 'bg-gray-100 border-gray-200';
+        return 'bg-gray-400 border-gray-400';
     }
   };
 
   const getStepTextColor = () => {
     switch (step.state) {
       case 'completed':
-        return 'text-green-800';
+        return 'text-green-700';
       case 'failed':
-        return 'text-red-800';
+        return 'text-red-700';
       case 'loading':
-        return 'text-blue-800';
+        return 'text-blue-700';
       default:
         return 'text-gray-600';
     }
@@ -73,26 +91,47 @@ const StepItem = ({ step, isActive, icon }: StepItemProps) => {
 
   return (
     <div className={cn(
-      "flex items-center p-4 rounded-lg border-2 transition-all duration-300 mb-3",
-      getStepBackgroundColor(),
-      isActive && "ring-2 ring-blue-400 ring-opacity-50"
+      "relative flex items-center",
+      isDesktop ? "flex-col text-center flex-1" : "flex-row text-left"
     )}>
-      {/* Step Icon Circle */}
+      {/* Step Circle */}
       <div className={cn(
-        "w-12 h-12 rounded-full flex items-center justify-center mr-4 transition-all duration-300",
-        step.state === 'completed' ? 'bg-green-500' :
-        step.state === 'failed' ? 'bg-red-500' :
-        step.state === 'loading' ? 'bg-blue-500' : 'bg-gray-400'
+        "relative z-10 w-14 h-14 rounded-full border-3 flex items-center justify-center transition-all duration-300",
+        getStepBackgroundColor(),
+        isActive && "ring-4 ring-blue-200 ring-opacity-50 scale-110"
       )}>
         <div className="text-white">
-          {step.state === 'loading' || step.state === 'completed' || step.state === 'failed' ? 
-            getStepStatusIcon() : icon
-          }
+          {getStepStatusIcon()}
         </div>
       </div>
 
+      {/* Connecting Line */}
+      {!isLast && (
+        <div className={cn(
+          "absolute transition-all duration-500",
+          isDesktop ? (
+            // Desktop: horizontal line to next step
+            "top-7 left-14 h-0.5 w-full z-0"
+          ) : (
+            // Mobile: vertical line below current step
+            "top-14 left-7 w-0.5 h-12 z-0"
+          )
+        )}>
+          {/* Solid line base */}
+          <div className="absolute inset-0 bg-gray-300" />
+          {/* Dotted overlay */}
+          <div className={cn(
+            "absolute inset-0",
+            isDesktop ? "dotted-line-horizontal" : "dotted-line-vertical"
+          )} />
+        </div>
+      )}
+
       {/* Step Content */}
-      <div className="flex-1">
+      <div className={cn(
+        "flex-1 transition-all duration-300",
+        isDesktop ? "mt-4" : "ml-4"
+      )}>
         <h3 className={cn(
           "font-semibold text-lg transition-colors duration-300",
           getStepTextColor()
@@ -112,10 +151,35 @@ const StepItem = ({ step, isActive, icon }: StepItemProps) => {
 
 export function FusionStepsCard({ steps, currentStep, className }: FusionStepsCardProps) {
   const [animatedSteps, setAnimatedSteps] = useState<FusionStep[]>(steps);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     setAnimatedSteps(steps);
+    
+    // Inject CSS styles
+    if (typeof document !== 'undefined') {
+      const existingStyle = document.getElementById('fusion-steps-styles');
+      if (!existingStyle) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'fusion-steps-styles';
+        styleElement.textContent = dotStyles;
+        document.head.appendChild(styleElement);
+      }
+    }
   }, [steps]);
+
+  // Dynamic loading messages
+  const loadingMessages = [
+    "Please wait while we create your fusion...",
+    "AI is still cooking...",
+    "Mixing DNA sequences...",
+    "Training neural networks...",
+    "Channeling Pokémon energy...",
+    "Almost there...",
+    "Creating something magical...",
+    "Thank you for your patience..."
+  ];
 
   // Icons for each step
   const stepIcons = {
@@ -124,45 +188,78 @@ export function FusionStepsCard({ steps, currentStep, className }: FusionStepsCa
     'entering': <BookOpen className="w-6 h-6" />
   };
 
+  // Check if any step is active
+  const hasActiveStep = animatedSteps.some(step => step.state === 'loading');
+
   return (
     <Card className={cn(
-      "w-full max-w-md mx-auto p-6 shadow-lg border border-gray-200 dark:border-gray-700",
+      "w-full mx-auto p-6 lg:p-8 shadow-xl border border-gray-200 dark:border-gray-700",
       "bg-white dark:bg-gray-800 rounded-2xl transition-all duration-300",
+      // Desktop: match Pokemon selector width
+      "max-w-md lg:max-w-4xl",
       className
     )}>
       {/* Header */}
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white mb-3">
           Generating Fusion
         </h2>
-        <p className="text-gray-600 dark:text-gray-300 text-sm">
-          Please wait while we create your fusion...
+        <p className="text-gray-600 dark:text-gray-300 text-sm lg:text-base">
+          {isMounted && hasActiveStep ? (
+            <AlternatingText 
+              messages={loadingMessages}
+              interval={3000}
+            />
+          ) : (
+            "Please wait while we create your fusion..."
+          )}
         </p>
       </div>
 
-      {/* Steps */}
-      <div className="space-y-0">
-        {animatedSteps.map((step, index) => (
-          <StepItem
-            key={step.id}
-            step={step}
-            isActive={index === currentStep}
-            icon={stepIcons[step.id as keyof typeof stepIcons]}
-          />
-        ))}
+      {/* Steps Container */}
+      <div className="mb-8">
+        {/* Desktop Layout */}
+        <div className="hidden lg:flex lg:justify-between lg:items-start lg:relative lg:px-8">
+          {animatedSteps.map((step, index) => (
+            <StepItem
+              key={step.id}
+              step={step}
+              isActive={index === currentStep}
+              icon={stepIcons[step.id as keyof typeof stepIcons]}
+              isLast={index === animatedSteps.length - 1}
+              isDesktop={true}
+            />
+          ))}
+        </div>
+
+        {/* Mobile Layout */}
+        <div className="lg:hidden space-y-6">
+          {animatedSteps.map((step, index) => (
+            <StepItem
+              key={step.id}
+              step={step}
+              isActive={index === currentStep}
+              icon={stepIcons[step.id as keyof typeof stepIcons]}
+              isLast={index === animatedSteps.length - 1}
+              isDesktop={false}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-600 dark:text-gray-300">Progress</span>
-          <span className="text-sm font-semibold text-gray-800 dark:text-white">
+      <div className="pt-6 border-t border-gray-200 dark:border-gray-600">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            Progress
+          </span>
+          <span className="text-sm font-bold text-gray-800 dark:text-white">
             {Math.round((currentStep / Math.max(animatedSteps.length - 1, 1)) * 100)}%
           </span>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
           <div 
-            className="bg-blue-500 h-2 rounded-full transition-all duration-500 ease-out"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-700 ease-out shadow-sm"
             style={{ 
               width: `${(currentStep / Math.max(animatedSteps.length - 1, 1)) * 100}%` 
             }}

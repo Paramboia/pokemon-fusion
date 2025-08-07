@@ -8,7 +8,7 @@ import { PricingSection } from '@/components/ui/pricing-section';
 import { SparklesText } from "@/components/ui/sparkles-text";
 import { AuthGate } from '@/components/auth-gate';
 import { useUser, useAuth } from '@clerk/nextjs';
-import { toast } from 'sonner';
+
 import { cn } from '@/lib/utils';
 import { event as gaEvent } from '@/lib/gtag';
 
@@ -42,6 +42,9 @@ const FALLBACK_PACKAGES = [
 
 // Custom toast component for cancellation
 function CancelToast({ onClose }: { onClose: () => void }) {
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
@@ -50,13 +53,80 @@ function CancelToast({ onClose }: { onClose: () => void }) {
     return () => clearTimeout(timer);
   }, [onClose]);
 
+  // Handle swipe to dismiss
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    const startX = e.clientX;
+    const startOffset = dragOffset;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const diff = moveEvent.clientX - startX;
+      const newOffset = Math.max(0, startOffset + diff); // Only allow right swipe
+      setDragOffset(newOffset);
+      
+      // Dismiss if swiped more than 150px to the right
+      if (newOffset > 150) {
+        onClose();
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      // Snap back if not dismissed
+      if (dragOffset <= 150) {
+        setDragOffset(0);
+      }
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle touch events for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const startX = e.touches[0].clientX;
+    const startOffset = dragOffset;
+
+    const handleTouchMove = (moveEvent: TouchEvent) => {
+      const diff = moveEvent.touches[0].clientX - startX;
+      const newOffset = Math.max(0, startOffset + diff);
+      setDragOffset(newOffset);
+      
+      if (newOffset > 150) {
+        onClose();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (dragOffset <= 150) {
+        setDragOffset(0);
+      }
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+  };
+
   return (
-    <div className={cn(
-      "fixed top-4 left-1/2 transform -translate-x-1/2 z-50",
-      "max-w-md w-full bg-red-50 border border-red-200 rounded-lg shadow-md",
-      "px-4 py-3 flex items-center justify-between",
-      "animate-in fade-in slide-in-from-top-5 duration-300"
-    )}>
+    <div 
+      className={cn(
+        "fixed top-4 left-1/2 transform -translate-x-1/2 z-50 group cursor-grab",
+        "max-w-md w-full bg-red-50 border border-red-200 rounded-lg shadow-md",
+        "px-4 py-3 flex items-center justify-between",
+        "animate-in fade-in slide-in-from-top-5 duration-300",
+        isDragging && "cursor-grabbing"
+      )}
+      style={{
+        transform: `translateX(calc(-50% + ${dragOffset}px))`,
+        transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+      }}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+    >
       <div className="flex items-center">
         <div className="flex-shrink-0">
           <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -72,7 +142,7 @@ function CancelToast({ onClose }: { onClose: () => void }) {
       </div>
       <button
         type="button"
-        className="inline-flex text-red-500 hover:text-red-700 focus:outline-none"
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-400 hover:text-gray-600 w-4 h-4 border-0 bg-transparent p-0 text-xs focus:outline-none"
         onClick={onClose}
       >
         <XCircle className="h-4 w-4" />
@@ -83,6 +153,9 @@ function CancelToast({ onClose }: { onClose: () => void }) {
 
 // Custom toast component for success
 function SuccessToast({ onClose, message }: { onClose: () => void; message: string }) {
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
@@ -91,16 +164,83 @@ function SuccessToast({ onClose, message }: { onClose: () => void; message: stri
     return () => clearTimeout(timer);
   }, [onClose]);
 
+  // Handle swipe to dismiss
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    const startX = e.clientX;
+    const startOffset = dragOffset;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const diff = moveEvent.clientX - startX;
+      const newOffset = Math.max(0, startOffset + diff); // Only allow right swipe
+      setDragOffset(newOffset);
+      
+      // Dismiss if swiped more than 150px to the right
+      if (newOffset > 150) {
+        onClose();
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      // Snap back if not dismissed
+      if (dragOffset <= 150) {
+        setDragOffset(0);
+      }
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle touch events for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const startX = e.touches[0].clientX;
+    const startOffset = dragOffset;
+
+    const handleTouchMove = (moveEvent: TouchEvent) => {
+      const diff = moveEvent.touches[0].clientX - startX;
+      const newOffset = Math.max(0, startOffset + diff);
+      setDragOffset(newOffset);
+      
+      if (newOffset > 150) {
+        onClose();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (dragOffset <= 150) {
+        setDragOffset(0);
+      }
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+  };
+
   // Split message into two parts
   const [firstLine, secondLine] = message.split('!');
   
   return (
-    <div className={cn(
-      "fixed top-4 left-1/2 transform -translate-x-1/2 z-50",
-      "max-w-md w-full bg-green-50 border border-green-200 rounded-lg shadow-md",
-      "px-4 py-3 flex items-center justify-between",
-      "animate-in fade-in slide-in-from-top-5 duration-300"
-    )}>
+    <div 
+      className={cn(
+        "fixed top-4 left-1/2 transform -translate-x-1/2 z-50 group cursor-grab",
+        "max-w-md w-full bg-green-50 border border-green-200 rounded-lg shadow-md",
+        "px-4 py-3 flex items-center justify-between",
+        "animate-in fade-in slide-in-from-top-5 duration-300",
+        isDragging && "cursor-grabbing"
+      )}
+      style={{
+        transform: `translateX(calc(-50% + ${dragOffset}px))`,
+        transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+      }}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+    >
       <div className="flex items-center">
         <div className="flex-shrink-0">
           <svg className="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -116,7 +256,7 @@ function SuccessToast({ onClose, message }: { onClose: () => void; message: stri
       </div>
       <button
         type="button"
-        className="inline-flex text-green-500 hover:text-green-700 focus:outline-none"
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-400 hover:text-gray-600 w-4 h-4 border-0 bg-transparent p-0 text-xs focus:outline-none"
         onClick={onClose}
       >
         <XCircle className="h-4 w-4" />
@@ -169,10 +309,7 @@ export default function CreditsPage() {
         console.log('Showing cancel toast notification');
         setShowCancelToast(true);
         
-        // Also try using the regular toast as a backup
-        toast.error('Purchase cancelled. You have not been charged.', {
-          duration: 5000
-        });
+
         
         // Track cancellation event
         gaEvent({
@@ -194,10 +331,7 @@ export default function CreditsPage() {
         setSuccessMessage('Payment successful! Credits added to your account.');
         setShowSuccessToast(true);
         
-        // Also try using the regular toast as a backup
-        toast.success('Payment successful! Credits added to your account.', {
-          duration: 5000
-        });
+
         
         // Track purchase completion event
         gaEvent({

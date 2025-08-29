@@ -72,21 +72,21 @@ export async function generateWithQwenFusion(
       image2HasTransparency: pokemon2ImageUrl.includes('data:image') ? 'converted to white bg' : 'original URL'
     });
 
-    // Configure Qwen parameters for simple image blending
-    // Let Qwen handle the creative fusion with minimal guidance
+    // Configure Qwen parameters based on successful detailed test results
+    // Using parameters that produced the best qwen-simple-blend-detailed.webp
     const qwenInput = {
       images: [pokemon1Stream, pokemon2Stream],
       prompt: fusionPrompt,
-      strength: 0.8,        // High strength for effective blending
-      guidance: 2.5,        // Lower guidance to give Qwen more creative freedom
-      num_inference_steps: 30, // Fewer steps for simpler blending task
+      strength: 0.7,        // Optimal strength from successful test
+      guidance: 3.5,        // Higher guidance for better adherence to prompt
+      num_inference_steps: 50, // More steps for higher quality
       aspect_ratio: "1:1",
       output_format: "png", // For transparency support
-      go_fast: false,      // Keep quality high
+      go_fast: false,      // Quality over speed
       output_quality: 90   // Good quality
     };
 
-    console.log(`[${requestId}] QWEN FUSION - Calling Qwen API with simple blending approach`);
+    console.log(`[${requestId}] QWEN FUSION - Calling Qwen API with detailed fusion approach`);
     const startTime = Date.now();
 
     // Call Qwen API
@@ -121,11 +121,34 @@ export async function generateWithQwenFusion(
 }
 
 /**
- * Create a simple fusion prompt that references the specific Pokemon being blended
- * Focuses on blending the input images with transparent background
+ * Create a detailed fusion prompt based on the successful test approach
+ * Uses type-specific descriptions and Pokemon characteristics for better results
  */
 function createFusionPrompt(pokemon1Name: string, pokemon2Name: string, fusionName: string): string {
-  return `Blend these two images of ${pokemon1Name} and ${pokemon2Name} together into a single cohesive creature called ${fusionName}. Combine the distinctive features, colors, and characteristics from both ${pokemon1Name} and ${pokemon2Name} into one unified design. Keep the background completely transparent.`;
+  // Get basic Pokemon type information (simplified approach)
+  const pokemon1Lower = pokemon1Name.toLowerCase();
+  const pokemon2Lower = pokemon2Name.toLowerCase();
+  
+  // Simple type/characteristic mapping for common Pokemon
+  const getCharacteristics = (name: string) => {
+    if (name.includes('gengar')) return 'ghost-type features';
+    if (name.includes('tauros')) return 'bull-like characteristics';
+    if (name.includes('pikachu')) return 'electric-type features';
+    if (name.includes('charizard')) return 'fire-dragon characteristics';
+    if (name.includes('blastoise')) return 'water-type turtle features';
+    if (name.includes('venusaur')) return 'grass-type plant characteristics';
+    if (name.includes('alakazam')) return 'psychic-type mystical features';
+    if (name.includes('machamp')) return 'fighting-type muscular characteristics';
+    if (name.includes('gyarados')) return 'water-dragon serpentine features';
+    if (name.includes('dragonite')) return 'dragon-type friendly characteristics';
+    // Add more as needed, fallback to generic description
+    return `distinctive features`;
+  };
+  
+  const char1 = getCharacteristics(pokemon1Lower);
+  const char2 = getCharacteristics(pokemon2Lower);
+  
+  return `Create a Pokemon fusion by blending the ${char1} of ${pokemon1Name} with the ${char2} of ${pokemon2Name}. The result should be a single creature called ${fusionName} that combines both Pokemon's unique traits, colors, and essence. Maintain Pokemon art style with transparent background.`;
 }
 
 /**
@@ -176,13 +199,13 @@ export async function testQwenFusion(): Promise<boolean> {
 }
 
 /**
- * Get optimal Qwen parameters for simple image blending
+ * Get optimal Qwen parameters based on successful detailed test results
  */
 export function getOptimalQwenParameters() {
   return {
-    strength: 0.8,        // High strength for effective blending
-    guidance: 2.5,        // Lower guidance for creative freedom
-    num_inference_steps: 30, // Fewer steps for simpler task
+    strength: 0.7,        // Optimal strength from successful test
+    guidance: 3.5,        // Higher guidance for better prompt adherence
+    num_inference_steps: 50, // More steps for higher quality
     aspect_ratio: "1:1",
     output_format: "png", // Supports transparency
     go_fast: false,      // Quality over speed

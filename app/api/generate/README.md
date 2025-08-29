@@ -4,18 +4,27 @@ This document explains the technical architecture of the Pokemon fusion generati
 
 ## Overview
 
-The generation system uses a three-step process for creating AI-generated Pokémon fusions:
+The generation system supports two different approaches for creating AI-generated Pokémon fusions:
+
+### **Primary Approach: Qwen Single-Step Fusion** (when `USE_QWEN_FUSION=true`)
+1. **Direct Fusion**: Uses `qwen/qwen-image` model to directly blend two Pokémon images in a single step
+2. **Transparent Background**: Generates high-quality fusion with transparent background
+3. **Fallback**: Falls back to Simple Method (original Pokémon image) if Qwen fails, without charging credits
+
+### **Legacy Approach: Traditional Three-Step Process** (when `USE_QWEN_FUSION=false`)
 1. **Replicate Blend**: Creates the initial fusion image by blending features from two Pokémon
 2. **GPT-4 Vision Description**: Analyzes the initial fusion and creates a detailed structured description
 3. **GPT Image Enhancement**: Uses the description to generate a refined, high-quality image with GPT-image-1
 
-The system is designed for resilience, with fallbacks at each step if any part of the process fails.
+Both systems maintain the same 3-step UI experience but use different backend processing. The system is designed for resilience, with fallbacks at each step if any part of the process fails.
 
 ## Key Files
 
 - `route.ts` - Main API endpoint handler that orchestrates the generation process and handles credits/billing
-- `replicate-blend.ts` - Implementation for the initial fusion using Replicate's blend-images model
-- `dalle.ts` - Contains GPT-4 Vision description and GPT-image-1 enhancement functionality
+- `stream/route.ts` - Streaming API endpoint for real-time multi-step UI updates via Server-Sent Events
+- `qwen-fusion.ts` - **NEW**: Implementation for single-step fusion using Qwen image model
+- `replicate-blend.ts` - Implementation for the initial fusion using Replicate's blend-images model (legacy)
+- `dalle.ts` - Contains GPT-4 Vision description and GPT-image-1 enhancement functionality (legacy)
 - `config.ts` - Configuration module that sets default environment variables
 
 ## Generation Pipeline
@@ -24,24 +33,38 @@ The system generates a fusion using the following sequence with a multi-step UI 
 
 ### Multi-Step UI Flow
 
-The user interface displays three distinct steps with individual progress indicators:
+The user interface displays three distinct steps with individual progress indicators. The UI experience is identical regardless of which backend approach is used:
 
-1. **Step 1: "Capturing Pokémons"** (Technical: Replicate Blend)
-   - Shows loading animation while blending the two Pokémon images
-   - Displays green checkmark when successful
-   - Individual timeout for this step only
+1. **Step 1: "Capturing Pokémons"** 
+   - **Qwen Mode**: Artificial timing (5 seconds) while Qwen generation starts in background
+   - **Legacy Mode**: Replicate Blend creates initial fusion image
+   - Shows loading animation, displays green checkmark when complete
 
-2. **Step 2: "Merging Pokémons"** (Technical: GPT-4 Vision Description)
-   - Shows loading animation while analyzing the blended image
-   - Displays green checkmark when description is generated
-   - Individual timeout for this step only
+2. **Step 2: "Merging Pokémons"** 
+   - **Qwen Mode**: Artificial timing (5 seconds) while Qwen continues processing
+   - **Legacy Mode**: GPT-4 Vision analyzes blended image and creates description
+   - Shows loading animation, displays green checkmark when complete
 
-3. **Step 3: "Pokédex Entering"** (Technical: GPT Image Enhancement)
-   - Shows loading animation while generating the final enhanced image
-   - Displays green checkmark when complete
-   - Individual timeout for this step only
+3. **Step 3: "Pokédex Entering"** 
+   - **Qwen Mode**: Waits for Qwen generation to complete (or timeout)
+   - **Legacy Mode**: GPT-image-1 generates final enhanced image
+   - Shows loading animation, displays green checkmark when complete
 
 ### Technical Implementation Flow
+
+#### **Qwen Single-Step Flow** (when `USE_QWEN_FUSION=true`)
+
+1. **Primary Flow**:
+   - **Backend**: Qwen model directly blends both Pokémon images in a single API call
+   - **UI Steps 1-2**: Artificial timing (5 seconds each) to maintain familiar 3-step experience
+   - **UI Step 3**: Waits for Qwen generation to complete
+   - **Final**: Generated image is stored in Supabase storage and shown to the user
+
+2. **Fallback Flow**:
+   - If Qwen generation fails: Use Simple Method (one of the original Pokémon images)
+   - **Important**: No credits are charged for Qwen failures
+
+#### **Legacy Three-Step Flow** (when `USE_QWEN_FUSION=false`)
 
 1. **Primary Flow**:
    - **Step 1**: Replicate Blend creates the initial fusion image using charlesmccarthy/blend-images model
@@ -66,6 +89,15 @@ The user interface displays three distinct steps with individual progress indica
 
 ## Model Approaches
 
+### **Primary Approach: Qwen Fusion** (when `USE_QWEN_FUSION=true`)
+- **Qwen Direct Fusion**: Uses `qwen/qwen-image` model to directly blend two Pokémon images
+  - Accepts multiple images as input via `images` parameter
+  - Generates fusion with transparent background
+  - Single API call replaces entire traditional 3-step pipeline
+  - Prompt: Detailed fusion instructions with specific visual requirements
+  - Fallback: Simple Method (original Pokémon image) without charging credits
+
+### **Legacy Approaches** (when `USE_QWEN_FUSION=false`)
 - **Replicate Blend**: Uses charlesmccarthy/blend-images model with a detailed prompt to merge two Pokémon
 - **GPT-4 Vision Description**: Uses GPT-4.1-mini to analyze the blended image with a structured format:
   - Body structure and pose
@@ -76,9 +108,30 @@ The user interface displays three distinct steps with individual progress indica
   - Attitude and expression
   - Notable accessories or markings
 - **GPT Image Enhancement**: Uses GPT-image-1 model with the structured description to generate a polished image with transparent background
+
+### **Universal Fallback**
 - **Simple Method**: Uses one of the original Pokémon images as a fallback if all AI generation methods fail
 
-## GPT-4 Vision Description Process
+## Generation Model Details
+
+### **Qwen Fusion Process** (Primary Method)
+
+The Qwen single-step fusion works as follows:
+1. Both original Pokémon images are sent directly to `qwen/qwen-image`
+2. A detailed fusion prompt is provided with specific requirements:
+   ```
+   Create a fusion creature that combines both Pokemon while maintaining a transparent background.
+   The fusion should be a single, unique creature with features from both Pokemon.
+   Keep the main feature traits from both original Pokemon.
+   Style: cartoon-like, anime-inspired, clean design.
+   Background: completely transparent.
+   Quality: high detail and clarity.
+   ```
+3. Qwen generates the final fusion image in a single API call
+4. No intermediate steps or additional processing required
+5. Result is stored directly in Supabase storage
+
+### **GPT-4 Vision Description Process** (Legacy Method)
 
 The description step works as follows:
 1. The Replicate Blend image URL is sent to GPT-4.1-mini Vision
@@ -97,6 +150,64 @@ The description step works as follows:
    Keep the background transparent, but ensure that the eyes are non-transparent.
    ```
 5. This custom prompt is sent to GPT-image-1 to generate the final image
+
+## Environment Configuration
+
+### **Required Environment Variables**
+
+#### **For Qwen Fusion** (when `USE_QWEN_FUSION=true`)
+```bash
+# Enable Qwen fusion mode
+USE_QWEN_FUSION=true
+
+# Replicate API (required for Qwen model)
+REPLICATE_API_TOKEN=your_replicate_token
+
+# Multi-step UI (recommended)
+ENABLE_MULTI_STEP_UI=true
+NEXT_PUBLIC_ENABLE_MULTI_STEP_UI=true
+```
+
+#### **For Legacy Mode** (when `USE_QWEN_FUSION=false`)
+```bash
+# Disable Qwen fusion mode
+USE_QWEN_FUSION=false
+
+# OpenAI API (required for GPT models)
+OPENAI_API_KEY=your_openai_key
+USE_OPENAI_MODEL=true
+USE_GPT_VISION_ENHANCEMENT=true
+
+# Replicate API (for blend-images model)
+REPLICATE_API_TOKEN=your_replicate_token
+USE_REPLICATE_BLEND=true
+
+# Multi-step UI
+ENABLE_MULTI_STEP_UI=true
+NEXT_PUBLIC_ENABLE_MULTI_STEP_UI=true
+```
+
+### **Configuration Examples**
+
+#### **Production Setup with Qwen**
+```bash
+USE_QWEN_FUSION=true
+ENABLE_MULTI_STEP_UI=true
+NEXT_PUBLIC_ENABLE_MULTI_STEP_UI=true
+REPLICATE_API_TOKEN=r8_xxxxx
+```
+
+#### **Fallback Setup (Legacy Mode)**
+```bash
+USE_QWEN_FUSION=false
+USE_OPENAI_MODEL=true
+USE_GPT_VISION_ENHANCEMENT=true
+USE_REPLICATE_BLEND=true
+ENABLE_MULTI_STEP_UI=true
+NEXT_PUBLIC_ENABLE_MULTI_STEP_UI=true
+OPENAI_API_KEY=sk-xxxxx
+REPLICATE_API_TOKEN=r8_xxxxx
+```
 
 ## Adding a New Model
 
@@ -177,12 +288,20 @@ Each model implementation file follows these patterns:
 
 ## Credits and Billing System
 
-The fusion generation process includes a credit system:
-1. AI-generated fusions (non-simple) consume 1 credit per generation
-2. The user's credit balance is checked before starting generation
-3. If insufficient credits, a 402 Payment Required response is returned
-4. Credits are only deducted after successful generation
-5. Simple fusion fallbacks do not consume credits
+The fusion generation process includes a credit system with enhanced logic for different generation methods:
+
+### **Credit Charging Logic**
+1. **Successful AI Generation**: Consumes 1 credit per generation
+   - Qwen fusion success
+   - Traditional 3-step pipeline success (Replicate Blend + GPT Enhancement)
+2. **User Credit Check**: Balance verified before starting generation
+3. **Insufficient Credits**: Returns 402 Payment Required response
+4. **Failure Protection**: Credits are only deducted after confirmed successful AI generation
+
+### **No-Charge Scenarios**
+- **Qwen Failure Fallback**: If Qwen generation fails, system falls back to Simple Method without charging
+- **Traditional Failure Fallback**: If traditional pipeline fails, system falls back to Simple Method without charging
+- **Simple Method**: Always free (uses original Pokémon image)
 
 ## Timeout Configuration
 
@@ -192,6 +311,15 @@ The system uses environment-specific timeouts optimized for Vercel Pro plan with
 
 Each step in the UI has its own timeout to prevent the entire flow from appearing to fail:
 
+#### **Qwen Mode Timeouts** (when `USE_QWEN_FUSION=true`)
+1. **Step 1: "Capturing Pokémons"** - Artificial timing: 5 seconds
+2. **Step 2: "Merging Pokémons"** - Artificial timing: 5 seconds  
+3. **Step 3: "Pokédex Entering"** - Qwen generation timeout:
+   - Production: 180 seconds
+   - Development: 120 seconds
+   - Falls back to Simple Method if exceeded
+
+#### **Legacy Mode Timeouts** (when `USE_QWEN_FUSION=false`)
 1. **Step 1: "Capturing Pokémons" (Replicate Blend)**
    - Production: 120 seconds
    - Development: 90 seconds
@@ -207,13 +335,14 @@ Each step in the UI has its own timeout to prevent the entire flow from appearin
    - Development: 180 seconds
    - UI shows fallback to Simple Method if exceeded
 
-### API Implementation Changes
+### API Implementation 
 
-The API route should be modified to support step-by-step responses:
+The system uses **Server-Sent Events (SSE)** for real-time step updates:
 
-- **Option 1: WebSocket Connection** - Real-time updates for each step completion
-- **Option 2: Polling Approach** - Frontend polls for step status updates
-- **Option 3: Server-Sent Events (SSE)** - Stream step updates to the frontend
+- **Endpoint**: `/api/generate/stream` - Streams step updates to frontend
+- **Connection**: Maintains real-time connection throughout entire process
+- **Compatibility**: Works seamlessly with both Qwen and Legacy generation modes
+- **Fallback**: If streaming fails, frontend can fall back to regular `/api/generate` endpoint
 
 ### Legacy Configuration
 
@@ -231,21 +360,44 @@ If you're on a Vercel Hobby plan, you'll need to reduce these timeouts significa
 
 ## Error Handling and Fallbacks
 
-The system includes a multi-level fallback mechanism:
+The system includes robust multi-level fallback mechanisms for both generation modes:
 
-1. Primary Generation: Replicate Blend → GPT-4 Vision Description → GPT-image-1 Enhancement
-2. If GPT-4 Vision description fails: Use generic enhancement prompt with GPT-image-1
-3. If GPT Image Enhancement fails: Use the Simple Method (one of the original Pokémon images)
-4. If Replicate Blend fails: Use Simple Method (one of the original Pokémon images)
-5. Each implementation includes retries for API calls with exponential backoff
+### **Qwen Mode Fallbacks** (when `USE_QWEN_FUSION=true`)
+1. **Primary**: Qwen direct fusion generation
+2. **Timeout/Failure**: Falls back to Simple Method (original Pokémon image)
+3. **Credit Protection**: No credits charged for Qwen failures
+4. **Retries**: Includes retry logic with exponential backoff
+
+### **Legacy Mode Fallbacks** (when `USE_QWEN_FUSION=false`)
+1. **Primary Generation**: Replicate Blend → GPT-4 Vision Description → GPT-image-1 Enhancement
+2. **If GPT-4 Vision description fails**: Use generic enhancement prompt with GPT-image-1
+3. **If GPT Image Enhancement fails**: Use the Simple Method (one of the original Pokémon images)
+4. **If Replicate Blend fails**: Use Simple Method (one of the original Pokémon images)
+5. **Retries**: Each implementation includes retries for API calls with exponential backoff
+
+### **Universal Protections**
+- **Credit Safety**: Users only charged for successful AI generations
+- **Graceful Degradation**: System always provides a result (even if Simple Method)
+- **Error Logging**: Comprehensive error tracking for debugging
 
 ## Image Storage Strategy
 
-Successfully generated fusion images are stored in one of two ways:
-1. **Direct URLs**: When OpenAI returns a URL directly, it's used as-is
-2. **Supabase Storage**: When OpenAI returns base64 data, it's uploaded to Supabase
-   - Images use a naming convention: `fusion-gpt-enhanced-{timestamp}-{randomId}.png`
-   - Original image IDs are maintained when possible to track relationships
+Successfully generated fusion images are stored in Supabase with different naming conventions:
+
+### **Qwen Generated Images**
+- **Naming**: `fusion-qwen-{timestamp}-{randomId}.webp`
+- **Source**: Qwen model returns direct URLs
+- **Storage**: URLs are used directly, then optionally cached in Supabase
+
+### **Legacy Generated Images**  
+- **Direct URLs**: When OpenAI returns a URL directly, it's used as-is
+- **Supabase Storage**: When OpenAI returns base64 data, it's uploaded to Supabase
+  - **Naming**: `fusion-gpt-enhanced-{timestamp}-{randomId}.png`
+  - **Tracking**: Original image IDs maintained when possible to track relationships
+
+### **Simple Method Images**
+- **Source**: Original Pokémon images (no additional storage needed)
+- **Usage**: Direct reference to existing Pokémon image URLs
 
 ## Multi-Step UI Implementation
 
@@ -326,11 +478,15 @@ The system implements extensive logging:
 
 ### Backwards Compatibility
 
-The multi-step UI implementation should maintain backwards compatibility:
+The system maintains backwards compatibility with multiple configuration options:
 
-1. **Existing API Endpoint**: Keep `/api/generate` working as before for legacy clients
-2. **Feature Flag**: Use environment variable `ENABLE_MULTI_STEP_UI` to control the new feature
-3. **Graceful Degradation**: If SSE/streaming fails, fall back to original single-loader approach
+1. **API Endpoints**: 
+   - `/api/generate` - Works for both Qwen and Legacy modes
+   - `/api/generate/stream` - Streaming version for multi-step UI
+2. **Feature Flags**: 
+   - `USE_QWEN_FUSION` - Toggle between Qwen and Legacy generation
+   - `ENABLE_MULTI_STEP_UI` - Toggle between streaming and single-response UI
+3. **Graceful Degradation**: If streaming fails, falls back to single-response approach
 
 ### Implementation Phases
 

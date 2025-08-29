@@ -5,6 +5,7 @@ import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient } from '@/lib/supabase-server';
 import { generateWithReplicateBlend } from '../replicate-blend';
 import { enhanceWithDirectGeneration, testOpenAiClient } from '../dalle';
+import { generateWithQwenFusion, isQwenFusionEnabled, testQwenFusion } from '../qwen-fusion';
 import { initializeConfig, logConfigStatus } from '../config';
 import { StepResponse } from '@/types/fusion';
 import sharp from 'sharp';
@@ -210,6 +211,27 @@ async function generateFusionWithSteps(
     const processedImage1 = await convertTransparentToWhite(image1);
     const processedImage2 = await convertTransparentToWhite(image2);
     
+    // Check if Qwen fusion is enabled
+    const useQwenFusion = isQwenFusionEnabled();
+    console.log('Generate Stream API - Qwen fusion enabled:', useQwenFusion);
+    
+    if (useQwenFusion) {
+      // NEW: Qwen Fusion with artificial multi-step timing
+      await handleQwenFusionWithSteps(
+        encoder, 
+        controller, 
+        pokemon1Name, 
+        pokemon2Name, 
+        fusionName,
+        processedImage1, 
+        processedImage2,
+        userUuid,
+        supabase
+      );
+      return; // Exit early since Qwen handles everything
+    }
+    
+    // EXISTING: Traditional multi-step process
     // Step 1: Capturing Pokémons (Replicate Blend)
     console.log('Generate Stream API - Starting Step 1: Capturing Pokémons');
     sendSSEEvent(encoder, controller, {
@@ -450,4 +472,178 @@ async function generateFusionWithSteps(
   
   // Close the stream
   controller.close();
+}
+
+/**
+ * Handle Qwen fusion with artificial multi-step timing for UI
+ * Distributes the single Qwen call across the 3 UI steps
+ */
+async function handleQwenFusionWithSteps(
+  encoder: TextEncoder,
+  controller: ReadableStreamDefaultController,
+  pokemon1Name: string,
+  pokemon2Name: string,
+  fusionName: string,
+  processedImage1: string,
+  processedImage2: string,
+  userUuid: string,
+  supabase: any
+) {
+  const STEP_DURATION = 5000; // 5 seconds per step
+  let fusionImageUrl: string | null = null;
+  let useSimpleFusion = false;
+  
+  try {
+    // Step 1: Capturing Pokémons (Start Qwen in background)
+    console.log('Generate Stream API - Qwen Step 1: Starting fusion generation');
+    sendSSEEvent(encoder, controller, {
+      step: 'capturing',
+      status: 'started',
+      timestamp: Date.now()
+    });
+    
+    // Start Qwen fusion (but don't await yet)
+    const qwenPromise = generateWithQwenFusion(
+      pokemon1Name,
+      pokemon2Name,
+      processedImage1,
+      processedImage2,
+      fusionName
+    );
+    
+    // Wait for step duration
+    await new Promise(resolve => setTimeout(resolve, STEP_DURATION));
+    
+    // Complete step 1
+    sendSSEEvent(encoder, controller, {
+      step: 'capturing',
+      status: 'completed',
+      timestamp: Date.now()
+    });
+    
+    // Step 2: Merging Pokémons (Continue Qwen processing)
+    console.log('Generate Stream API - Qwen Step 2: Processing fusion');
+    sendSSEEvent(encoder, controller, {
+      step: 'merging',
+      status: 'started',
+      timestamp: Date.now()
+    });
+    
+    // Wait for step duration
+    await new Promise(resolve => setTimeout(resolve, STEP_DURATION));
+    
+    // Complete step 2
+    sendSSEEvent(encoder, controller, {
+      step: 'merging',
+      status: 'completed',
+      timestamp: Date.now()
+    });
+    
+    // Step 3: Pokédex Entering (Wait for Qwen completion)
+    console.log('Generate Stream API - Qwen Step 3: Finalizing fusion');
+    sendSSEEvent(encoder, controller, {
+      step: 'entering',
+      status: 'started',
+      timestamp: Date.now()
+    });
+    
+    // Now wait for Qwen to complete (or timeout)
+    try {
+      const qwenTimeout = 30000; // 30 second timeout for Qwen
+      const timeoutPromise = new Promise<null>((_, reject) => {
+        setTimeout(() => reject(new Error('Qwen fusion timeout')), qwenTimeout);
+      });
+      
+      fusionImageUrl = await Promise.race([qwenPromise, timeoutPromise]);
+      
+      if (fusionImageUrl) {
+        console.log('Generate Stream API - Qwen fusion successful');
+        
+        // Save to database
+        const result = await saveFusion({
+          userId: userUuid,
+          pokemon1Id: 0, // We don't have IDs in stream context
+          pokemon2Id: 0,
+          pokemon1Name,
+          pokemon2Name,
+          fusionName,
+          fusionImage: fusionImageUrl,
+          isSimpleFusion: false
+        });
+        
+        const fusionId = result.data?.id || `qwen-${Date.now()}`;
+        
+        // Complete step 3 with success
+        sendSSEEvent(encoder, controller, {
+          step: 'entering',
+          status: 'completed',
+          data: {
+            finalUrl: fusionImageUrl,
+            fusionId: fusionId,
+            fusionName,
+            isLocalFallback: false
+          },
+          timestamp: Date.now()
+        });
+        
+      } else {
+        throw new Error('Qwen returned null result');
+      }
+      
+    } catch (qwenError) {
+      console.error('Generate Stream API - Qwen fusion failed:', qwenError);
+      
+      // Fall back to Simple Method
+      fusionImageUrl = processedImage1;
+      useSimpleFusion = true;
+      
+      // Save fallback to database
+      const fallbackResult = await saveFusion({
+        userId: userUuid,
+        pokemon1Id: 0,
+        pokemon2Id: 0,
+        pokemon1Name,
+        pokemon2Name,
+        fusionName,
+        fusionImage: fusionImageUrl,
+        isSimpleFusion: true
+      });
+      
+      const fusionId = fallbackResult.data?.id || `fallback-${Date.now()}`;
+      
+      // Complete step 3 with fallback
+      sendSSEEvent(encoder, controller, {
+        step: 'entering',
+        status: 'completed',
+        data: {
+          finalUrl: fusionImageUrl,
+          fusionId: fusionId,
+          fusionName: pokemon1Name, // Use first Pokemon name for fallback
+          isLocalFallback: true
+        },
+        timestamp: Date.now()
+      });
+    }
+    
+  } catch (error) {
+    console.error('Generate Stream API - Qwen steps error:', error);
+    
+    // Final fallback
+    const fallbackImageUrl = processedImage1;
+    
+    sendSSEEvent(encoder, controller, {
+      step: 'entering',
+      status: 'completed',
+      data: {
+        finalUrl: fallbackImageUrl,
+        fusionId: `fallback-${Date.now()}`,
+        fusionName: pokemon1Name,
+        isLocalFallback: true
+      },
+      timestamp: Date.now()
+    });
+  } finally {
+    // Always close the stream when done
+    controller.close();
+  }
 } 

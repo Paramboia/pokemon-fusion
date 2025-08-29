@@ -14,6 +14,7 @@ console.warn('ROUTE.TS - dalle.ts imports completed:', {
 });
 
 import { generateWithReplicateBlend } from './replicate-blend';
+import { generateWithQwenFusion, isQwenFusionEnabled, testQwenFusion } from './qwen-fusion';
 import { initializeConfig, logConfigStatus } from './config';
 import path from 'path';
 import fs from 'fs';
@@ -222,6 +223,10 @@ export async function POST(req: Request) {
     });
 
     try {
+      // Check if Qwen fusion is enabled first (new simplified pipeline)
+      const useQwenFusion = isQwenFusionEnabled();
+      console.log('Generate API - Qwen fusion enabled:', useQwenFusion);
+      
       // Determine which model to use based on environment variables
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
       
@@ -249,8 +254,49 @@ export async function POST(req: Request) {
 
       let fusionImageUrl: string | null = null;
 
-      // Try using Replicate Blend first
-      if (useReplicateBlend) {
+      // NEW: Try Qwen fusion first if enabled (simplified single-step pipeline)
+      if (useQwenFusion) {
+        try {
+          console.log('Generate API - Attempting Qwen Fusion (single-step blend + enhance)');
+          
+          // Test Qwen availability
+          const qwenAvailable = await testQwenFusion();
+          if (!qwenAvailable) {
+            throw new Error('Qwen fusion not available');
+          }
+          
+          // Generate fusion with Qwen (combines blend + enhance in one step)
+          const qwenResult = await generateWithQwenFusion(
+            pokemon1Name,
+            pokemon2Name,
+            processedImage1,
+            processedImage2,
+            fusionName
+          );
+          
+          if (qwenResult) {
+            console.log('Generate API - Successfully generated fusion with Qwen (single-step)');
+            fusionImageUrl = qwenResult;
+            
+            console.log('Generate API - Qwen fusion image URL:', fusionImageUrl);
+            
+            // Skip the traditional blend + enhance pipeline since Qwen does both
+            console.log('Generate API - Skipping traditional pipeline - Qwen handled blend + enhance');
+          } else {
+            console.log('Generate API - Qwen fusion failed, falling back to Simple Method (no charge)');
+            fusionImageUrl = processedImage1;
+            useSimpleFusion = true; // Set to true to avoid charging user
+          }
+        } catch (qwenError) {
+          console.error('Generate API - Error with Qwen Fusion:', qwenError);
+          console.log('Generate API - Qwen error, falling back to Simple Method (no charge)');
+          fusionImageUrl = processedImage1;
+          useSimpleFusion = true; // Set to true to avoid charging user
+        }
+      }
+
+      // EXISTING: Try using Replicate Blend if Qwen didn't work or isn't enabled
+      if (!fusionImageUrl && useReplicateBlend) {
         try {
           console.log('Generate API - Attempting Replicate Blend model');
           
@@ -420,8 +466,22 @@ export async function POST(req: Request) {
         useSimpleFusion = true;
       }
 
-      // If this was an AI fusion, record the credit usage now that we have successfully generated the image
-      if (!useSimpleFusion && fusionImageUrl !== processedImage1) {
+      // Only charge credits for successful AI generations (not Simple Method fallbacks)
+      const isQwenSuccess = useQwenFusion && fusionImageUrl && fusionImageUrl !== processedImage1 && !useSimpleFusion;
+      const isTraditionalSuccess = !useQwenFusion && !useSimpleFusion && fusionImageUrl !== processedImage1;
+      const shouldChargeCredits = isQwenSuccess || isTraditionalSuccess;
+      
+      console.log('Generate API - Credit charging decision:', {
+        useQwenFusion,
+        useSimpleFusion,
+        isQwenSuccess,
+        isTraditionalSuccess,
+        shouldChargeCredits,
+        fusionImageUrl: fusionImageUrl?.substring(0, 50) + '...',
+        processedImage1: processedImage1?.substring(0, 50) + '...'
+      });
+      
+      if (shouldChargeCredits) {
         // Add transaction record after successful generation
         const { error: transactionError } = await supabase
           .from('credits_transactions')
@@ -440,7 +500,9 @@ export async function POST(req: Request) {
           }, { status: 500 });
         }
         
-        console.log('Generate API - Credits used successfully');
+        console.log('Generate API - Credits used successfully for AI generation');
+      } else {
+        console.log('Generate API - No credits charged (Simple Method or fallback used)');
       }
 
       // Save the fusion to the database
@@ -448,7 +510,12 @@ export async function POST(req: Request) {
 
       // Log which image source we're using to avoid duplicates
       const isEnhancedImage = fusionImageUrl.includes('fusion-gpt-enhanced');
-      console.log(`Generate API - Using ${isEnhancedImage ? 'GPT-enhanced' : 'Replicate Blend'} image: ${fusionImageUrl.substring(0, 50)}...`);
+      const isQwenImage = useQwenFusion && fusionImageUrl && fusionImageUrl !== processedImage1;
+      const imageSource = isQwenImage ? 'Qwen Fusion' : 
+                         isEnhancedImage ? 'GPT-enhanced' : 
+                         'Replicate Blend';
+      
+      console.log(`Generate API - Using ${imageSource} image: ${fusionImageUrl.substring(0, 50)}...`);
 
       const result = await saveFusion({
         userId: userUuid || userId,
@@ -492,7 +559,10 @@ export async function POST(req: Request) {
         pokemon2Name,
         fusionData: result.data,
         isLocalFallback: useSimpleFusion, // Use useSimpleFusion instead of hardcoded false
-        message: useSimpleFusion ? 'Fusion generated using Simple Method' : 'Fusion generated successfully'
+        generationMethod: imageSource, // Add generation method info
+        message: useSimpleFusion ? 'Fusion generated using Simple Method' : 
+                isQwenImage ? 'Fusion generated using Qwen (single-step)' :
+                'Fusion generated successfully'
       });
 
     } catch (error) {

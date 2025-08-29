@@ -3,7 +3,7 @@ import Replicate from 'replicate';
 // Set environment-specific timeouts
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 // Increased timeouts for Vercel Pro plan - much more generous than before
-const API_TIMEOUT = IS_PRODUCTION ? 120000 : 90000; // 2 minutes in production, 1.5 minutes in development
+const API_TIMEOUT = IS_PRODUCTION ? 40000 : 35000; // 40 seconds in production, 35 seconds in development (Hobby plan)
 const MAX_RETRIES = parseInt(process.env.REPLICATE_MAX_RETRIES || '3', 10); // Increased default retries
 
 // Function to create a timeout promise that rejects after a specified time

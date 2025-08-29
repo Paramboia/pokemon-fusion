@@ -49,16 +49,16 @@ export function initializeConfig() {
     process.env.USE_REPLICATE_BLEND = 'true';
   }
 
-  // Set maximum timeout for GPT enhancement to work (55 seconds leaves 5 second buffer for Vercel's 60s limit)
+  // Set maximum timeout for GPT enhancement to work (50 seconds leaves 10 second buffer for Vercel's 60s limit on Hobby plan)
   if (process.env.ENHANCEMENT_TIMEOUT === undefined) {
-    console.log('Setting ENHANCEMENT_TIMEOUT=55000 (55 seconds maximum)');
-    process.env.ENHANCEMENT_TIMEOUT = '55000';
+    console.log('Setting ENHANCEMENT_TIMEOUT=50000 (50 seconds maximum for Hobby plan)');
+    process.env.ENHANCEMENT_TIMEOUT = '50000';
   } else {
-    // Force this to maximum 55 seconds
+    // Force this to maximum 50 seconds for Hobby plan
     const currentTimeout = parseInt(process.env.ENHANCEMENT_TIMEOUT, 10);
-    if (currentTimeout < 55000) {
-      console.log('Increasing ENHANCEMENT_TIMEOUT to 55000 (55 seconds maximum)');
-      process.env.ENHANCEMENT_TIMEOUT = '55000';
+    if (currentTimeout > 50000) {
+      console.log('Reducing ENHANCEMENT_TIMEOUT to 50000 (50 seconds maximum for Hobby plan)');
+      process.env.ENHANCEMENT_TIMEOUT = '50000';
     }
   }
 

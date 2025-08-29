@@ -14,6 +14,9 @@ import axios from 'axios';
 // Initialize configuration
 initializeConfig();
 
+// Set timeout for the API route within Vercel Hobby plan limits
+export const maxDuration = 60; // 60 seconds - maximum allowed for Vercel Hobby plan
+
 // Helper function to get Pokemon image URL
 function getPokemonImageUrl(pokemonId: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonId}.png`;
@@ -245,7 +248,7 @@ async function generateFusionWithSteps(
     if (useReplicateBlend && process.env.REPLICATE_API_TOKEN) {
       try {
         // Set timeout for Step 1
-        const step1Timeout = process.env.NODE_ENV === 'production' ? 120000 : 90000;
+        const step1Timeout = process.env.NODE_ENV === 'production' ? 30000 : 25000; // Reduced for Hobby plan
         const step1Promise = generateWithReplicateBlend(
           pokemon1Name,
           pokemon2Name,
@@ -298,8 +301,8 @@ async function generateFusionWithSteps(
     if (process.env.OPENAI_API_KEY) {
       try {
         // Set timeout for Step 2 + Step 3 combined
-        const step2Timeout = 60000; // 1 minute for description
-        const step3Timeout = process.env.NODE_ENV === 'production' ? 240000 : 180000;
+        const step2Timeout = 20000; // 20 seconds for description (Hobby plan)
+        const step3Timeout = process.env.NODE_ENV === 'production' ? 25000 : 20000; // Reduced for Hobby plan
         
         // Step 2: Get description (this is internal to enhanceWithDirectGeneration)
         const enhancementPromise = enhanceWithDirectGeneration(
@@ -549,7 +552,7 @@ async function handleQwenFusionWithSteps(
     
     // Now wait for Qwen to complete (or timeout)
     try {
-      const qwenTimeout = 30000; // 30 second timeout for Qwen
+      const qwenTimeout = 50000; // 50 second timeout for Qwen (within 60s limit)
       const timeoutPromise = new Promise<null>((_, reject) => {
         setTimeout(() => reject(new Error('Qwen fusion timeout')), qwenTimeout);
       });

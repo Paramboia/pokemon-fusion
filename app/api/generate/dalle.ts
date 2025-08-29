@@ -18,7 +18,7 @@ console.warn(`🌎 Environment: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'},
 
 // Increased timeouts for Vercel Pro plan
 // Pro plan allows functions to run for up to 300 seconds
-const API_TIMEOUT = IS_PRODUCTION ? 290000 : 240000; // 4.8 minutes in production, 4 minutes in development
+const API_TIMEOUT = IS_PRODUCTION ? 50000 : 45000; // 50 seconds in production, 45 seconds in development (Hobby plan)
 
 // Validate API key format and log details to help with debugging
 const apiKey = process.env.OPENAI_API_KEY || '';
@@ -45,7 +45,7 @@ function getOpenAiClient() {
     
     const openaiClient = new OpenAI({
       apiKey: apiKey,
-      timeout: IS_PRODUCTION ? 180000 : 180000,  // 3 minutes timeout in both production and development
+      timeout: IS_PRODUCTION ? 50000 : 45000,  // 50 seconds in production, 45 seconds in development (Hobby plan)
       maxRetries: 2     // Increase retries since we have longer timeouts available
     });
     console.warn('🔴🔴🔴 DALLE.TS - OpenAI client successfully created 🔴🔴🔴');
@@ -90,15 +90,15 @@ const supabaseAdmin = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABA
     )
   : null;
 
-// Set timeout values to stay within the 300-second limit
-const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '240000' : '180000'), 10);
+// Set timeout values to stay within the 60-second limit (Hobby plan)
+const ENHANCEMENT_TIMEOUT = parseInt(process.env.ENHANCEMENT_TIMEOUT || (IS_PRODUCTION ? '50000' : '45000'), 10);
 const SKIP_LOCAL_FILES = process.env.SKIP_LOCAL_FILES === 'true';
 
-// Stricter timeout in production but still generous for Pro plan
-const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 220000 : 160000; // 3.7 minutes in production, 2.7 minutes in development
+// Stricter timeout for Hobby plan
+const ENHANCEMENT_STRICT_TIMEOUT = IS_PRODUCTION ? 45000 : 40000; // 45 seconds in production, 40 seconds in development (Hobby plan)
 
 // Define maximum wait time for Supabase uploads
-const SUPABASE_UPLOAD_TIMEOUT = IS_PRODUCTION ? 60000 : 60000; // 60 seconds in both production and development
+const SUPABASE_UPLOAD_TIMEOUT = IS_PRODUCTION ? 10000 : 10000; // 10 seconds for uploads (Hobby plan)
 
 // Define the enhancement prompt once to avoid duplication - using generic terms
 const ENHANCEMENT_PROMPT = `Use the uploaded image as the design reference for the output.
@@ -178,7 +178,7 @@ async function describeImageWithGpt4(
     console.warn(`[${requestId}] GPT DESCRIPTION - Starting chat completion with GPT-4 Vision`);
     
     // Set a timeout
-    const descriptionTimeout = IS_PRODUCTION ? 60000 : 60000; // 60 seconds in both production and development
+    const descriptionTimeout = IS_PRODUCTION ? 30000 : 25000; // 30 seconds in production, 25 seconds in development (Hobby plan)
     
     // Create a promise that will reject after a timeout
     const timeoutPromise = new Promise<never>((_, reject) => {

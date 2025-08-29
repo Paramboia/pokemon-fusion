@@ -311,28 +311,28 @@ The system uses environment-specific timeouts optimized for Vercel Pro plan with
 
 Each step in the UI has its own timeout to prevent the entire flow from appearing to fail:
 
-#### **Qwen Mode Timeouts** (when `USE_QWEN_FUSION=true`)
+#### **Qwen Mode Timeouts** (when `USE_QWEN_FUSION=true`) - Optimized for Vercel Hobby Plan
 1. **Step 1: "Capturing Pokémons"** - Artificial timing: 5 seconds
 2. **Step 2: "Merging Pokémons"** - Artificial timing: 5 seconds  
 3. **Step 3: "Pokédex Entering"** - Qwen generation timeout:
-   - Production: 180 seconds
-   - Development: 120 seconds
+   - Production: 50 seconds
+   - Development: 45 seconds
    - Falls back to Simple Method if exceeded
 
-#### **Legacy Mode Timeouts** (when `USE_QWEN_FUSION=false`)
+#### **Legacy Mode Timeouts** (when `USE_QWEN_FUSION=false`) - Optimized for Vercel Hobby Plan
 1. **Step 1: "Capturing Pokémons" (Replicate Blend)**
-   - Production: 120 seconds
-   - Development: 90 seconds
+   - Production: 40 seconds
+   - Development: 35 seconds
    - UI shows fallback to Simple Method if exceeded
 
 2. **Step 2: "Merging Pokémons" (GPT-4 Vision Description)**
-   - Production: 60 seconds
-   - Development: 60 seconds
+   - Production: 30 seconds
+   - Development: 25 seconds
    - UI shows fallback to Simple Method if exceeded
 
 3. **Step 3: "Pokédex Entering" (GPT Image Enhancement)**
-   - Production: 240 seconds
-   - Development: 180 seconds
+   - Production: 25 seconds
+   - Development: 20 seconds
    - UI shows fallback to Simple Method if exceeded
 
 ### API Implementation 
@@ -344,19 +344,25 @@ The system uses **Server-Sent Events (SSE)** for real-time step updates:
 - **Compatibility**: Works seamlessly with both Qwen and Legacy generation modes
 - **Fallback**: If streaming fails, frontend can fall back to regular `/api/generate` endpoint
 
-### Legacy Configuration
+### **System Optimization for Vercel Plans**
 
-For reference, the original single-timeout configuration:
+The system is currently optimized for **Vercel Hobby Plan** (60-second function limit):
 
-1. **API Route Timeout**: 300 seconds (5 minutes) - maximum allowed for Vercel Pro plan
+#### **Current Configuration** (Hobby Plan - 60 seconds max)
+1. **API Route Timeout**: 60 seconds - maximum allowed for Vercel Hobby plan
 2. **Individual Service Timeouts**:
-   - Replicate Blend: 120 seconds (production) / 90 seconds (development)
-   - GPT-4 Vision Description: 60 seconds (both production and development)
-   - GPT-image-1 Enhancement: 240 seconds (production) / 180 seconds (development)
-   - Supabase Upload: 60 seconds (both production and development)
-   - OpenAI Client: 180 seconds (both production and development)
+   - Replicate Blend: 40 seconds (production) / 35 seconds (development)
+   - GPT-4 Vision Description: 30 seconds (production) / 25 seconds (development)
+   - GPT-image-1 Enhancement: 25 seconds (production) / 20 seconds (development)
+   - Qwen Fusion: 50 seconds (production) / 45 seconds (development)
+   - Supabase Upload: 10 seconds (both production and development)
+   - OpenAI Client: 50 seconds (production) / 45 seconds (development)
 
-If you're on a Vercel Hobby plan, you'll need to reduce these timeouts significantly to stay within the 60-second limit.
+#### **For Vercel Pro Plan Users** (300-second function limit)
+If you upgrade to Vercel Pro plan, you can increase these timeouts for better reliability:
+- Set `maxDuration = 300` in both `route.ts` files
+- Increase individual service timeouts proportionally
+- Update timeout configurations in `config.ts`, `dalle.ts`, `replicate-blend.ts`, and `stream/route.ts`
 
 ## Error Handling and Fallbacks
 

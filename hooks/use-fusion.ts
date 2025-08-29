@@ -171,7 +171,7 @@ export function useFusion() {
   ) => {
     try {
       // Show initial toast
-      toast.loading('Starting AI fusion generation...', {
+      toast.loading('Starting fusion generation...', {
         id: 'fusion-generation',
         duration: 300000, // 5 minutes
       });

@@ -159,7 +159,7 @@ export async function saveFusion({
       console.log('saveFusion - Simple Method fusion detected, skipping image upload');
       imageUrl = fusionImage;
     } else {
-      // Upload the image to Supabase Storage for non-Simple Method fusions
+      // Upload the image to Supabase Storage for all AI-generated fusions (including Qwen)
       console.log('saveFusion - Uploading AI-generated image to storage');
       imageUrl = await uploadImageFromUrl(supabase, fusionImage);
       
@@ -543,21 +543,27 @@ export async function uploadImageFromUrl(supabase, imageUrl: string): Promise<st
       
       // Get content type from response
       const contentType = response.headers.get('content-type') || 'image/png';
-      console.log('uploadImageFromUrl - Content type:', contentType);
+      console.log('uploadImageFromUrl - Original content type:', contentType);
+      
+      // For any image that might have transparency, preserve as PNG
+      const finalContentType = 'image/png'; // Always use PNG to preserve transparency
       
       // Get the image as a buffer
       const arrayBuffer = await response.arrayBuffer();
       console.log('uploadImageFromUrl - Image buffer size:', arrayBuffer.byteLength, 'bytes');
       
-      // Generate a unique filename with the correct extension
-      const extension = contentType.split('/')[1] || 'png';
-      const filename = `fusion_${Date.now()}.${extension}`;
+      // Always use PNG extension to preserve transparency
+      const extension = 'png';
+      // Use special prefix for Qwen images for easier tracking
+      const prefix = imageUrl.includes('replicate.delivery') ? 'fusion-qwen' : 'fusion';
+      const filename = `${prefix}_${Date.now()}.${extension}`;
+      console.log('uploadImageFromUrl - Using PNG format to preserve transparency:', filename);
       
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('fusions')
         .upload(filename, arrayBuffer, {
-          contentType,
+          contentType: finalContentType,
           upsert: true
         });
       

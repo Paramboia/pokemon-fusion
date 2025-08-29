@@ -391,9 +391,9 @@ The system includes robust multi-level fallback mechanisms for both generation m
 Successfully generated fusion images are stored in Supabase with different naming conventions:
 
 ### **Qwen Generated Images**
-- **Naming**: `fusion-qwen-{timestamp}-{randomId}.webp`
-- **Source**: Qwen model returns direct URLs
-- **Storage**: URLs are used directly, then optionally cached in Supabase
+- **Naming**: `fusion-qwen_{timestamp}.png`
+- **Source**: Qwen model returns direct URLs from replicate.delivery
+- **Storage**: Downloaded and re-uploaded to Supabase as PNG to preserve transparency
 
 ### **Legacy Generated Images**  
 - **Direct URLs**: When OpenAI returns a URL directly, it's used as-is

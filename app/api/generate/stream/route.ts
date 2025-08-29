@@ -51,18 +51,23 @@ export async function POST(req: Request) {
   if (process.env.ENABLE_MULTI_STEP_UI !== 'true') {
     return NextResponse.json({ error: 'Multi-step UI is not enabled' }, { status: 404 });
   }
+  
+  // Log configuration status for debugging (like legacy route)
+  logConfigStatus();
+  
+  // Test OpenAI client (legacy compatibility)
+  console.log("Generate Stream API - Testing OpenAI client for legacy compatibility");
+  const openAiClientWorking = await testOpenAiClient();
+  console.log("Generate Stream API - OpenAI client test result:", openAiClientWorking);
 
   try {
     console.log("Generate Stream API - POST request received");
-    
-    // Log configuration status
-    logConfigStatus();
     
     // Parse request body
     const body = await req.json();
     console.log("Generate Stream API - Request body:", body);
     
-    // Extract and validate parameters
+    // Extract and validate parameters (including legacy support)
     const pokemon1Id = body.pokemon1Id ? parseInt(body.pokemon1Id) : null;
     const pokemon2Id = body.pokemon2Id ? parseInt(body.pokemon2Id) : null;
     const pokemon1Name = body.pokemon1Name || '';
@@ -70,6 +75,14 @@ export async function POST(req: Request) {
     const fusionName = body.fusionName || '';
     const pokemon1ImageUrl = body.pokemon1ImageUrl || '';
     const pokemon2ImageUrl = body.pokemon2ImageUrl || '';
+    const useImageEditing = body.useImageEditing || false; // Legacy support
+    const maskType = body.maskType || 'lower-half'; // Legacy support
+    
+    console.log("Generate Stream API - Parsed parameters:", { 
+      pokemon1Id, pokemon2Id, pokemon1Name, pokemon2Name, fusionName,
+      hasImage1: !!pokemon1ImageUrl, hasImage2: !!pokemon2ImageUrl,
+      useImageEditing, maskType
+    });
     
     // Validate required fields
     if (!pokemon1Id || !pokemon2Id || !fusionName || !pokemon1Name || !pokemon2Name) {
@@ -92,7 +105,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to get Supabase client' }, { status: 500 });
     }
     
-    // Check user credits
+    // Check for Simple Fusion header (legacy support)
+    const isSimpleFusion = req.headers.get('X-Simple-Fusion') === 'true';
+    console.log('Generate Stream API - Is simple fusion:', isSimpleFusion);
+    
+    // Check user credits (skip if simple fusion)
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('id, credits_balance')
@@ -107,7 +124,7 @@ export async function POST(req: Request) {
     const userUuid = userData.id;
     const currentBalance = userData?.credits_balance || 0;
     
-    if (currentBalance <= 0) {
+    if (!isSimpleFusion && currentBalance <= 0) {
       console.error('Generate Stream API - Insufficient credits');
       return NextResponse.json({ 
         error: 'Insufficient credits',
@@ -115,7 +132,11 @@ export async function POST(req: Request) {
       }, { status: 402 });
     }
 
-    console.log('Generate Stream API - User has sufficient credits:', currentBalance);
+    console.log('Generate Stream API - User credits status:', { 
+      isSimpleFusion, 
+      currentBalance, 
+      willChargeCredits: !isSimpleFusion && currentBalance > 0
+    });
 
     // Create readable stream for SSE
     const encoder = new TextEncoder();
@@ -142,7 +163,8 @@ export async function POST(req: Request) {
           pokemon1ImageUrl,
           pokemon2ImageUrl,
           userUuid,
-          supabase
+          supabase,
+          isSimpleFusion
         ).catch(error => {
           console.error('Generate Stream API - Error in generation process:', error);
           
@@ -199,7 +221,8 @@ async function generateFusionWithSteps(
   pokemon1ImageUrl: string,
   pokemon2ImageUrl: string,
   userUuid: string,
-  supabase: any
+  supabase: any,
+  isSimpleFusion: boolean = false
 ) {
   let fusionImageUrl: string | null = null;
   let useSimpleFusion = false;
@@ -229,7 +252,8 @@ async function generateFusionWithSteps(
         processedImage1, 
         processedImage2,
         userUuid,
-        supabase
+        supabase,
+        isSimpleFusion
       );
       return; // Exit early since Qwen handles everything
     }
@@ -490,7 +514,8 @@ async function handleQwenFusionWithSteps(
   processedImage1: string,
   processedImage2: string,
   userUuid: string,
-  supabase: any
+  supabase: any,
+  isSimpleFusion: boolean = false
 ) {
   const STEP_DURATION = 5000; // 5 seconds per step
   let fusionImageUrl: string | null = null;
@@ -561,6 +586,27 @@ async function handleQwenFusionWithSteps(
       
       if (fusionImageUrl) {
         console.log('Generate Stream API - Qwen fusion successful');
+        
+        // Record credit usage for successful Qwen generation (only if not simple fusion)
+        if (!isSimpleFusion) {
+          console.log('Generate Stream API - Recording credit transaction for Qwen fusion');
+          const { error: transactionError } = await supabase
+            .from('credits_transactions')
+            .insert({
+              user_id: userUuid,
+              amount: -1,
+              description: `Fusion of ${pokemon1Name} and ${pokemon2Name} (Qwen)`,
+              transaction_type: 'usage'
+            });
+
+          if (transactionError) {
+            console.error('Generate Stream API - Error recording Qwen transaction:', transactionError);
+          } else {
+            console.log('Generate Stream API - ✅ Qwen credit transaction recorded successfully');
+          }
+        } else {
+          console.log('Generate Stream API - Simple fusion detected, skipping credit charge');
+        }
         
         // Save to database
         const result = await saveFusion({

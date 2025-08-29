@@ -477,12 +477,23 @@ export async function POST(req: Request) {
         isQwenSuccess,
         isTraditionalSuccess,
         shouldChargeCredits,
+        userUuid,
         fusionImageUrl: fusionImageUrl?.substring(0, 50) + '...',
-        processedImage1: processedImage1?.substring(0, 50) + '...'
+        processedImage1: processedImage1?.substring(0, 50) + '...',
+        fusionImageUrlFull: fusionImageUrl,
+        urlsAreEqual: fusionImageUrl === processedImage1
       });
       
       if (shouldChargeCredits) {
         // Add transaction record after successful generation
+        console.log('Generate API - ATTEMPTING TO CHARGE CREDITS:', {
+          userUuid,
+          hasUserUuid: !!userUuid,
+          amount: -1,
+          description: `Fusion of ${pokemon1Name} and ${pokemon2Name}`,
+          transaction_type: 'usage'
+        });
+        
         const { error: transactionError } = await supabase
           .from('credits_transactions')
           .insert({
@@ -500,9 +511,9 @@ export async function POST(req: Request) {
           }, { status: 500 });
         }
         
-        console.log('Generate API - Credits used successfully for AI generation');
+        console.log('Generate API - ✅ Credits transaction recorded successfully for AI generation');
       } else {
-        console.log('Generate API - No credits charged (Simple Method or fallback used)');
+        console.log('Generate API - ❌ No credits charged (Simple Method or fallback used)');
       }
 
       // Save the fusion to the database

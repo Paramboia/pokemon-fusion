@@ -133,10 +133,11 @@ Style requirements:
 - Vibrant, saturated colors
 - Soft shadows and highlights
 - Professional digital art quality
-- Transparent background
+- COMPLETELY TRANSPARENT BACKGROUND (no white, no checkered pattern, fully transparent alpha channel)
 - Single cohesive creature (not two separate Pokemon)
 - Maintain proportional anatomy
 - Expressive and appealing design
+- PNG format with alpha transparency
 
 The result should look like an official Pokemon that could naturally exist in the Pokemon universe, blending the essence of both source Pokemon into something new and unique.`;
 }

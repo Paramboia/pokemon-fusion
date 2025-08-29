@@ -67,19 +67,23 @@ export async function generateWithQwenFusion(
     // Create the fusion prompt based on our successful test results
     const fusionPrompt = createFusionPrompt(pokemon1Name, pokemon2Name, fusionName);
     console.log(`[${requestId}] QWEN FUSION - Generated prompt: ${fusionPrompt.substring(0, 150)}...`);
+    console.log(`[${requestId}] QWEN FUSION - Input images processed:`, {
+      image1HasTransparency: pokemon1ImageUrl.includes('data:image') ? 'converted to white bg' : 'original URL',
+      image2HasTransparency: pokemon2ImageUrl.includes('data:image') ? 'converted to white bg' : 'original URL'
+    });
 
-    // Configure Qwen parameters based on our test results
-    // Using optimal settings from qwen-transparent-blend test
+    // Configure Qwen parameters based on our successful test results
+    // Using optimal settings that produced qwen-transparent-blend-1756500424506-detailed-fusion-prompt.png
     const qwenInput = {
       images: [pokemon1Stream, pokemon2Stream],
       prompt: fusionPrompt,
-      strength: 0.7,        // Optimal from our tests
-      guidance: 3.5,        // Optimal from our tests  
+      strength: 0.8,        // Slightly higher for better blending
+      guidance: 4,          // Match successful test configuration
       num_inference_steps: 50,
       aspect_ratio: "1:1",
       output_format: "png", // For transparency support
-      go_fast: true,       // Enable optimizations
-      output_quality: 90   // High quality
+      go_fast: false,      // Disable for higher quality
+      output_quality: 95   // Higher quality for better results
     };
 
     console.log(`[${requestId}] QWEN FUSION - Calling Qwen API with optimized parameters`);
@@ -118,28 +122,87 @@ export async function generateWithQwenFusion(
 
 /**
  * Create a fusion prompt based on our successful test patterns
- * Uses the detailed fusion prompt style that worked best in testing
+ * Uses the detailed GPT-style description approach that worked best in testing
  */
 function createFusionPrompt(pokemon1Name: string, pokemon2Name: string, fusionName: string): string {
-  // Generate a dynamic prompt that describes the fusion characteristics
-  // Based on our successful "detailed-fusion-prompt" test pattern
-  return `Pokemon fusion creature named ${fusionName}: Blend the distinctive characteristics of ${pokemon1Name} and ${pokemon2Name} into a single cohesive creature. 
-
-The fusion should combine the unique body structure, color palette, and key features from both Pokemon while maintaining visual harmony. Incorporate the most recognizable traits from each Pokemon - their signature colors, distinctive body parts, and characteristic expressions.
-
-Style requirements:
-- Early 2000s anime Pokemon art style
-- Clean outlines with cel-shading
-- Vibrant, saturated colors
-- Soft shadows and highlights
-- Professional digital art quality
-- COMPLETELY TRANSPARENT BACKGROUND (no white, no checkered pattern, fully transparent alpha channel)
-- Single cohesive creature (not two separate Pokemon)
-- Maintain proportional anatomy
-- Expressive and appealing design
-- PNG format with alpha transparency
-
-The result should look like an official Pokemon that could naturally exist in the Pokemon universe, blending the essence of both source Pokemon into something new and unique.`;
+  // Create dynamic characteristics for variation
+  const bodyStructures = [
+    `a quadrupedal stance with muscular, sturdy legs`,
+    `a bipedal humanoid form with athletic proportions`,
+    `a serpentine body with powerful limbs`,
+    `a compact, rounded form with short appendages`,
+    `an elongated, graceful frame with slender features`
+  ];
+  
+  const colorPalettes = [
+    `deep blues and vibrant oranges with metallic accents`,
+    `purple and gold tones with electric highlights`,
+    `emerald greens and crimson reds with silver details`,
+    `warm earth tones with bright cyan markings`,
+    `monochromatic grays with brilliant rainbow accents`,
+    `fire-like oranges and yellows with dark shadows`,
+    `ocean blues and seafoam greens with pearl highlights`
+  ];
+  
+  const keyFeatures = [
+    `prominent horns, glowing eyes, and distinctive markings along the body`,
+    `large wings, sharp claws, and an expressive facial structure`,
+    `unique tail design, distinctive ear shapes, and body patterns`,
+    `special appendages, striking facial features, and signature poses`,
+    `elemental effects emanating from the body, distinctive coloring patterns`
+  ];
+  
+  const textureOptions = [
+    `smooth, glossy skin with subtle scale patterns`,
+    `fur-like texture with metallic sheen in certain areas`,
+    `crystal-like surface that catches and reflects light`,
+    `matte finish with glowing energy patterns`,
+    `sleek, aerodynamic surface with gradient color transitions`
+  ];
+  
+  const speciesVibes = [
+    `fire-type energy with electric undertones`,
+    `water-type grace combined with psychic mystique`,
+    `grass-type earthiness with fairy-like whimsy`,
+    `dark-type mystery with fighting-type strength`,
+    `flying-type elegance with dragon-type power`
+  ];
+  
+  const attitudes = [
+    `confident and alert, ready for battle`,
+    `playful yet mysterious, with intelligence in its eyes`,
+    `calm and wise, exuding ancient knowledge`,
+    `energetic and friendly, approachable but powerful`,
+    `fierce and determined, a natural protector`
+  ];
+  
+  const accessories = [
+    `glowing gemstones embedded in its forehead and chest`,
+    `natural armor plating along its back and limbs`,
+    `trailing energy wisps that follow its movements`,
+    `distinctive crest or crown-like features on its head`,
+    `unique patterns that seem to shift and change in different light`
+  ];
+  
+  // Randomly select elements to create variation
+  const randomBodyStructure = bodyStructures[Math.floor(Math.random() * bodyStructures.length)];
+  const randomColorPalette = colorPalettes[Math.floor(Math.random() * colorPalettes.length)];
+  const randomKeyFeatures = keyFeatures[Math.floor(Math.random() * keyFeatures.length)];
+  const randomTexture = textureOptions[Math.floor(Math.random() * textureOptions.length)];
+  const randomSpeciesVibe = speciesVibes[Math.floor(Math.random() * speciesVibes.length)];
+  const randomAttitude = attitudes[Math.floor(Math.random() * attitudes.length)];
+  const randomAccessories = accessories[Math.floor(Math.random() * accessories.length)];
+  
+  // Create the detailed prompt using the same structure as our successful tests
+  return `Illustrate an original cartoon creature with ${randomBodyStructure}, using a ${randomColorPalette}. 
+The creature features ${randomKeyFeatures} with ${randomTexture}.
+It has a ${randomSpeciesVibe} aesthetic, displaying a ${randomAttitude}.
+Additional details include ${randomAccessories}.
+The creature should be whimsical, expressive, and anime-inspired. 
+Style it for a teenager-friendly, early 2000s anime look. Use smooth, clean outlines, cel-shading, soft shadows, and vibrant colors. 
+The creature should have a fantasy/magical vibe and look like it could be from a Pokemon-style universe.
+Do not recreate or reference any existing character or franchise.
+Keep the background transparent, but ensure that the eyes are non-transparent.`;
 }
 
 /**

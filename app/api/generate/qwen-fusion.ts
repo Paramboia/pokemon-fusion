@@ -121,11 +121,11 @@ export async function generateWithQwenFusion(
 }
 
 /**
- * Create a simple fusion prompt that lets Qwen handle the creative blending
+ * Create a simple fusion prompt that references the specific Pokemon being blended
  * Focuses on blending the input images with transparent background
  */
 function createFusionPrompt(pokemon1Name: string, pokemon2Name: string, fusionName: string): string {
-  return `Blend these two Pokemon characters together into a single cohesive creature. Combine their distinctive features, colors, and characteristics into one unified design. Keep the background completely transparent.`;
+  return `Blend these two images of ${pokemon1Name} and ${pokemon2Name} together into a single cohesive creature called ${fusionName}. Combine the distinctive features, colors, and characteristics from both ${pokemon1Name} and ${pokemon2Name} into one unified design. Keep the background completely transparent.`;
 }
 
 /**

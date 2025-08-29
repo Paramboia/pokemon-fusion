@@ -121,34 +121,11 @@ export async function generateWithQwenFusion(
 }
 
 /**
- * Create a detailed fusion prompt based on the successful test approach
- * Uses type-specific descriptions and Pokemon characteristics for better results
+ * Create a simple fusion prompt that lets Qwen analyze the images and infer characteristics
+ * Relies on the model's visual understanding rather than predefined mappings
  */
 function createFusionPrompt(pokemon1Name: string, pokemon2Name: string, fusionName: string): string {
-  // Get basic Pokemon type information (simplified approach)
-  const pokemon1Lower = pokemon1Name.toLowerCase();
-  const pokemon2Lower = pokemon2Name.toLowerCase();
-  
-  // Simple type/characteristic mapping for common Pokemon
-  const getCharacteristics = (name: string) => {
-    if (name.includes('gengar')) return 'ghost-type features';
-    if (name.includes('tauros')) return 'bull-like characteristics';
-    if (name.includes('pikachu')) return 'electric-type features';
-    if (name.includes('charizard')) return 'fire-dragon characteristics';
-    if (name.includes('blastoise')) return 'water-type turtle features';
-    if (name.includes('venusaur')) return 'grass-type plant characteristics';
-    if (name.includes('alakazam')) return 'psychic-type mystical features';
-    if (name.includes('machamp')) return 'fighting-type muscular characteristics';
-    if (name.includes('gyarados')) return 'water-dragon serpentine features';
-    if (name.includes('dragonite')) return 'dragon-type friendly characteristics';
-    // Add more as needed, fallback to generic description
-    return `distinctive features`;
-  };
-  
-  const char1 = getCharacteristics(pokemon1Lower);
-  const char2 = getCharacteristics(pokemon2Lower);
-  
-  return `Create a Pokemon fusion by blending the ${char1} of ${pokemon1Name} with the ${char2} of ${pokemon2Name}. The result should be a single creature called ${fusionName} that combines both Pokemon's unique traits, colors, and essence. Maintain Pokemon art style with transparent background.`;
+  return `Create a Pokemon fusion by blending these two images into a single cohesive creature called ${fusionName}. Analyze the visual characteristics, colors, shapes, and features from both images and combine them harmoniously. The result should be a unique Pokemon that incorporates elements from both source images while maintaining Pokemon art style with transparent background.`;
 }
 
 /**

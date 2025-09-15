@@ -554,8 +554,8 @@ export async function uploadImageFromUrl(supabase, imageUrl: string): Promise<st
       
       // Always use PNG extension to preserve transparency
       const extension = 'png';
-      // Use special prefix for Qwen images for easier tracking
-      const prefix = imageUrl.includes('replicate.delivery') ? 'fusion-qwen' : 'fusion';
+      // Use special prefix for Single Model Fusion images for easier tracking
+      const prefix = imageUrl.includes('replicate.delivery') ? 'fusion-singlemodel' : 'fusion';
       const filename = `${prefix}_${Date.now()}.${extension}`;
       console.log('uploadImageFromUrl - Using PNG format to preserve transparency:', filename);
       

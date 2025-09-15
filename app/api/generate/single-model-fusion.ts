@@ -1,5 +1,5 @@
-// Qwen-based fusion generation module
-// This module provides a simplified fusion pipeline using qwen/qwen-image
+// Single Model Fusion-based fusion generation module
+// This module provides a simplified fusion pipeline using Single Model Fusion (like qwen/qwen-image or google/nano-banana)
 // It combines blending and enhancement in a single step
 
 import Replicate from 'replicate';
@@ -14,7 +14,7 @@ const replicate = new Replicate({
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const IS_VERCEL = !!process.env.VERCEL;
 
-console.log(`🌟 QWEN FUSION MODULE LOADED - ENV: ${IS_PRODUCTION ? 'PROD' : 'DEV'}, PLATFORM: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'}`);
+console.log(`🌟 SINGLE MODEL FUSION MODULE LOADED - ENV: ${IS_PRODUCTION ? 'PROD' : 'DEV'}, PLATFORM: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'}`);
 
 /**
  * Generate a Pokemon fusion using Replicate's google/nano-banana model
@@ -53,7 +53,7 @@ export async function generateWithSingleModelFusion(
 
     // Create the fusion prompt
     const fusionPrompt =
-      "Create a new creature based on the two input images, which merges the features and carachteristics of both input images. Following the same artistic style";
+      "Create a new creature based on the two input images, which merges the features and carachteristics of both input images. Following the same artistic style. Ensure transparent background.";
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generated prompt: ${fusionPrompt}`);
 
     // Prepare input for nano-banana
@@ -94,7 +94,7 @@ export async function generateWithSingleModelFusion(
 }
 
 /**
- * Create a simple fusion prompt that lets Qwen analyze the images and infer characteristics
+ * Create a simple fusion prompt that lets Single Model analyze the images and infer characteristics
  * Relies on the model's visual understanding rather than predefined mappings
  */
 function createFusionPrompt(pokemon1Name: string, pokemon2Name: string, fusionName: string): string {
@@ -106,7 +106,7 @@ function createFusionPrompt(pokemon1Name: string, pokemon2Name: string, fusionNa
  */
 async function downloadImageAsStream(imageUrl: string, requestId: string): Promise<any> {
   try {
-    console.log(`[${requestId}] QWEN FUSION - Downloading image: ${imageUrl.substring(0, 50)}...`);
+    console.log(`[${requestId}] SINGLE MODEL FUSION - Downloading image: ${imageUrl.substring(0, 50)}...`);
     
     const response = await axios({
       method: 'GET',
@@ -115,11 +115,11 @@ async function downloadImageAsStream(imageUrl: string, requestId: string): Promi
       timeout: 15000 // 15 second timeout
     });
 
-    console.log(`[${requestId}] QWEN FUSION - Successfully downloaded image`);
+    console.log(`[${requestId}] SINGLE MODEL FUSION - Successfully downloaded image`);
     return response.data;
     
   } catch (error) {
-    console.error(`[${requestId}] QWEN FUSION - Error downloading image from ${imageUrl}:`, error);
+    console.error(`[${requestId}] SINGLE MODEL FUSION - Error downloading image from ${imageUrl}:`, error);
     return null;
   }
 }
@@ -146,20 +146,6 @@ export async function testSingleModelFusion(): Promise<boolean> {
   }
 }
 
-/**
- * Get optimal Qwen parameters based on successful detailed test results
- */
-export function getOptimalQwenParameters() {
-  return {
-    strength: 0.7,        // Optimal strength from successful test
-    guidance: 3.5,        // Higher guidance for better prompt adherence
-    num_inference_steps: 50, // More steps for higher quality
-    aspect_ratio: "1:1",
-    output_format: "png", // Supports transparency
-    go_fast: false,      // Quality over speed
-    output_quality: 90   // Good quality
-  };
-}
 
 /**
  * Check if single-model fusion is enabled via environment variables

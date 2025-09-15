@@ -53,7 +53,7 @@ export async function generateWithSingleModelFusion(
 
     // Create the fusion prompt
     const fusionPrompt =
-      "Create a new single creature based on the two input images, which merges the features and carachteristics of both input images. Following the same artistic style. The input images have a transparent background which should be preserved in the output image.";
+      "Create a new single creature based on the two input images, which merges the features and carachteristics of both input images seamlessly. Following the same artistic style. After generating the image, make sure to add a transparent background.";
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generated prompt: ${fusionPrompt}`);
 
     // Prepare input for nano-banana

@@ -159,7 +159,7 @@ export async function saveFusion({
       console.log('saveFusion - Simple Method fusion detected, skipping image upload');
       imageUrl = fusionImage;
     } else {
-      // Upload the image to Supabase Storage for all AI-generated fusions (including Qwen)
+      // Upload the image to Supabase Storage for all AI-generated fusions (including Single Model Fusion)
       console.log('saveFusion - Uploading AI-generated image to storage');
       imageUrl = await uploadImageFromUrl(supabase, fusionImage);
       

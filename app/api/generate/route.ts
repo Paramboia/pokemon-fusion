@@ -14,7 +14,7 @@ console.warn('ROUTE.TS - dalle.ts imports completed:', {
 });
 
 import { generateWithReplicateBlend } from './replicate-blend';
-import { generateWithQwenFusion, isQwenFusionEnabled, testQwenFusion } from './qwen-fusion';
+import { generateWithSingleModelFusion, isSingleModelFusionEnabled, testSingleModelFusion } from './single-model-fusion';
 import { initializeConfig, logConfigStatus } from './config';
 import path from 'path';
 import fs from 'fs';
@@ -223,9 +223,9 @@ export async function POST(req: Request) {
     });
 
     try {
-      // Check if Qwen fusion is enabled first (new simplified pipeline)
-      const useQwenFusion = isQwenFusionEnabled();
-      console.log('Generate API - Qwen fusion enabled:', useQwenFusion);
+      // Check if single-model fusion is enabled first (new simplified pipeline)
+      const useSingleModelFusion = isSingleModelFusionEnabled();
+      console.log('Generate API - Single-model fusion enabled:', useSingleModelFusion);
       
       // Determine which model to use based on environment variables
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
@@ -254,42 +254,37 @@ export async function POST(req: Request) {
 
       let fusionImageUrl: string | null = null;
 
-      // NEW: Try Qwen fusion first if enabled (simplified single-step pipeline)
-      if (useQwenFusion) {
+      // NEW: Try single-model fusion first if enabled (simplified single-step pipeline)
+      if (useSingleModelFusion) {
         try {
-          console.log('Generate API - Attempting Qwen Fusion (single-step blend + enhance)');
-          
-          // Test Qwen availability
-          const qwenAvailable = await testQwenFusion();
-          if (!qwenAvailable) {
-            throw new Error('Qwen fusion not available');
+          console.log('Generate API - Attempting Single-model Fusion (Nano Banana)');
+          // Test single-model availability
+          const singleModelAvailable = await testSingleModelFusion();
+          if (!singleModelAvailable) {
+            throw new Error('Single-model fusion not available');
           }
-          
-          // Generate fusion with Qwen (combines blend + enhance in one step)
-          const qwenResult = await generateWithQwenFusion(
+          // Generate fusion with Nano Banana (combines blend + enhance in one step)
+          const singleModelResult = await generateWithSingleModelFusion(
             pokemon1Name,
             pokemon2Name,
             processedImage1,
             processedImage2,
             fusionName
           );
-          
-          if (qwenResult) {
-            console.log('Generate API - Successfully generated fusion with Qwen (single-step)');
-            fusionImageUrl = qwenResult;
-            
-            console.log('Generate API - Qwen fusion image URL:', fusionImageUrl);
-            
-            // Skip the traditional blend + enhance pipeline since Qwen does both
-            console.log('Generate API - Skipping traditional pipeline - Qwen handled blend + enhance');
+          if (singleModelResult) {
+            console.log('Generate API - Successfully generated fusion with Single-model (Nano Banana)');
+            fusionImageUrl = singleModelResult;
+            console.log('Generate API - Single-model fusion image URL:', fusionImageUrl);
+            // Skip the traditional blend + enhance pipeline since Nano Banana does both
+            console.log('Generate API - Skipping traditional pipeline - Single-model handled blend + enhance');
           } else {
-            console.log('Generate API - Qwen fusion failed, falling back to Simple Method (no charge)');
+            console.log('Generate API - Single-model fusion failed, falling back to Simple Method (no charge)');
             fusionImageUrl = processedImage1;
             useSimpleFusion = true; // Set to true to avoid charging user
           }
-        } catch (qwenError) {
-          console.error('Generate API - Error with Qwen Fusion:', qwenError);
-          console.log('Generate API - Qwen error, falling back to Simple Method (no charge)');
+        } catch (singleModelError) {
+          console.error('Generate API - Error with Single-model Fusion:', singleModelError);
+          console.log('Generate API - Single-model error, falling back to Simple Method (no charge)');
           fusionImageUrl = processedImage1;
           useSimpleFusion = true; // Set to true to avoid charging user
         }
@@ -467,14 +462,14 @@ export async function POST(req: Request) {
       }
 
       // Only charge credits for successful AI generations (not Simple Method fallbacks)
-      const isQwenSuccess = useQwenFusion && fusionImageUrl && fusionImageUrl !== processedImage1 && !useSimpleFusion;
-      const isTraditionalSuccess = !useQwenFusion && !useSimpleFusion && fusionImageUrl !== processedImage1;
-      const shouldChargeCredits = isQwenSuccess || isTraditionalSuccess;
+      const isSingleModelSuccess = useSingleModelFusion && fusionImageUrl && fusionImageUrl !== processedImage1 && !useSimpleFusion;
+      const isTraditionalSuccess = !useSingleModelFusion && !useSimpleFusion && fusionImageUrl !== processedImage1;
+      const shouldChargeCredits = isSingleModelSuccess || isTraditionalSuccess;
       
       console.log('Generate API - Credit charging decision:', {
-        useQwenFusion,
+        useSingleModelFusion,
         useSimpleFusion,
-        isQwenSuccess,
+        isSingleModelSuccess,
         isTraditionalSuccess,
         shouldChargeCredits,
         userUuid,
@@ -521,8 +516,8 @@ export async function POST(req: Request) {
 
       // Log which image source we're using to avoid duplicates
       const isEnhancedImage = fusionImageUrl.includes('fusion-gpt-enhanced');
-      const isQwenImage = useQwenFusion && fusionImageUrl && fusionImageUrl !== processedImage1;
-      const imageSource = isQwenImage ? 'Qwen Fusion' : 
+      const isSingleModelImage = useSingleModelFusion && fusionImageUrl && fusionImageUrl !== processedImage1;
+      const imageSource = isSingleModelImage ? 'Single-model Fusion' : 
                          isEnhancedImage ? 'GPT-enhanced' : 
                          'Replicate Blend';
       
@@ -572,7 +567,7 @@ export async function POST(req: Request) {
         isLocalFallback: useSimpleFusion, // Use useSimpleFusion instead of hardcoded false
         generationMethod: imageSource, // Add generation method info
         message: useSimpleFusion ? 'Fusion generated using Simple Method' : 
-                isQwenImage ? 'Fusion generated using Qwen (single-step)' :
+                isSingleModelImage ? 'Fusion generated using Single-model (single-step)' :
                 'Fusion generated successfully'
       });
 

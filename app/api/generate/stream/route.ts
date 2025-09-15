@@ -5,7 +5,7 @@ import { saveFusion } from '@/lib/supabase-server-actions';
 import { getSupabaseAdminClient } from '@/lib/supabase-server';
 import { generateWithReplicateBlend } from '../replicate-blend';
 import { enhanceWithDirectGeneration, testOpenAiClient } from '../dalle';
-import { generateWithQwenFusion, isQwenFusionEnabled, testQwenFusion } from '../qwen-fusion';
+import { generateWithSingleModelFusion, isSingleModelFusionEnabled, testSingleModelFusion } from '../single-model-fusion';
 import { initializeConfig, logConfigStatus } from '../config';
 import { StepResponse } from '@/types/fusion';
 import sharp from 'sharp';
@@ -237,13 +237,13 @@ async function generateFusionWithSteps(
     const processedImage1 = await convertTransparentToWhite(image1);
     const processedImage2 = await convertTransparentToWhite(image2);
     
-    // Check if Qwen fusion is enabled
-    const useQwenFusion = isQwenFusionEnabled();
-    console.log('Generate Stream API - Qwen fusion enabled:', useQwenFusion);
+    // Check if single-model fusion is enabled
+    const useSingleModelFusion = isSingleModelFusionEnabled();
+    console.log('Generate Stream API - Single-model fusion enabled:', useSingleModelFusion);
     
-    if (useQwenFusion) {
-      // NEW: Qwen Fusion with artificial multi-step timing
-      await handleQwenFusionWithSteps(
+    if (useSingleModelFusion) {
+      // NEW: Single-model Fusion with artificial multi-step timing
+      await handleSingleModelFusionWithSteps(
         encoder, 
         controller, 
         pokemon1Name, 
@@ -255,7 +255,7 @@ async function generateFusionWithSteps(
         supabase,
         isSimpleFusion
       );
-      return; // Exit early since Qwen handles everything
+      return; // Exit early since single-model handles everything
     }
     
     // EXISTING: Traditional multi-step process
@@ -502,10 +502,10 @@ async function generateFusionWithSteps(
 }
 
 /**
- * Handle Qwen fusion with artificial multi-step timing for UI
- * Distributes the single Qwen call across the 3 UI steps
+ * Handle Single-model fusion with artificial multi-step timing for UI
+ * Distributes the single Single-model call across the 3 UI steps
  */
-async function handleQwenFusionWithSteps(
+async function handleSingleModelFusionWithSteps(
   encoder: TextEncoder,
   controller: ReadableStreamDefaultController,
   pokemon1Name: string,
@@ -522,16 +522,16 @@ async function handleQwenFusionWithSteps(
   let useSimpleFusion = false;
   
   try {
-    // Step 1: Capturing Pokémons (Start Qwen in background)
-    console.log('Generate Stream API - Qwen Step 1: Starting fusion generation');
+    // Step 1: Capturing Pokémons (Start Single-model in background)
+    console.log('Generate Stream API - Single-model Step 1: Starting fusion generation');
     sendSSEEvent(encoder, controller, {
       step: 'capturing',
       status: 'started',
       timestamp: Date.now()
     });
     
-    // Start Qwen fusion (but don't await yet)
-    const qwenPromise = generateWithQwenFusion(
+    // Start Single-model fusion (but don't await yet)
+    const singleModelPromise = generateWithSingleModelFusion(
       pokemon1Name,
       pokemon2Name,
       processedImage1,
@@ -549,8 +549,8 @@ async function handleQwenFusionWithSteps(
       timestamp: Date.now()
     });
     
-    // Step 2: Merging Pokémons (Continue Qwen processing)
-    console.log('Generate Stream API - Qwen Step 2: Processing fusion');
+    // Step 2: Merging Pokémons (Continue Single-model processing)
+    console.log('Generate Stream API - Single-model Step 2: Processing fusion');
     sendSSEEvent(encoder, controller, {
       step: 'merging',
       status: 'started',
@@ -567,42 +567,42 @@ async function handleQwenFusionWithSteps(
       timestamp: Date.now()
     });
     
-    // Step 3: Pokédex Entering (Wait for Qwen completion)
-    console.log('Generate Stream API - Qwen Step 3: Finalizing fusion');
+    // Step 3: Pokédex Entering (Wait for Single-model completion)
+    console.log('Generate Stream API - Single-model Step 3: Finalizing fusion');
     sendSSEEvent(encoder, controller, {
       step: 'entering',
       status: 'started',
       timestamp: Date.now()
     });
     
-    // Now wait for Qwen to complete (or timeout)
+    // Now wait for Single-model to complete (or timeout)
     try {
-      const qwenTimeout = 50000; // 50 second timeout for Qwen (within 60s limit)
+      const singleModelTimeout = 50000; // 50 second timeout for Single-model (within 60s limit)
       const timeoutPromise = new Promise<null>((_, reject) => {
-        setTimeout(() => reject(new Error('Qwen fusion timeout')), qwenTimeout);
+        setTimeout(() => reject(new Error('Single-model fusion timeout')), singleModelTimeout);
       });
       
-      fusionImageUrl = await Promise.race([qwenPromise, timeoutPromise]);
+      fusionImageUrl = await Promise.race([singleModelPromise, timeoutPromise]);
       
       if (fusionImageUrl) {
-        console.log('Generate Stream API - Qwen fusion successful');
+        console.log('Generate Stream API - Single-model fusion successful');
         
-        // Record credit usage for successful Qwen generation (only if not simple fusion)
+        // Record credit usage for successful Single-model generation (only if not simple fusion)
         if (!isSimpleFusion) {
-          console.log('Generate Stream API - Recording credit transaction for Qwen fusion');
+          console.log('Generate Stream API - Recording credit transaction for Single-model fusion');
           const { error: transactionError } = await supabase
             .from('credits_transactions')
             .insert({
               user_id: userUuid,
               amount: -1,
-              description: `Fusion of ${pokemon1Name} and ${pokemon2Name} (Qwen)`,
+              description: `Fusion of ${pokemon1Name} and ${pokemon2Name} (Single-model)`,
               transaction_type: 'usage'
             });
 
           if (transactionError) {
-            console.error('Generate Stream API - Error recording Qwen transaction:', transactionError);
+            console.error('Generate Stream API - Error recording Single-model transaction:', transactionError);
           } else {
-            console.log('Generate Stream API - ✅ Qwen credit transaction recorded successfully');
+            console.log('Generate Stream API - ✅ Single-model credit transaction recorded successfully');
           }
         } else {
           console.log('Generate Stream API - Simple fusion detected, skipping credit charge');
@@ -620,7 +620,7 @@ async function handleQwenFusionWithSteps(
           isSimpleFusion: false
         });
         
-        const fusionId = result.data?.id || `qwen-${Date.now()}`;
+        const fusionId = result.data?.id || `single-model-${Date.now()}`;
         
         // Complete step 3 with success
         sendSSEEvent(encoder, controller, {
@@ -636,11 +636,11 @@ async function handleQwenFusionWithSteps(
         });
         
       } else {
-        throw new Error('Qwen returned null result');
+        throw new Error('Single-model returned null result');
       }
       
-    } catch (qwenError) {
-      console.error('Generate Stream API - Qwen fusion failed:', qwenError);
+    } catch (singleModelError) {
+      console.error('Generate Stream API - Single-model fusion failed:', singleModelError);
       
       // Fall back to Simple Method
       fusionImageUrl = processedImage1;
@@ -675,7 +675,7 @@ async function handleQwenFusionWithSteps(
     }
     
   } catch (error) {
-    console.error('Generate Stream API - Qwen steps error:', error);
+    console.error('Generate Stream API - Single-model steps error:', error);
     
     // Final fallback
     const fallbackImageUrl = processedImage1;

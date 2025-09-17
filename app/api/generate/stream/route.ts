@@ -624,7 +624,27 @@ async function handleSingleModelFusionWithSteps(
           isSimpleFusion: false
         });
         
-        const fusionId = result.data?.id || `single-model-${Date.now()}`;
+        if (result.error) {
+          console.error('Generate Stream API - Error saving fusion to database:', result.error);
+          throw new Error(`Failed to save fusion: ${result.error}`);
+        }
+        
+        // Get the actual fusion ID from the database result
+        let fusionId: string;
+        if (result.data && typeof result.data === 'object') {
+          if ('id' in result.data) {
+            fusionId = String(result.data.id);
+          } else if (Array.isArray(result.data) && result.data.length > 0 && 
+                    typeof result.data[0] === 'object' && 'id' in result.data[0]) {
+            fusionId = String(result.data[0].id);
+          } else {
+            throw new Error('No valid fusion ID returned from database');
+          }
+        } else {
+          throw new Error('No data returned from saveFusion');
+        }
+        
+        console.log('Generate Stream API - Fusion saved with ID:', fusionId);
         
         // Complete step 3 with success
         sendSSEEvent(encoder, controller, {
@@ -662,7 +682,43 @@ async function handleSingleModelFusionWithSteps(
         isSimpleFusion: true
       });
       
-      const fusionId = fallbackResult.data?.id || `fallback-${Date.now()}`;
+      if (fallbackResult.error) {
+        console.error('Generate Stream API - Error saving fallback fusion to database:', fallbackResult.error);
+        // Don't throw error for fallback - just use a temp ID that won't allow favorites
+        const tempFusionId = 'temp-fusion';
+        
+        sendSSEEvent(encoder, controller, {
+          step: 'entering',
+          status: 'completed',
+          data: {
+            finalUrl: fusionImageUrl,
+            fusionId: tempFusionId,
+            fusionName: pokemon1Name, // Use first Pokemon name for fallback
+            isLocalFallback: true
+          },
+          timestamp: Date.now()
+        });
+        return;
+      }
+      
+      // Get the actual fusion ID from the database result
+      let fusionId: string;
+      if (fallbackResult.data && typeof fallbackResult.data === 'object') {
+        if ('id' in fallbackResult.data) {
+          fusionId = String(fallbackResult.data.id);
+        } else if (Array.isArray(fallbackResult.data) && fallbackResult.data.length > 0 && 
+                  typeof fallbackResult.data[0] === 'object' && 'id' in fallbackResult.data[0]) {
+          fusionId = String(fallbackResult.data[0].id);
+        } else {
+          console.error('Generate Stream API - No valid fusion ID returned from fallback database save');
+          fusionId = 'temp-fusion';
+        }
+      } else {
+        console.error('Generate Stream API - No data returned from fallback saveFusion');
+        fusionId = 'temp-fusion';
+      }
+      
+      console.log('Generate Stream API - Fallback fusion saved with ID:', fusionId);
       
       // Complete step 3 with fallback
       sendSSEEvent(encoder, controller, {

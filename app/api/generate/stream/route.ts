@@ -226,6 +226,8 @@ async function generateFusionWithSteps(
 ) {
   let fusionImageUrl: string | null = null;
   let useSimpleFusion = false;
+  let processedImage1: string;
+  let processedImage2: string;
   
   try {
     // Get image URLs
@@ -234,8 +236,8 @@ async function generateFusionWithSteps(
     
     // Pre-process images
     console.log('Generate Stream API - Converting backgrounds');
-    const processedImage1 = await convertTransparentToWhite(image1);
-    const processedImage2 = await convertTransparentToWhite(image2);
+    processedImage1 = await convertTransparentToWhite(image1);
+    processedImage2 = await convertTransparentToWhite(image2);
     
     // Check if single-model fusion is enabled
     const useSingleModelFusion = isSingleModelFusionEnabled();
@@ -395,7 +397,8 @@ async function generateFusionWithSteps(
     
     // CRITICAL: Fallback to Simple Method
     console.log('Generate Stream API - Falling back to Simple Method');
-    fusionImageUrl = processedImage1;
+    // Use processedImage1 if available, otherwise fallback to original Pokemon image
+    fusionImageUrl = processedImage1 || getPokemonImageUrl(pokemon1Id);
     useSimpleFusion = true;
     
     // Send fallback notification - mark the failed step as failed first
@@ -489,7 +492,7 @@ async function generateFusionWithSteps(
       step: 'entering',
       status: 'completed',
       data: {
-        finalUrl: fusionImageUrl || processedImage1,
+        finalUrl: fusionImageUrl || processedImage1 || getPokemonImageUrl(pokemon1Id),
         fusionId: uuidv4(),
         fusionName,
         isLocalFallback: true,
@@ -738,7 +741,7 @@ async function handleSingleModelFusionWithSteps(
     console.error('Generate Stream API - Single-model steps error:', error);
     
     // Final fallback
-    const fallbackImageUrl = processedImage1;
+    const fallbackImageUrl = processedImage1 || getPokemonImageUrl(pokemon1Id);
     
     sendSSEEvent(encoder, controller, {
       step: 'entering',

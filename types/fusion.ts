@@ -28,6 +28,10 @@ export interface StepResponse {
     imageUrl?: string;
     description?: string;
     finalUrl?: string;
+    fusionId?: string;
+    fusionName?: string;
+    isLocalFallback?: boolean;
+    message?: string;
   };
   error?: string;
   timestamp?: number;

@@ -196,36 +196,40 @@ export async function POST(req: Request) {
       image2
     });
     
-    // Pre-process images to convert transparent backgrounds to white
-    console.log('Generate API - Starting background conversion for Pokemon images');
-    let processedImage1 = image1;
-    let processedImage2 = image2;
-    
-    try {
-      console.log('Generate API - Converting background for Pokemon 1');
-      processedImage1 = await convertTransparentToWhite(image1);
-      
-      console.log('Generate API - Converting background for Pokemon 2');
-      processedImage2 = await convertTransparentToWhite(image2);
-      
-      console.log('Generate API - Background conversion completed successfully');
-    } catch (conversionError) {
-      console.error('Generate API - Error during background conversion:', conversionError);
-      // Continue with original images if conversion fails
-      processedImage1 = image1;
-      processedImage2 = image2;
-    }
-    
-    console.log('Generate API - Processed image URLs:', {
-      processedImage1,
-      processedImage2,
-      usingProcessedImages: processedImage1 !== image1 || processedImage2 !== image2
-    });
-
     try {
       // Check if single-model fusion is enabled first (new simplified pipeline)
       const useSingleModelFusion = isSingleModelFusionEnabled();
       console.log('Generate API - Single-model fusion enabled:', useSingleModelFusion);
+      
+      // Prepare images based on the fusion method
+      let processedImage1, processedImage2;
+      
+      if (useSingleModelFusion) {
+        // For single-model fusion, use original images with transparent backgrounds
+        console.log('Generate API - Using original images with transparent backgrounds for single-model fusion');
+        processedImage1 = image1;
+        processedImage2 = image2;
+      } else {
+        // For legacy pipeline, convert transparent backgrounds to white
+        console.log('Generate API - Converting backgrounds for legacy pipeline');
+        try {
+          processedImage1 = await convertTransparentToWhite(image1);
+          processedImage2 = await convertTransparentToWhite(image2);
+          console.log('Generate API - Background conversion completed successfully');
+        } catch (conversionError) {
+          console.error('Generate API - Error during background conversion:', conversionError);
+          // Continue with original images if conversion fails
+          processedImage1 = image1;
+          processedImage2 = image2;
+        }
+      }
+      
+      console.log('Generate API - Image preparation:', {
+        usingSingleModel: useSingleModelFusion,
+        processedImage1: processedImage1.substring(0, 50) + '...',
+        processedImage2: processedImage2.substring(0, 50) + '...',
+        usingOriginalImages: useSingleModelFusion
+      });
       
       // Determine which model to use based on environment variables
       const useReplicateBlend = process.env.USE_REPLICATE_BLEND !== 'false'; // Default to true unless explicitly set to false
@@ -577,9 +581,9 @@ export async function POST(req: Request) {
       // Since we no longer use lastSuccessfulImageUrl for Replicate fallback,
       // we go straight to the Simple Method fallback
       
-      // Use one of the processed original images as a fallback
-      const fallbackImageUrl = processedImage1;
-      console.log('Generate API - Using processed image as Simple Method fallback:', fallbackImageUrl);
+      // Use one of the original images as a fallback
+      const fallbackImageUrl = image1;
+      console.log('Generate API - Using original image as Simple Method fallback:', fallbackImageUrl);
 
       // Try to save the fallback fusion
       try {

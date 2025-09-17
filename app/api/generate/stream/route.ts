@@ -234,17 +234,14 @@ async function generateFusionWithSteps(
     const image1 = pokemon1ImageUrl || getPokemonImageUrl(pokemon1Id);
     const image2 = pokemon2ImageUrl || getPokemonImageUrl(pokemon2Id);
     
-    // Pre-process images
-    console.log('Generate Stream API - Converting backgrounds');
-    processedImage1 = await convertTransparentToWhite(image1);
-    processedImage2 = await convertTransparentToWhite(image2);
-    
     // Check if single-model fusion is enabled
     const useSingleModelFusion = isSingleModelFusionEnabled();
     console.log('Generate Stream API - Single-model fusion enabled:', useSingleModelFusion);
     
     if (useSingleModelFusion) {
       // NEW: Single-model Fusion with artificial multi-step timing
+      // Use original images with transparent backgrounds for Nano Banana
+      console.log('Generate Stream API - Using original images with transparent backgrounds for single-model fusion');
       await handleSingleModelFusionWithSteps(
         encoder, 
         controller, 
@@ -253,14 +250,19 @@ async function generateFusionWithSteps(
         pokemon1Name, 
         pokemon2Name, 
         fusionName,
-        processedImage1, 
-        processedImage2,
+        image1, // Use original images, not processed ones
+        image2, // Use original images, not processed ones
         userUuid,
         supabase,
         isSimpleFusion
       );
       return; // Exit early since single-model handles everything
     }
+    
+    // Pre-process images for legacy pipeline (only when not using single-model)
+    console.log('Generate Stream API - Converting backgrounds for legacy pipeline');
+    processedImage1 = await convertTransparentToWhite(image1);
+    processedImage2 = await convertTransparentToWhite(image2);
     
     // EXISTING: Traditional multi-step process
     // Step 1: Capturing Pokémons (Replicate Blend)

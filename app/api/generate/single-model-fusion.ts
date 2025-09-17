@@ -53,7 +53,7 @@ export async function generateWithSingleModelFusion(
 
     // Create the fusion prompt
     const fusionPrompt =
-      "Create a new single creature based on the two input images, which merges the features and characteristics of both input images seamlessly. Follow the same artistic style as the input images. The input images have transparent backgrounds - preserve this transparency in the output image. Generate a single fusion creature with a completely transparent background, no white or colored background.";
+      "Create a new single creature based on the two input images, which merges the features and characteristics of both input images seamlessly. Follow the same artistic style as the input images. Make the background transparent. No white or colored background. Do not just overlap the input images, it's a organic fusion of both creatures. The result should be a unique creature that incorporates elements from both source images while maintaining the art style with transparent background.";
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generated prompt: ${fusionPrompt}`);
 
     // Prepare input for nano-banana
@@ -93,13 +93,6 @@ export async function generateWithSingleModelFusion(
   }
 }
 
-/**
- * Create a simple fusion prompt that lets Single Model analyze the images and infer characteristics
- * Relies on the model's visual understanding rather than predefined mappings
- */
-function createFusionPrompt(pokemon1Name: string, pokemon2Name: string, fusionName: string): string {
-  return `Create a Pokemon fusion by blending these two images into a single cohesive creature called ${fusionName}. Analyze the visual characteristics, colors, shapes, and features from both images and combine them harmoniously. The result should be a unique Pokemon that incorporates elements from both source images while maintaining Pokemon art style with transparent background.`;
-}
 
 /**
  * Download an image and return it as a stream for Replicate

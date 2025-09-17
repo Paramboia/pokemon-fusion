@@ -246,6 +246,8 @@ async function generateFusionWithSteps(
       await handleSingleModelFusionWithSteps(
         encoder, 
         controller, 
+        pokemon1Id,
+        pokemon2Id,
         pokemon1Name, 
         pokemon2Name, 
         fusionName,
@@ -508,6 +510,8 @@ async function generateFusionWithSteps(
 async function handleSingleModelFusionWithSteps(
   encoder: TextEncoder,
   controller: ReadableStreamDefaultController,
+  pokemon1Id: number,
+  pokemon2Id: number,
   pokemon1Name: string,
   pokemon2Name: string,
   fusionName: string,
@@ -611,8 +615,8 @@ async function handleSingleModelFusionWithSteps(
         // Save to database
         const result = await saveFusion({
           userId: userUuid,
-          pokemon1Id: 0, // We don't have IDs in stream context
-          pokemon2Id: 0,
+          pokemon1Id,
+          pokemon2Id,
           pokemon1Name,
           pokemon2Name,
           fusionName,
@@ -649,8 +653,8 @@ async function handleSingleModelFusionWithSteps(
       // Save fallback to database
       const fallbackResult = await saveFusion({
         userId: userUuid,
-        pokemon1Id: 0,
-        pokemon2Id: 0,
+        pokemon1Id,
+        pokemon2Id,
         pokemon1Name,
         pokemon2Name,
         fusionName,

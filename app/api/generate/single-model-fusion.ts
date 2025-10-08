@@ -4,6 +4,7 @@
 
 import Replicate from 'replicate';
 import axios from 'axios';
+import sharp from 'sharp';
 
 // Initialize Replicate client
 const replicate = new Replicate({
@@ -15,6 +16,43 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const IS_VERCEL = !!process.env.VERCEL;
 
 console.log(`🌟 SINGLE MODEL FUSION MODULE LOADED - ENV: ${IS_PRODUCTION ? 'PROD' : 'DEV'}, PLATFORM: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'}`);
+
+/**
+ * Convert transparent background to white background
+ * This makes it easier for AI models to process and understand the images
+ * 
+ * @param imageUrl - URL of the image to process
+ * @param requestId - Request ID for logging
+ * @returns Promise<string> - Data URI of the image with white background
+ */
+async function convertTransparentToWhite(
+  imageUrl: string,
+  requestId: string
+): Promise<string> {
+  console.log(`[${requestId}] WHITE BACKGROUND - Converting transparent to white: ${imageUrl.substring(0, 50)}...`);
+  
+  try {
+    const response = await axios.get(imageUrl, { 
+      responseType: 'arraybuffer',
+      timeout: 15000 
+    });
+    const buffer = Buffer.from(response.data);
+    
+    const processedBuffer = await sharp(buffer)
+      .flatten({ background: '#ffffff' })
+      .png()
+      .toBuffer();
+    
+    const dataUri = `data:image/png;base64,${processedBuffer.toString('base64')}`;
+    console.log(`[${requestId}] WHITE BACKGROUND - Successfully converted image (${(processedBuffer.length / 1024).toFixed(2)} KB)`);
+    
+    return dataUri;
+  } catch (error) {
+    console.error(`[${requestId}] WHITE BACKGROUND - Error converting transparent background:`, error);
+    // Fall back to original URL if conversion fails
+    return imageUrl;
+  }
+}
 
 /**
  * Remove background from an image using Replicate's bria/remove-background model
@@ -105,25 +143,32 @@ export async function generateWithSingleModelFusion(
       return null;
     }
 
+    // STEP 1: Convert transparent backgrounds to white for better model processing
+    console.log(`[${requestId}] SINGLE MODEL FUSION - STEP 1: Converting input images to white backgrounds`);
+    const [pokemon1WithWhiteBg, pokemon2WithWhiteBg] = await Promise.all([
+      convertTransparentToWhite(pokemon1ImageUrl, requestId),
+      convertTransparentToWhite(pokemon2ImageUrl, requestId)
+    ]);
+
     // Create the fusion prompt
     const fusionPrompt =
-      "Create a new single creature based on the two input images, which merges the features and characteristics of both input images seamlessly. Follow the same artistic style as the input images. Make the background transparent.";
+      "Create a new single creature based on the two input images, which merges the features and characteristics of both input images seamlessly. Follow the same artistic style as the input images. Keep the white background.";
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generated prompt: ${fusionPrompt}`);
 
-    // Prepare input for nano-banana
+    // Prepare input for nano-banana using the white-background versions
     const input = {
       prompt: fusionPrompt,
-      image_input: [pokemon1ImageUrl, pokemon2ImageUrl],
+      image_input: [pokemon1WithWhiteBg, pokemon2WithWhiteBg],
     };
 
-    console.log(`[${requestId}] SINGLE MODEL FUSION - Calling google/nano-banana on Replicate`);
+    console.log(`[${requestId}] SINGLE MODEL FUSION - STEP 2: Calling google/nano-banana on Replicate with white-background images`);
     const startTime = Date.now();
 
     // Call Replicate nano-banana model
     const output = await replicate.run("google/nano-banana", { input });
 
     const duration = Date.now() - startTime;
-    console.log(`[${requestId}] SINGLE MODEL FUSION - Generation completed in ${duration}ms`);
+    console.log(`[${requestId}] SINGLE MODEL FUSION - STEP 2 completed in ${duration}ms`);
 
     // Process the result
     let fusionImageUrl: string | null = null;
@@ -141,8 +186,8 @@ export async function generateWithSingleModelFusion(
 
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generated initial fusion: ${fusionImageUrl}`);
 
-    // Apply background removal to ensure transparent background
-    console.log(`[${requestId}] SINGLE MODEL FUSION - Applying background removal`);
+    // STEP 3: Apply background removal to ensure transparent background
+    console.log(`[${requestId}] SINGLE MODEL FUSION - STEP 3: Applying background removal`);
     const finalImageUrl = await removeBackground(fusionImageUrl, requestId);
 
     if (!finalImageUrl) {

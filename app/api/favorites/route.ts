@@ -348,8 +348,7 @@ export async function GET(req: Request) {
     const { data: favoritesData, error: favoritesError } = await supabaseClient
       .from('favorites')
       .select('fusion_id, created_at')
-      .eq('user_id', supabaseUserId)
-      .order('created_at', { ascending: sortParam === 'oldest' });
+      .eq('user_id', supabaseUserId);
 
     if (favoritesError) {
       console.error('Favorites API - Error fetching favorites:', favoritesError.message);
@@ -374,11 +373,16 @@ export async function GET(req: Request) {
       .select('id, pokemon_1_name, pokemon_2_name, fusion_name, fusion_image, created_at, likes')
       .in('id', fusionIds);
 
-    // Apply sorting for likes if needed
-    if (sortParam === 'most_likes') {
+    // Apply sorting based on the sort parameter
+    if (sortParam === 'oldest') {
+      fusionQuery = fusionQuery.order('created_at', { ascending: true });
+    } else if (sortParam === 'most_likes') {
       fusionQuery = fusionQuery.order('likes', { ascending: false, nullsFirst: false });
     } else if (sortParam === 'less_likes') {
       fusionQuery = fusionQuery.order('likes', { ascending: true, nullsFirst: true });
+    } else {
+      // Default to newest first
+      fusionQuery = fusionQuery.order('created_at', { ascending: false });
     }
 
     const { data: fusionsData, error: fusionsError } = await fusionQuery;

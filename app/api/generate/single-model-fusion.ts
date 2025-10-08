@@ -17,6 +17,60 @@ const IS_VERCEL = !!process.env.VERCEL;
 console.log(`🌟 SINGLE MODEL FUSION MODULE LOADED - ENV: ${IS_PRODUCTION ? 'PROD' : 'DEV'}, PLATFORM: ${IS_VERCEL ? 'VERCEL' : 'LOCAL'}`);
 
 /**
+ * Remove background from an image using Replicate's bria/remove-background model
+ * 
+ * @param imageUrl - URL of the image to remove background from
+ * @param requestId - Request ID for logging
+ * @returns Promise<string | null> - URL of the image with removed background or null if failed
+ */
+async function removeBackground(
+  imageUrl: string,
+  requestId: string
+): Promise<string | null> {
+  console.log(`[${requestId}] BACKGROUND REMOVAL - Starting background removal`);
+  
+  try {
+    const input = {
+      image: imageUrl
+    };
+
+    console.log(`[${requestId}] BACKGROUND REMOVAL - Calling bria/remove-background on Replicate`);
+    const startTime = Date.now();
+
+    // Call Replicate background removal model
+    const output = await replicate.run("bria/remove-background", { input });
+
+    const duration = Date.now() - startTime;
+    console.log(`[${requestId}] BACKGROUND REMOVAL - Completed in ${duration}ms`);
+
+    // Process the result
+    if (output && typeof output === 'string') {
+      console.log(`[${requestId}] BACKGROUND REMOVAL - SUCCESS - Generated image: ${output}`);
+      return output;
+    } else if (output && typeof output === 'object' && 'url' in output) {
+      // Handle case where output is an object with a url() method
+      const bgRemovedUrl = typeof output.url === 'function' ? output.url() : output.url;
+      console.log(`[${requestId}] BACKGROUND REMOVAL - SUCCESS - Generated image: ${bgRemovedUrl}`);
+      return bgRemovedUrl;
+    } else if (output && Array.isArray(output) && output.length > 0) {
+      const bgRemovedUrl = typeof output[0] === 'string' ? output[0] : null;
+      console.log(`[${requestId}] BACKGROUND REMOVAL - SUCCESS - Generated image: ${bgRemovedUrl}`);
+      return bgRemovedUrl;
+    } else {
+      console.error(`[${requestId}] BACKGROUND REMOVAL - No output received from bria/remove-background`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`[${requestId}] BACKGROUND REMOVAL - Error:`, error);
+    if (error instanceof Error) {
+      console.error(`[${requestId}] BACKGROUND REMOVAL - Error message: ${error.message}`);
+      console.error(`[${requestId}] BACKGROUND REMOVAL - Error stack: ${error.stack}`);
+    }
+    return null;
+  }
+}
+
+/**
  * Generate a Pokemon fusion using Replicate's google/nano-banana model
  * This replaces the blend + enhance pipeline with a single model call
  * 
@@ -53,7 +107,7 @@ export async function generateWithSingleModelFusion(
 
     // Create the fusion prompt
     const fusionPrompt =
-      "Create a new single creature based on the two input images, which merges the features and characteristics of both input images seamlessly. Follow the same artistic style as the input images. Make the background white.";
+      "Create a new single creature based on the two input images, which merges the features and characteristics of both input images seamlessly. Follow the same artistic style as the input images. Make the background transparent.";
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generated prompt: ${fusionPrompt}`);
 
     // Prepare input for nano-banana
@@ -72,17 +126,33 @@ export async function generateWithSingleModelFusion(
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generation completed in ${duration}ms`);
 
     // Process the result
+    let fusionImageUrl: string | null = null;
+    
     if (output && typeof output === 'string') {
-      console.log(`[${requestId}] SINGLE MODEL FUSION - SUCCESS - Generated fusion: ${output}`);
-      return output;
+      fusionImageUrl = output;
     } else if (output && Array.isArray(output) && output.length > 0) {
-      const imageUrl = typeof output[0] === 'string' ? output[0] : null;
-      console.log(`[${requestId}] SINGLE MODEL FUSION - SUCCESS - Generated fusion: ${imageUrl}`);
-      return imageUrl;
-    } else {
+      fusionImageUrl = typeof output[0] === 'string' ? output[0] : null;
+    }
+
+    if (!fusionImageUrl) {
       console.error(`[${requestId}] SINGLE MODEL FUSION - No output received from nano-banana`);
       return null;
     }
+
+    console.log(`[${requestId}] SINGLE MODEL FUSION - Generated initial fusion: ${fusionImageUrl}`);
+
+    // Apply background removal to ensure transparent background
+    console.log(`[${requestId}] SINGLE MODEL FUSION - Applying background removal`);
+    const finalImageUrl = await removeBackground(fusionImageUrl, requestId);
+
+    if (!finalImageUrl) {
+      console.warn(`[${requestId}] SINGLE MODEL FUSION - Background removal failed, using original image`);
+      return fusionImageUrl; // Fallback to original if background removal fails
+    }
+
+    console.log(`[${requestId}] SINGLE MODEL FUSION - SUCCESS - Final image with transparent background: ${finalImageUrl}`);
+    return finalImageUrl;
+    
   } catch (error) {
     console.error(`[${requestId}] SINGLE MODEL FUSION - Error:`, error);
     if (error instanceof Error) {

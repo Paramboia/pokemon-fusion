@@ -577,7 +577,7 @@ export default function FusionCard({ fusion, onDelete, onLike, showActions = tru
           
           {/* Like count */}
           <div className="flex items-center mt-auto pt-2">
-            <Heart className="w-4 h-4 mr-1 text-red-500" />
+            <Heart className={`w-4 h-4 mr-1 text-red-500 ${isLiked ? 'fill-red-500' : ''}`} />
             <span className="text-sm text-gray-500 dark:text-gray-400">{likeCount || 0} likes</span>
           </div>
           

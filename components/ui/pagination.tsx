@@ -78,11 +78,11 @@ export function Pagination({
                   variant={currentPage === page ? "default" : "outline"}
                   size="sm"
                   onClick={() => onPageChange(page)}
-                  className={`w-10 h-10 p-0 ${
-                    currentPage === page
-                      ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white"
-                      : ""
-                  }`}
+              className={`w-10 h-10 p-0 ${
+                currentPage === page
+                  ? "bg-[#FFD700] dark:bg-[#E83F6F] text-black dark:text-white"
+                  : ""
+              }`}
                 >
                   {page}
                 </Button>

@@ -80,7 +80,7 @@ export function Pagination({
                   onClick={() => onPageChange(page)}
               className={`w-10 h-10 p-0 ${
                 currentPage === page
-                  ? "bg-[#FFD700] dark:bg-[#E83F6F] text-black dark:text-white"
+                  ? "bg-[#1F2937] dark:bg-white text-white dark:text-[#1F2937]"
                   : ""
               }`}
                 >

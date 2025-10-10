@@ -1,127 +1,133 @@
-import * as React from "react"
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  MoreHorizontalIcon,
-} from "lucide-react"
+import { Button } from "@/components/ui/button";
 
-import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/ui/button"
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  totalItems: number;
+  startIndex: number;
+  endIndex: number;
+}
 
-function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
+export function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  totalItems,
+  startIndex,
+  endIndex,
+}: PaginationProps) {
+  if (totalPages <= 1) return null;
+
   return (
-    <nav
-      role="navigation"
-      aria-label="pagination"
-      data-slot="pagination"
-      className={cn("mx-auto flex w-full justify-center", className)}
-      {...props}
-    />
-  )
-}
+    <div className="mt-8 space-y-4">
+      <div className="flex items-center justify-center space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
+          disabled={currentPage === 1}
+          className="px-3 py-2"
+        >
+          Previous
+        </Button>
 
-function PaginationContent({
-  className,
-  ...props
-}: React.ComponentProps<"ul">) {
-  return (
-    <ul
-      data-slot="pagination-content"
-      className={cn("flex flex-row items-center gap-1", className)}
-      {...props}
-    />
-  )
-}
+        <div className="flex items-center space-x-1">
+          {(() => {
+            let startPage, endPage;
+            
+            if (totalPages <= 3) {
+              startPage = 1;
+              endPage = totalPages;
+            } else {
+              startPage = Math.max(1, currentPage - 1);
+              endPage = Math.min(totalPages, startPage + 2);
+              
+              if (endPage - startPage < 2) {
+                startPage = Math.max(1, endPage - 2);
+              }
+            }
+            
+            const pages = [];
+            
+            if (startPage > 1) {
+              pages.push(
+                <Button
+                  key={1}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange(1)}
+                  className="w-10 h-10 p-0"
+                >
+                  1
+                </Button>
+              );
+              if (startPage > 2) {
+                pages.push(
+                  <span key="start-dots" className="px-2 text-gray-400">
+                    ...
+                  </span>
+                );
+              }
+            }
+            
+            for (let page = startPage; page <= endPage; page++) {
+              pages.push(
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onPageChange(page)}
+                  className={`w-10 h-10 p-0 ${
+                    currentPage === page
+                      ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white"
+                      : ""
+                  }`}
+                >
+                  {page}
+                </Button>
+              );
+            }
+            
+            if (endPage < totalPages) {
+              if (endPage < totalPages - 1) {
+                pages.push(
+                  <span key="end-dots" className="px-2 text-gray-400">
+                    ...
+                  </span>
+                );
+              }
+              pages.push(
+                <Button
+                  key={totalPages}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange(totalPages)}
+                  className="w-10 h-10 p-0"
+                >
+                  {totalPages}
+                </Button>
+              );
+            }
+            
+            return pages;
+          })()}
+        </div>
 
-function PaginationItem({ ...props }: React.ComponentProps<"li">) {
-  return <li data-slot="pagination-item" {...props} />
-}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className="px-3 py-2"
+        >
+          Next
+        </Button>
+      </div>
 
-type PaginationLinkProps = {
-  isActive?: boolean
-} & Pick<React.ComponentProps<typeof Button>, "size"> &
-  React.ComponentProps<"a">
-
-function PaginationLink({
-  className,
-  isActive,
-  size = "icon",
-  ...props
-}: PaginationLinkProps) {
-  return (
-    <a
-      aria-current={isActive ? "page" : undefined}
-      data-slot="pagination-link"
-      data-active={isActive}
-      className={cn(
-        buttonVariants({
-          variant: isActive ? "outline" : "ghost",
-          size,
-        }),
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-function PaginationPrevious({
-  className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) {
-  return (
-    <PaginationLink
-      aria-label="Go to previous page"
-      size="default"
-      className={cn("gap-1 px-2.5 sm:pl-2.5", className)}
-      {...props}
-    >
-      <ChevronLeftIcon />
-      <span className="hidden sm:block">Previous</span>
-    </PaginationLink>
-  )
-}
-
-function PaginationNext({
-  className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) {
-  return (
-    <PaginationLink
-      aria-label="Go to next page"
-      size="default"
-      className={cn("gap-1 px-2.5 sm:pr-2.5", className)}
-      {...props}
-    >
-      <span className="hidden sm:block">Next</span>
-      <ChevronRightIcon />
-    </PaginationLink>
-  )
-}
-
-function PaginationEllipsis({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
-  return (
-    <span
-      aria-hidden
-      data-slot="pagination-ellipsis"
-      className={cn("flex size-9 items-center justify-center", className)}
-      {...props}
-    >
-      <MoreHorizontalIcon className="size-4" />
-      <span className="sr-only">More pages</span>
-    </span>
-  )
-}
-
-export {
-  Pagination,
-  PaginationContent,
-  PaginationLink,
-  PaginationItem,
-  PaginationPrevious,
-  PaginationNext,
-  PaginationEllipsis,
+      <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+        Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} fusions
+      </div>
+    </div>
+  );
 }

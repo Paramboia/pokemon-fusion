@@ -19,9 +19,13 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Pagination } from "@/components/ui/pagination";
 
 // Define sort options
 type SortOption = "newest" | "oldest" | "most_likes" | "less_likes";
+
+// Constants
+const ITEMS_PER_PAGE = 12; // 3 columns x 4 rows
 
 export default function FavoritesPage() {
   const { user, isLoaded, isSignedIn } = useAuthContext();
@@ -30,6 +34,7 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     // Only fetch favorites if the user is authenticated
@@ -186,7 +191,10 @@ export default function FavoritesPage() {
                 </Label>
                 <Select
                   value={sortBy}
-                  onValueChange={(value) => setSortBy(value as SortOption)}
+                  onValueChange={(value) => {
+                    setSortBy(value as SortOption);
+                    setCurrentPage(1); // Reset to first page when sorting changes
+                  }}
                 >
                   <SelectTrigger id="sort-select" className="w-[180px] bg-white dark:bg-gray-800 shadow-sm">
                     <SelectValue placeholder="Sort by" />
@@ -220,16 +228,37 @@ export default function FavoritesPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {favorites.map((fusion) => (
-                <div key={fusion.id}>
-                  <FusionCard 
-                    fusion={fusion}
-                    showActions={true}
+            {/* Pagination calculations */}
+            {(() => {
+              const totalPages = Math.ceil(favorites.length / ITEMS_PER_PAGE);
+              const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+              const endIndex = startIndex + ITEMS_PER_PAGE;
+              const paginatedFavorites = favorites.slice(startIndex, endIndex);
+
+              return (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {paginatedFavorites.map((fusion) => (
+                      <div key={fusion.id}>
+                        <FusionCard 
+                          fusion={fusion}
+                          showActions={true}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalItems={favorites.length}
+                    startIndex={startIndex}
+                    endIndex={endIndex}
                   />
-                </div>
-              ))}
-            </div>
+                </>
+              );
+            })()}
           </>
         )}
       </FavoritesAuthGate>

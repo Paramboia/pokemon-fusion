@@ -41,10 +41,12 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
         tier.bgColor || ""
       )}
     >
-      {tier.featured && (
+      {tier.featured ? (
         <div className="h-1 w-full bg-gradient-to-r from-primary/80 to-primary"></div>
+      ) : (
+        <div className="h-1 w-full"></div>
       )}
-      <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2 min-h-[180px] justify-center")}>
+      <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2 h-[180px] justify-start pt-4")}>
         <div className="relative h-32 w-32 mb-2">
           <Image
             src={tier.pokemonImage}

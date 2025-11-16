@@ -44,7 +44,7 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
       {tier.featured && (
         <div className="h-1 w-full bg-gradient-to-r from-primary/80 to-primary"></div>
       )}
-      <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2")}>
+      <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2 min-h-[180px] justify-center")}>
         <div className="relative h-32 w-32 mb-2">
           <Image
             src={tier.pokemonImage}
@@ -66,7 +66,7 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
           {tier.name}
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center p-6">
+      <CardContent className="flex flex-col items-center p-6 flex-1">
         <div className="flex flex-col items-center space-y-4 w-full">
           {/* Credits display */}
           <div className="flex items-center justify-center w-full">
@@ -112,7 +112,7 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
           ) : (
             <>
               <CreditCard className="mr-2 h-4 w-4" />
-              Get Started
+              Purchase
             </>
           )}
         </Button>

@@ -47,7 +47,13 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
         <div className="h-1 w-full"></div>
       )}
       <CardHeader className={cn("flex flex-col items-center space-y-1 pb-2 h-[180px] justify-start pt-4")}>
-        <div className="relative h-32 w-32 mb-2">
+        <button
+          type="button"
+          className="relative h-32 w-32 mb-2 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-orange-400 bg-transparent p-0"
+          data-price-id={tier.priceId}
+          data-package-id={tier.id}
+          aria-label={`Purchase the ${tier.name}`}
+        >
           <Image
             src={tier.pokemonImage}
             alt={tier.name}
@@ -56,8 +62,8 @@ export function PricingCard({ tier, paymentFrequency, loadingPackageId }: Pricin
             className="object-contain drop-shadow-md hover:scale-110 transition-transform duration-300"
             priority
           />
-        </div>
-        <CardTitle 
+        </button>
+        <CardTitle
           className={cn(
             "text-xl font-bold tracking-tight",
             tier.themeColor ? `bg-gradient-to-r ${tier.themeColor} bg-clip-text text-transparent` : 

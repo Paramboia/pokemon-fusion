@@ -76,16 +76,16 @@ export function PricingSection({
 }: PricingSectionProps) {
   const [selectedFrequency, setSelectedFrequency] = React.useState(frequencies[0])
 
-  // Add click event handler to buttons
+  // Add click event handler to any element that has the pricing data attributes
   React.useEffect(() => {
     const handleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      const button = target.closest('button[data-price-id]');
-      
-      if (button) {
-        const priceId = button.getAttribute('data-price-id');
-        const packageId = button.getAttribute('data-package-id');
-        
+      const clickable = target.closest('[data-price-id][data-package-id]') as HTMLElement | null;
+
+      if (clickable) {
+        const priceId = clickable.getAttribute('data-price-id');
+        const packageId = clickable.getAttribute('data-package-id');
+
         if (priceId && packageId) {
           event.preventDefault();
           onPurchase(priceId, packageId);

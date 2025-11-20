@@ -8,7 +8,7 @@ The generation system supports two different approaches for creating AI-generate
 
 ### **Primary Approach: Single Model Fusion** (when `USE_SINGLE_MODEL_FUSION=true`)
 1. **White Background Preprocessing**: Converts transparent backgrounds to white for better AI model understanding
-2. **Direct Fusion**: Uses single model (google/nano-banana) to directly blend two Pokémon images with white backgrounds
+2. **Direct Fusion**: Uses single model (google/nano-banana-pro) to directly blend two Pokémon images with white backgrounds
 3. **Background Removal**: Applies professional background removal (bria/remove-background) for transparent output with 256 levels of transparency
 4. **Fallback**: Falls back to Simple Method (original Pokémon image) if Single Model Fusion fails, without charging credits
 
@@ -23,14 +23,14 @@ Both systems maintain the same 3-step UI experience but use different backend pr
 
 - `route.ts` - Main API endpoint handler that orchestrates the generation process and handles credits/billing
 - `stream/route.ts` - Streaming API endpoint for real-time multi-step UI updates via Server-Sent Events
-- `single-model-fusion.ts` - **PRIMARY**: Three-step fusion pipeline using white background preprocessing, google/nano-banana fusion, and bria/remove-background
+- `single-model-fusion.ts` - **PRIMARY**: Three-step fusion pipeline using white background preprocessing, google/nano-banana-pro fusion, and bria/remove-background
 - `replicate-blend.ts` - Implementation for the initial fusion using Replicate's blend-images model (legacy)
 - `dalle.ts` - Contains GPT-4 Vision description and GPT-image-1 enhancement functionality (legacy)
 - `config.ts` - Configuration module that sets default environment variables
 
 ### Dependencies
 - **sharp** - Image processing library for white background preprocessing
-- **replicate** - SDK for accessing google/nano-banana and bria/remove-background models
+- **replicate** - SDK for accessing google/nano-banana-pro and bria/remove-background models
 - **axios** - HTTP client for downloading images
 - **@supabase/supabase-js** - Supabase client for storage operations
 
@@ -43,12 +43,12 @@ The system generates a fusion using the following sequence with a multi-step UI 
 The user interface displays three distinct steps with individual progress indicators. The UI experience is identical regardless of which backend approach is used:
 
 1. **Step 1: "Capturing Pokémons"** 
-   - **Single Model Fusion Mode**: Converts input images to white backgrounds, then starts fusion generation with google/nano-banana
+   - **Single Model Fusion Mode**: Converts input images to white backgrounds, then starts fusion generation with google/nano-banana-pro
    - **Legacy Mode**: Replicate Blend creates initial fusion image
    - Shows loading animation, displays green checkmark when complete
 
 2. **Step 2: "Merging Pokémons"** 
-   - **Single Model Fusion Mode**: Waits for google/nano-banana fusion generation to complete
+   - **Single Model Fusion Mode**: Waits for google/nano-banana-pro fusion generation to complete
    - **Legacy Mode**: GPT-4 Vision analyzes blended image and creates description
    - Shows loading animation, displays green checkmark when complete
 
@@ -63,13 +63,13 @@ The user interface displays three distinct steps with individual progress indica
 
 1. **Primary Flow**:
    - **UI Step 1**: White background preprocessing using sharp library - converts transparent backgrounds to white for better AI understanding
-   - **UI Step 1**: Fusion generation starts with google/nano-banana model using white-background images
-   - **UI Step 2**: Waits for google/nano-banana to complete fusion generation
+   - **UI Step 1**: Fusion generation starts with google/nano-banana-pro model using white-background images
+   - **UI Step 2**: Waits for google/nano-banana-pro to complete fusion generation
    - **UI Step 3**: Applies bria/remove-background for professional transparent background with 256 levels of transparency
    - **Final**: Generated image with transparent background is stored in Supabase storage and shown to the user
 
 2. **Fallback Flow**:
-   - If background removal fails: Uses the original fusion image from nano-banana
+   - If background removal fails: Uses the original fusion image from nano-banana-pro
    - If Single Model Fusion generation fails: Use Simple Method (one of the original Pokémon images)
    - **Important**: No credits are charged for Single Model Fusion failures
 
@@ -103,7 +103,7 @@ The user interface displays three distinct steps with individual progress indica
   - Downloads Pokémon images and processes them locally
   - Flattens transparency to solid white background (#ffffff)
   - Converts to base64 data URIs for model input
-- **Fusion Generation**: Uses `google/nano-banana` model to blend two Pokémon images
+- **Fusion Generation**: Uses `google/nano-banana-pro` model to blend two Pokémon images
   - Accepts multiple images as input via `image_input` parameter
   - Processes white-background images for better feature recognition
   - Generates fusion with organic blending, not simple overlay
@@ -145,7 +145,7 @@ The Single Model Fusion three-step fusion works as follows:
    - **Rationale**: AI models understand and process images with solid backgrounds better than transparent ones
 
 2. **Step 2: Fusion Generation**
-   - Sends white-background versions to google/nano-banana model
+   - Sends white-background versions to google/nano-banana-pro model
    - A detailed fusion prompt is provided with specific requirements:
    ```
    Create a new single creature based on the two input images, which merges the features 
@@ -153,10 +153,10 @@ The Single Model Fusion three-step fusion works as follows:
    the input images. Ensure that we are not just overlapping the two input creatures, but 
    that we are organically blending them together in one single creature. Keep the white background.
    ```
-   - google/nano-banana generates the fusion image with the Pokémon features merged
+   - google/nano-banana-pro generates the fusion image with the Pokémon features merged
 
 3. **Step 3: Professional Background Removal**
-   - Takes the fusion output from nano-banana
+   - Takes the fusion output from nano-banana-pro
    - Applies bria/remove-background model for professional transparent background
    - Uses non-binary masks with 256 levels of transparency for natural, seamless edges
    - Preserves fine details while removing the white background
@@ -195,7 +195,7 @@ The description step works as follows:
 # Enable Single Model Fusion mode
 USE_SINGLE_MODEL_FUSION=true
 
-# Replicate API (required for google/nano-banana and bria/remove-background models)
+# Replicate API (required for google/nano-banana-pro and bria/remove-background models)
 REPLICATE_API_TOKEN=your_replicate_token
 
 # Multi-step UI (recommended)
@@ -347,11 +347,11 @@ The system uses environment-specific timeouts optimized for Vercel Pro plan with
 Each step in the UI has its own timeout to prevent the entire flow from appearing to fail:
 
 #### **Single Model Fusion Mode Timeouts** (when `USE_SINGLE_MODEL_FUSION=true`) - Optimized for Vercel Hobby Plan
-1. **Step 1: "Capturing Pokémons"** - White background preprocessing + google/nano-banana fusion start:
+1. **Step 1: "Capturing Pokémons"** - White background preprocessing + google/nano-banana-pro fusion start:
    - Image download timeout: 15 seconds (per image)
    - Sharp processing: typically < 1 second per image
    - Fusion generation starts immediately after preprocessing
-2. **Step 2: "Merging Pokémons"** - google/nano-banana fusion generation:
+2. **Step 2: "Merging Pokémons"** - google/nano-banana-pro fusion generation:
    - Production: 50 seconds
    - Development: 45 seconds
    - Falls back to Simple Method if exceeded
@@ -394,7 +394,7 @@ The system is currently optimized for **Vercel Hobby Plan** (60-second function 
 2. **Individual Service Timeouts**:
    - **Single Model Fusion Mode**:
      - Image download (white bg preprocessing): 15 seconds
-     - google/nano-banana fusion: 50 seconds (production) / 45 seconds (development)
+     - google/nano-banana-pro fusion: 50 seconds (production) / 45 seconds (development)
      - bria/remove-background: 30 seconds (both production and development)
    - **Legacy Mode**:
      - Replicate Blend: 40 seconds (production) / 35 seconds (development)
@@ -417,11 +417,11 @@ The system includes robust multi-level fallback mechanisms for both generation m
 ### **Single Model Fusion Mode Fallbacks** (when `USE_SINGLE_MODEL_FUSION=true`)
 1. **Primary Pipeline**: 
    - Step 1: White background preprocessing with sharp library
-   - Step 2: google/nano-banana fusion generation
+   - Step 2: google/nano-banana-pro fusion generation
    - Step 3: bria/remove-background for transparent output
 2. **Step-Level Fallbacks**:
    - If white background preprocessing fails: Uses original URLs directly
-   - If background removal (Step 3) fails: Uses fusion output from nano-banana without transparent background
+   - If background removal (Step 3) fails: Uses fusion output from nano-banana-pro without transparent background
    - If fusion generation (Step 2) fails: Falls back to Simple Method (original Pokémon image)
 3. **Credit Protection**: No credits charged for Single Model Fusion failures
 4. **Retries**: Includes retry logic with exponential backoff for API calls
@@ -444,11 +444,11 @@ Successfully generated fusion images are stored in Supabase with different namin
 
 ### **Single Model Fusion Generated Images**
 - **Naming**: `fusion-singlemodel_{timestamp}.png`
-- **Source**: google/nano-banana model generates fusion, then bria/remove-background creates transparent version
+- **Source**: google/nano-banana-pro model generates fusion, then bria/remove-background creates transparent version
 - **Storage**: Final image with professional transparent background (256 levels of transparency) is stored in Supabase
 - **Process**: 
   1. White background preprocessing applied to input images
-  2. Fusion generated by google/nano-banana with white background
+  2. Fusion generated by google/nano-banana-pro with white background
   3. Background removed by bria/remove-background for professional transparency
   4. Final transparent image downloaded from replicate.delivery and re-uploaded to Supabase as PNG
 

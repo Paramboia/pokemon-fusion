@@ -1,5 +1,5 @@
 // Single Model Fusion-based fusion generation module
-// This module provides a simplified fusion pipeline using Single Model Fusion (like qwen/qwen-image or google/nano-banana)
+// This module provides a simplified fusion pipeline using Single Model Fusion (like qwen/qwen-image or google/nano-banana-pro)
 // It combines blending and enhancement in a single step
 
 import Replicate from 'replicate';
@@ -109,7 +109,7 @@ async function removeBackground(
 }
 
 /**
- * Generate a Pokemon fusion using Replicate's google/nano-banana model
+ * Generate a Pokemon fusion using Replicate's google/nano-banana-pro model
  * This replaces the blend + enhance pipeline with a single model call
  * 
  * @param pokemon1Name - Name of the first Pokemon
@@ -155,17 +155,17 @@ export async function generateWithSingleModelFusion(
       "Create a new single creature based on the two input images, which merges the features and characteristics of both input images seamlessly. Follow the same artistic style as the input images. Ensure that we are not just overlaping the two input creatures, but that we are organically blending them together in one single creature. Keep the white background.";
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generated prompt: ${fusionPrompt}`);
 
-    // Prepare input for nano-banana using the white-background versions
+    // Prepare input for nano-banana-pro using the white-background versions
     const input = {
       prompt: fusionPrompt,
       image_input: [pokemon1WithWhiteBg, pokemon2WithWhiteBg],
     };
 
-    console.log(`[${requestId}] SINGLE MODEL FUSION - STEP 2: Calling google/nano-banana on Replicate with white-background images`);
+    console.log(`[${requestId}] SINGLE MODEL FUSION - STEP 2: Calling google/nano-banana-pro on Replicate with white-background images`);
     const startTime = Date.now();
 
-    // Call Replicate nano-banana model
-    const output = await replicate.run("google/nano-banana", { input });
+    // Call Replicate nano-banana-pro model
+    const output = await replicate.run("google/nano-banana-pro", { input });
 
     const duration = Date.now() - startTime;
     console.log(`[${requestId}] SINGLE MODEL FUSION - STEP 2 completed in ${duration}ms`);
@@ -180,7 +180,7 @@ export async function generateWithSingleModelFusion(
     }
 
     if (!fusionImageUrl) {
-      console.error(`[${requestId}] SINGLE MODEL FUSION - No output received from nano-banana`);
+      console.error(`[${requestId}] SINGLE MODEL FUSION - No output received from nano-banana-pro`);
       return null;
     }
 
@@ -246,7 +246,7 @@ export async function testSingleModelFusion(): Promise<boolean> {
       return false;
     }
     // Try to access the model (this will fail gracefully if not available)
-    console.log(`[${testId}] SINGLE MODEL FUSION - Nano Banana fusion is configured and ready`);
+    console.log(`[${testId}] SINGLE MODEL FUSION - Nano Banana Pro fusion is configured and ready`);
     return true;
   } catch (error) {
     console.error(`[${testId}] SINGLE MODEL FUSION - Test failed:`, error);

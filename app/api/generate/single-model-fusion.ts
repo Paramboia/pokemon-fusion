@@ -151,6 +151,7 @@ export async function generateWithSingleModelFusion(
     ]);
 
     // Create the fusion prompt
+    // Old prompt: Create a new single creature based on the two input images, which merges the features and characteristics of both input images seamlessly. Follow the same artistic style as the input images. Ensure that we are not just overlaping the two input creatures, but that we are organically blending them together in one single creature. Keep the white background.
     const fusionPrompt =
       "Create a new single creature inspired on the two input images. Keep the white background.";
     console.log(`[${requestId}] SINGLE MODEL FUSION - Generated prompt: ${fusionPrompt}`);

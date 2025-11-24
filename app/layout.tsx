@@ -9,6 +9,8 @@ import { OneSignalInit } from "@/components/onesignal-init";
 import Script from "next/script";
 import { Suspense } from "react";
 
+const siteUrl = 'https://www.pokemon-fusion.com';
+
 export const metadata: Metadata = {
   title: 'Pokémon Fusion - Create Unique Pokémon Combinations',
   description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures with our fusion generator.',
@@ -38,21 +40,30 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Pokémon Fusion - Create Unique Pokémon Combinations',
     description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures with our fusion generator.',
-    url: 'https://www.pokemon-fusion.com',
+    url: siteUrl,
     siteName: 'Pokémon Fusion',
     type: 'website',
     locale: 'en_US',
+    images: [
+      {
+        url: `${siteUrl}/og_image.jpg`,
+        width: 1200,
+        height: 675,
+        alt: 'Pokémon Fusion - Create Unique Pokémon Combinations',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Pokémon Fusion - Create Unique Pokémon Combinations',
     description: 'Generate unique Pokémon fusions using AI technology. Combine two Pokémon to create amazing new creatures.',
+    images: [`${siteUrl}/og_image.jpg`],
   },
   verification: {
     google: 'cKaIVo9nWNcu0wwyAZVxFbEIREtsJog-6qHzJSc3LbM',
   },
   alternates: {
-    canonical: 'https://www.pokemon-fusion.com',
+    canonical: siteUrl,
   },
 };
 

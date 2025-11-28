@@ -157,7 +157,7 @@ export default function AboutPage() {
 
         <section>
           <p className="text-gray-600 dark:text-gray-200">
-            A site by <a href="https://www.linkedin.com/in/miguel-macedo-parente/" target="_blank" rel="noopener noreferrer">Miguel Macedo Parente</a>.
+            Built by <a href="https://miguelparente.com/?ref=miguelos" target="_blank" rel="noopener noreferrer">Miguel Macedo Parente</a>
           </p>
         </section>
       </div>

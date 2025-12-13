@@ -60,7 +60,7 @@
     "geist": "^1.2.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.302.0",
-    "next": "^15.2.0",
+    "next": "15.2.8",
     "next-themes": "^0.2.1",
     "node-fetch": "^2.7.0",
     "openai": "^4.87.3",

@@ -175,7 +175,7 @@ export const dbService = {
           try {
             const { data: hotData, error: hotError } = await supabase
               .from('fusions')
-              .select('*, get_hot_score(likes, created_at) as hot_score')
+              .select('*, hot_score:public.get_hot_score(likes, created_at)')
               .order('hot_score', { ascending: false })
               .limit(limit);
             
@@ -281,7 +281,7 @@ export const dbService = {
           try {
             const { data: defaultData, error: defaultError } = await supabase
               .from('fusions')
-              .select('*, get_hot_score(likes, created_at) as hot_score')
+              .select('*, hot_score:public.get_hot_score(likes, created_at)')
               .order('hot_score', { ascending: false })
               .limit(limit);
             

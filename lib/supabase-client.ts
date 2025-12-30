@@ -190,31 +190,24 @@ export const dbService = {
       };
 
       const fetchHotRanked = async () => {
-        // Use the SQL helper function fusions_hot_score(fusions) when available.
-        // The function must be created in the database for this to work:
-        //
-        // CREATE OR REPLACE FUNCTION public.fusions_hot_score(fusions_row fusions)
-        // RETURNS float AS $$
-        // BEGIN
-        //     RETURN get_hot_score(
-        //         COALESCE(fusions_row.likes, 0),
-        //         COALESCE(fusions_row.created_at, NOW())
-        //     );
-        // END;
-        // $$ LANGUAGE plpgsql IMMUTABLE;
-        const { data: hotData, error: hotError } = await supabase
-          .from('fusions')
-          .select('*, hot_score:fusions_hot_score')
-          .order('hot_score', { ascending: false })
-          .limit(limit);
+        // Use the SQL RPC function for hot score ordering when available.
+        const { data: hotData, error: hotError } = await supabase.rpc(
+          'get_top_hot_score_fusions',
+          { limit_val: limit }
+        );
 
         if (hotError) {
           console.warn('Supabase Client - Hot score function failed, falling back to most_likes:', hotError);
           return fetchMostLiked();
         }
 
-        console.log(`Supabase Client - Fetched ${hotData?.length || 0} fusions ordered by SQL hot score`);
-        return hotData || [];
+        if (!hotData) {
+          console.warn('Supabase Client - Hot score RPC returned no data, falling back to most_likes');
+          return fetchMostLiked();
+        }
+
+        console.log(`Supabase Client - Fetched ${hotData.length} fusions ordered by SQL hot score via RPC`);
+        return hotData as FusionDB[];
       };
 
       // Apply sorting based on the sort parameter

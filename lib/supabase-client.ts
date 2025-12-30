@@ -16,6 +16,10 @@ if (!supabaseAnonKey) {
   console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined. Please check your environment variables.');
 }
 
+// Feature flag to control hot score usage. Default is false so deployments without
+// the SQL function available will avoid 400s from Supabase.
+const hotScoreEnabled = process.env.NEXT_PUBLIC_ENABLE_HOT_SCORE === 'true';
+
 // Create a Supabase client with proper error handling
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder-value-replace-in-vercel.supabase.co',
@@ -167,56 +171,53 @@ export const dbService = {
   async getPopularFusions(limit = 10, sortBy = 'hot'): Promise<FusionDB[]> {
     try {
       console.log('Supabase Client - Fetching popular fusions with limit:', limit, 'sortBy:', sortBy);
-      
+
+      const fetchMostLiked = async () => {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('fusions')
+          .select('*')
+          .order('likes', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (fallbackError) {
+          console.error('Supabase Client - Error fetching fallback fusions:', fallbackError);
+          return [];
+        }
+
+        console.log(`Supabase Client - Fetched ${fallbackData?.length || 0} fusions with fallback sorting`);
+        return fallbackData || [];
+      };
+
+      const fetchHotRanked = async () => {
+        const { data: hotData, error: hotError } = await supabase
+          .from('fusions')
+          .select('*, hot_score:get_hot_score(likes, created_at)')
+          .order('hot_score', { ascending: false })
+          .limit(limit);
+
+        if (hotError) {
+          console.warn('Supabase Client - Hot score function failed, falling back to most_likes:', hotError);
+          return fetchMostLiked();
+        }
+
+        console.log(`Supabase Client - Fetched ${hotData?.length || 0} fusions with hot score ranking`);
+        return hotData || [];
+      };
+
       // Apply sorting based on the sort parameter
       switch (sortBy) {
         case 'hot':
-          // Try to use the hot score ranking that balances likes with recency
+          if (!hotScoreEnabled) {
+            console.warn('Supabase Client - Hot score disabled via feature flag, using most liked order');
+            return fetchMostLiked();
+          }
+
           try {
-            const { data: hotData, error: hotError } = await supabase
-              .from('fusions')
-              .select('*, hot_score:get_hot_score(likes, created_at)')
-              .order('hot_score', { ascending: false })
-              .limit(limit);
-            
-            if (hotError) {
-              console.warn('Supabase Client - Hot score function failed, falling back to most_likes:', hotError);
-              // Fallback to most_likes if hot score function doesn't exist
-              const { data: fallbackData, error: fallbackError } = await supabase
-                .from('fusions')
-                .select('*')
-                .order('likes', { ascending: false })
-                .order('created_at', { ascending: false })
-                .limit(limit);
-              
-              if (fallbackError) {
-                console.error('Supabase Client - Error fetching fallback fusions:', fallbackError);
-                return [];
-              }
-              
-              console.log(`Supabase Client - Fetched ${fallbackData?.length || 0} fusions with fallback sorting`);
-              return fallbackData || [];
-            }
-            
-            console.log(`Supabase Client - Fetched ${hotData?.length || 0} fusions with hot score ranking`);
-            return hotData || [];
+            return await fetchHotRanked();
           } catch (hotException) {
             console.warn('Supabase Client - Hot score function exception, falling back to most_likes:', hotException);
-            // Fallback to most_likes if hot score function doesn't exist
-            const { data: fallbackData, error: fallbackError } = await supabase
-              .from('fusions')
-              .select('*')
-              .order('likes', { ascending: false })
-              .order('created_at', { ascending: false })
-              .limit(limit);
-            
-            if (fallbackError) {
-              console.error('Supabase Client - Error fetching fallback fusions:', fallbackError);
-              return [];
-            }
-            
-            console.log(`Supabase Client - Fetched ${fallbackData?.length || 0} fusions with fallback sorting`);
-            return fallbackData || [];
+            return fetchMostLiked();
           }
           
         case 'oldest':
@@ -275,54 +276,19 @@ export const dbService = {
           }
           
           return mostLikesData || [];
-          
+
         default:
           // Default to hot score ranking with fallback
+          if (!hotScoreEnabled) {
+            console.warn('Supabase Client - Hot score disabled via feature flag (default branch), using most liked order');
+            return fetchMostLiked();
+          }
+
           try {
-            const { data: defaultData, error: defaultError } = await supabase
-              .from('fusions')
-              .select('*, hot_score:get_hot_score(likes, created_at)')
-              .order('hot_score', { ascending: false })
-              .limit(limit);
-            
-            if (defaultError) {
-              console.warn('Supabase Client - Default hot score failed, falling back to most_likes:', defaultError);
-              // Fallback to most_likes if hot score function doesn't exist
-              const { data: fallbackData, error: fallbackError } = await supabase
-                .from('fusions')
-                .select('*')
-                .order('likes', { ascending: false })
-                .order('created_at', { ascending: false })
-                .limit(limit);
-              
-              if (fallbackError) {
-                console.error('Supabase Client - Error fetching default fallback fusions:', fallbackError);
-                return [];
-              }
-              
-              console.log(`Supabase Client - Fetched ${fallbackData?.length || 0} fusions with default fallback sorting`);
-              return fallbackData || [];
-            }
-            
-            console.log(`Supabase Client - Fetched ${defaultData?.length || 0} fusions with default hot score ranking`);
-            return defaultData || [];
+            return await fetchHotRanked();
           } catch (defaultException) {
             console.warn('Supabase Client - Default hot score exception, falling back to most_likes:', defaultException);
-            // Fallback to most_likes if hot score function doesn't exist
-            const { data: fallbackData, error: fallbackError } = await supabase
-              .from('fusions')
-              .select('*')
-              .order('likes', { ascending: false })
-              .order('created_at', { ascending: false })
-              .limit(limit);
-            
-            if (fallbackError) {
-              console.error('Supabase Client - Error fetching default fallback fusions:', fallbackError);
-              return [];
-            }
-            
-            console.log(`Supabase Client - Fetched ${fallbackData?.length || 0} fusions with default fallback sorting`);
-            return fallbackData || [];
+            return fetchMostLiked();
           }
       }
     } catch (error) {

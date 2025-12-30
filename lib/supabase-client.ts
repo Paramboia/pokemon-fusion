@@ -190,9 +190,21 @@ export const dbService = {
       };
 
       const fetchHotRanked = async () => {
+        // Use the SQL helper function fusions_hot_score(fusions) when available.
+        // The function must be created in the database for this to work:
+        //
+        // CREATE OR REPLACE FUNCTION public.fusions_hot_score(fusions_row fusions)
+        // RETURNS float AS $$
+        // BEGIN
+        //     RETURN get_hot_score(
+        //         COALESCE(fusions_row.likes, 0),
+        //         COALESCE(fusions_row.created_at, NOW())
+        //     );
+        // END;
+        // $$ LANGUAGE plpgsql IMMUTABLE;
         const { data: hotData, error: hotError } = await supabase
           .from('fusions')
-          .select('*, hot_score:get_hot_score(likes, created_at)')
+          .select('*, hot_score:fusions_hot_score')
           .order('hot_score', { ascending: false })
           .limit(limit);
 
@@ -201,7 +213,7 @@ export const dbService = {
           return fetchMostLiked();
         }
 
-        console.log(`Supabase Client - Fetched ${hotData?.length || 0} fusions with hot score ranking`);
+        console.log(`Supabase Client - Fetched ${hotData?.length || 0} fusions ordered by SQL hot score`);
         return hotData || [];
       };
 

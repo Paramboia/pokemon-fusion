@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Hot Score Ranking System solves the "rich-get-richer" or "cold start" problem in content ranking by implementing a Reddit-style algorithm that balances popularity (likes) with content freshness (recency). This ensures newer content has a fair chance to compete with older, highly-liked content.
+The Hot Score Ranking System solves the "rich-get-richer" or "cold start" problem in content ranking by implementing a Reddit-style algorithm that balances popularity (likes) with content freshness (recency). This ensures newer content has a fair chance to compete with older, highly-liked content, while still rewarding fusions that continue to receive likes over time.
 
 ## Problem Statement
 
@@ -29,7 +29,7 @@ hot_score = likes / (age_in_hours + 2)^gravity
 **Parameters:**
 - `likes`: Number of likes the fusion has received
 - `age_in_hours`: Time elapsed since creation (in hours)
-- `gravity`: Tunable parameter (default: 1.5) that controls the balance between popularity and freshness
+- `gravity`: Tunable parameter (default: 1.5) that controls how quickly score decays with age (higher gravity = **stronger recency bias**, lower gravity = **more popularity bias**)
 
 ### How It Works
 
@@ -129,18 +129,97 @@ const fusions = await dbService.getPopularFusions(12, "hot");
 ### Gravity Parameter
 The `gravity` parameter controls the balance between popularity and freshness:
 
-- **Lower gravity (1.0-1.2)**: More emphasis on freshness, newer content gets bigger boost
-- **Default gravity (1.5)**: Balanced approach, good for most use cases  
-- **Higher gravity (2.0+)**: More emphasis on popularity, similar to traditional ranking
+- **Lower gravity (1.0–1.2)**: Slower decay; **more emphasis on popularity**, older fusions can stay on top longer
+- **Default gravity (1.5)**: Balanced approach; good trade‑off between recent fusions and all‑time favorites  
+- **Higher gravity (2.0+)**: Faster decay; **stronger emphasis on freshness**, newer fusions can outrank older ones quickly
 
 ### Tuning Examples
 ```sql
--- More aggressive freshness boost
+-- Popularity‑leaning (slower decay, older popular fusions stay relevant)
 SELECT get_hot_score(likes, created_at, 1.2) FROM fusions;
 
--- More conservative, popularity-focused
+-- Freshness‑leaning (faster decay, newer fusions boosted more)
 SELECT get_hot_score(likes, created_at, 2.0) FROM fusions;
 ```
+
+## Adapting the Hot Score Over Time
+
+### 1. Experiment Safely with Different Gravity Values
+
+You can test how different `gravity` values affect rankings without changing any application code:
+
+```sql
+SELECT
+  id,
+  fusion_name,
+  likes,
+  created_at,
+  get_hot_score(likes, created_at, 1.2) AS hot_popularity_leaning,
+  get_hot_score(likes, created_at, 1.5) AS hot_default,
+  get_hot_score(likes, created_at, 2.0) AS hot_freshness_leaning
+FROM fusions
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+This lets you compare how the same fusions would rank under multiple gravity settings.
+
+### 2. Updating the Default Gravity in the Database
+
+When you decide on a new balance between freshness and popularity, you can update the default gravity directly in the database (no app code changes required):
+
+```sql
+CREATE OR REPLACE FUNCTION get_hot_score(
+    likes INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    gravity FLOAT DEFAULT 1.5  -- <- update this value
+)
+RETURNS FLOAT AS $$
+DECLARE
+    age_in_hours FLOAT;
+    hot_score FLOAT;
+BEGIN
+    likes := COALESCE(likes, 0);
+    created_at := COALESCE(created_at, NOW());
+    IF gravity IS NULL OR gravity <= 0 THEN
+        gravity := 1.5; -- keep this in sync with the default above
+    END IF;
+
+    age_in_hours := GREATEST(
+        EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600.0,
+        0.1
+    );
+
+    likes := GREATEST(likes, 0);
+
+    BEGIN
+        hot_score := likes::FLOAT / POWER(age_in_hours + 2, gravity);
+
+        IF hot_score IS NULL OR hot_score = 'Infinity'::FLOAT OR
+           hot_score = '-Infinity'::FLOAT OR hot_score != hot_score THEN
+            hot_score := 0.0;
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        hot_score := 0.0;
+    END;
+
+    RETURN hot_score;
+END;
+$$ LANGUAGE plpgsql STABLE;
+```
+
+Because the application calls `get_hot_score(likes, created_at)` without passing `gravity`, changing the default in this function automatically updates the behavior of:
+
+- `get_top_hot_score_fusions`
+- The `/popular` page querying `get_hot_score` via Supabase
+
+### 3. Recommended Workflow for Adjustments
+
+1. **Measure**: Inspect current rankings (e.g., “How many popular fusions are from the last 24h vs older?”).
+2. **Experiment**: Run comparison queries with 2–3 candidate gravity values.
+3. **Decide**: Pick the value that gives the desired balance between recent fusions and evergreen favorites.
+4. **Apply**: Update the `get_hot_score` function’s default gravity in Supabase SQL Editor.
+5. **Monitor**: Re-check rankings and key metrics (turnover, diversity, time-to-discovery) after the change.
 
 ## Benefits
 

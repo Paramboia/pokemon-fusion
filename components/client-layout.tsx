@@ -5,6 +5,7 @@ import { Footer } from "@/components/ui/Footer";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { Toaster } from "@/components/ui/sonner";
+import { RewardBanner } from "@/components/reward-banner";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { registerServiceWorker } from "@/app/register-sw";
@@ -80,6 +81,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
       {/* Content container - positioned above background */}
       <div className="flex flex-col min-h-screen">
         <Header />
+        <RewardBanner />
         <main className="flex-grow">
           {children}
         </main>

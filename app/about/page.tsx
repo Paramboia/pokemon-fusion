@@ -148,6 +148,24 @@ export default function AboutPage() {
         </section>
 
         <section>
+          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Monthly Rewards System 🏆</h2>
+          <p className="text-gray-600 dark:text-gray-200 mb-4">
+            We believe in recognizing and rewarding our most creative community members! At the end of each month, 
+            we automatically reward the creators of the top 3 most popular Pokémon fusions with free credits:
+          </p>
+          <ul className="list-disc list-inside space-y-2 text-gray-600 dark:text-gray-200 mb-4 ml-4">
+            <li><strong className="text-yellow-600 dark:text-yellow-400">🥇 1st Place:</strong> 3 free credits</li>
+            <li><strong className="text-gray-400 dark:text-gray-500">🥈 2nd Place:</strong> 2 free credits</li>
+            <li><strong className="text-orange-600 dark:text-orange-400">🥉 3rd Place:</strong> 1 free credit</li>
+          </ul>
+          <p className="text-gray-600 dark:text-gray-200">
+            The rankings are based on our hot score algorithm, which considers both the number of likes and recency, 
+            ensuring that newer fusions have a fair chance to compete. Credits are automatically added to winners' 
+            accounts on the 1st of each month, so keep creating amazing fusions and you might be next month's winner!
+          </p>
+        </section>
+
+        <section>
           <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Disclaimer</h2>
           <p className="text-gray-600 dark:text-gray-200">
             Pokémon Fusion is a fan-made project and is not affiliated with or endorsed by Nintendo, 

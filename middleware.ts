@@ -45,6 +45,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/generate', // Make the main generate endpoint public for testing
   '/api/test-static',
   '/api/notifications(.*)', // Allow notification endpoints for cron jobs and sync
+  '/api/rewards(.*)', // Allow rewards endpoints for cron jobs
   '/_next(.*)',
   '/favicon.ico',
   '/sitemap.xml',

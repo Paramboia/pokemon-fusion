@@ -148,7 +148,7 @@ export default function AboutPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Monthly Rewards System 🏆</h2>
+          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Monthly Rewards System</h2>
           <p className="text-gray-600 dark:text-gray-200 mb-4">
             We believe in recognizing and rewarding our most creative community members! At the end of each month, 
             we automatically reward the creators of the top 3 most popular Pokémon fusions with free credits:

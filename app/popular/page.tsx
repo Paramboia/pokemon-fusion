@@ -84,9 +84,10 @@ export default function PopularPage() {
           <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
             <SparklesText text="Popular Fusions" />
           </h1>
-          <p className="text-lg text-center text-gray-600 dark:text-gray-300 max-w-2xl">
-            Check out the most popular Pokémon fusions created by our community
-          </p>
+          <div className="text-lg text-center text-gray-600 dark:text-gray-300 max-w-2xl space-y-2">
+            <p>Check out the most popular Pokémon fusions created by our community.</p>
+            <p>Every month we reward the top 3 fusions with free credits 🏆</p>
+          </div>
         </div>
         
         <div className="text-center p-10 bg-gray-100 dark:bg-gray-800 bg-opacity-50 rounded-lg">
@@ -105,9 +106,10 @@ export default function PopularPage() {
         <h1 className="text-4xl md:text-5xl font-bold text-center mb-4">
           <SparklesText text="Popular Fusions" />
         </h1>
-        <p className="text-lg text-center text-gray-600 dark:text-gray-300 max-w-2xl">
-          Check out the most popular Pokémon fusions created by our community
-        </p>
+        <div className="text-lg text-center text-gray-600 dark:text-gray-300 max-w-2xl space-y-2">
+          <p>Check out the most popular Pokémon fusions created by our community.</p>
+          <p>Every month we reward the top 3 fusions with free credits 🏆</p>
+        </div>
       </div>
 
       <PopularAuthGate>

@@ -1,24 +1,29 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const BANNER_STORAGE_KEY = "reward_banner_dismissed";
-
 export function RewardBanner() {
+  const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Check if banner was dismissed
-    const dismissed = localStorage.getItem(BANNER_STORAGE_KEY);
+    // Check if banner was dismissed for this specific page
+    const storageKey = `reward_banner_dismissed_${pathname}`;
+    const dismissed = sessionStorage.getItem(storageKey);
     if (!dismissed) {
       setIsVisible(true);
+    } else {
+      setIsVisible(false);
     }
-  }, []);
+  }, [pathname]);
 
   const handleDismiss = () => {
-    localStorage.setItem(BANNER_STORAGE_KEY, "true");
+    // Store dismissal state per page using sessionStorage
+    const storageKey = `reward_banner_dismissed_${pathname}`;
+    sessionStorage.setItem(storageKey, "true");
     setIsVisible(false);
   };
 
